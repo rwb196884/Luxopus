@@ -1,0 +1,5 @@
+from(bucket: "{bucket}")
+  |> range(start: {start}, stop: {stop})
+  |> filter(fn: (r) => r["_measurement"] == "prices")
+  |> filter(fn: (r) => r["fuel"] == "electricity")
+  |> yield(name: "prices")

@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using InfluxDB.Client;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -28,6 +29,7 @@ namespace Luxopus
                     services.AddSingleton<InfluxQueryService>();
 
                     services.ConfigureSettings<LuxopusSettings>(context.Configuration);
+                    services.ConfigureSettings<LuxSettings>(context.Configuration);
                     services.ConfigureSettings<InfluxDBSettings>(context.Configuration);
 
                 })
