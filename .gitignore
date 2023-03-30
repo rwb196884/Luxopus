@@ -24,3 +24,5 @@ storage.ide
 .vs/
 *.bak
 App.config
+
+appsettings.*.json
