@@ -61,17 +61,26 @@ namespace Luxopus.Services
         public int Valie { get; set; }
     }
 
+    internal class Price
+    {
+        public float Pence { get; set; }
+        public DateTime ValidFrom { get; set; }
+        public DateTime ValidTo { get; set; }
+    }
+
     internal interface IOctopusService
     {
         Task<IEnumerable<string>> GetElectricityMeterPoints();
         Task<IEnumerable<string>> GetElectricityMeters(string mapn);
         Task<IEnumerable<MeterReading>> GetElectricityMeterReadings(string mapn, string serialNumber, DateTime from, DateTime to);
-        Task<IEnumerable<TariffCode>> GetElectricityTarrifs();
+        Task<IEnumerable<TariffCode>> GetElectricityTariffs();
+        Task<IEnumerable<Price>> GetElectricityPrices(string product, string tariff, DateTime from, DateTime to);
 
         Task<IEnumerable<string>> GetGasMeterPoints();
         Task<IEnumerable<string>> GetGasMeters(string mprn);
         Task<IEnumerable<MeterReading>> GetGasMeterReadings(string mprn, string serialNumber, DateTime from, DateTime to);
         Task<IEnumerable<TariffCode>> GetGasTariffs();
+        Task<IEnumerable<Price>> GetGasPrices(string product, string tariff, DateTime from, DateTime to);
     }
 
     internal class OctopusService : Service<OctopusSettings>, IOctopusService
@@ -125,7 +134,7 @@ namespace Luxopus.Services
         }
 
         public async Task<IEnumerable<TariffCode>> GetElectricityTariffs()
-            {
+        {
             string account = await GetAccount();
             using (JsonDocument j = JsonDocument.Parse(account))
             {
@@ -145,6 +154,12 @@ namespace Luxopus.Services
                 }).ToList();
             }
         }
+
+        public async Task<IEnumerable<Price>> GetElectricityPrices(string product, string tariff, DateTime from, DateTime to)
+        {
+
+        }
+
 
         public async Task<IEnumerable<MeterReading>> GetElectricityMeterReadings(string mapn, string serialNumber, DateTime from, DateTime to)
         {
@@ -200,6 +215,11 @@ namespace Luxopus.Services
             }
         }
 
+
+        public async Task<IEnumerable<Price>> GetGasPrices(string product, string tariff, DateTime from, DateTime to)
+        {
+
+        }
 
         public async Task<IEnumerable<MeterReading>> GetGasMeterReadings(string mprn, string seriaNumber, DateTime from, DateTime to)
         {

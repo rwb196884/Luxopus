@@ -1,27 +1,15 @@
 ﻿using InfluxDB.Client;
-using InfluxDB.Client.Core.Flux.Domain;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NodaTime;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
 namespace Luxopus.Services
 {
-    #region Model
-    internal class Price
-    {
-        DateTime Time { get; set; }
-        public float Buy { get; set; }
-        public float Sell { get; set; }
-    }
-
-    #endregion
-
     internal static class FluxExtensions
     {
         public static DateTime ToDateTime(this Instant instant)
