@@ -33,7 +33,6 @@ namespace Luxopus
 
         private void _Scheduler_Next(object? sender, ScheduledEventArgs e)
         {
-            _Logger.LogTrace($"Luxopus cron schedule.");
         }
 
         private void AddJob(Job j, string cron)

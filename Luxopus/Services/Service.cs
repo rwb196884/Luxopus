@@ -51,6 +51,15 @@ namespace Luxopus.Services
         }
     }
 
+    internal static class DateTimeExensions
+    {
+        public static long ToUnix(this DateTime t)
+        {
+            TimeSpan timeSpan = (t - new DateTime(1970, 1, 1, 0, 0, 0));
+            return (long)timeSpan.TotalSeconds;
+        }
+    }
+
     internal abstract class Settings { }
 
     internal abstract class Service<T> where T : Settings
