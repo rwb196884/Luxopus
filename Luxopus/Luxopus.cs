@@ -1,58 +1,55 @@
-﻿using Microsoft.Extensions.Options;
-using System;
+﻿using Luxopus.Jobs;
+using Microsoft.Extensions.Logging;
+using NCrontab;
+using NCrontab.Scheduler;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Luxopus
 {
     internal class Luxopus
     {
-        private readonly LuxopusSettings _AppSettings;
-        private readonly ILuxopusPlanService _PlanService;
+        private readonly List<Job> _Jobs; 
+        private readonly IScheduler _Scheduler; // https://github.com/thomasgalliker/NCrontab.Scheduler
+        private readonly ILogger _Logger;
 
-        public Luxopus(IOptions<LuxopusSettings> settings, ILuxopusPlanService planService)
+        public Luxopus(ILogger<Luxopus> logger, IScheduler scheduler, 
+            LuxMonitor luxMonitor
+            // LUX daily
+            // Octopus prices
+            // Octopus meters
+            // Solcast
+            // Openweathermap
+            // Solar elevation angle
+            )
         {
-            _AppSettings = settings.Value;
-            _PlanService = planService;
-        }
+            _Logger = logger;
+            _Jobs = new List<Job>();
+            _Scheduler = scheduler;
+            _Scheduler.Next += _Scheduler_Next;
 
-        public async Task RunAsync()
-        {
-            // Get the current plan. Make one if we don't have one.
-            Plan? p = _PlanService.GetCurrentPlan();
-            if( p == null)
-            {
-                p = await MakePlanAsync();
-            }
-
-            // Generate a state file
-        }
-
-        /// <summary>
-        /// Query Influx and whatnot to make a plan.
-        /// </summary>
-        /// <returns></returns>
-        private async Task<Plan> MakePlanAsync()
-        {
+            AddJob(luxMonitor, "*/1 * * * *"); // every 8 minutes.
 
         }
 
-        /// <summary>
-        /// Implement a plan.
-        /// Check that settings are corrent and adjust them if not.
-        /// </summary>
-        /// <param name="plan"></param>
-        /// <returns></returns>
-        private async Task ImplementPlanAsync(Plan plan)
+        private void _Scheduler_Next(object? sender, ScheduledEventArgs e)
         {
-
+            _Logger.LogTrace($"Luxopus cron schedule.");
         }
-    }
 
-    internal class Plan
-    {
+        private void AddJob(Job j, string cron)
+        {
+            _Jobs.Add(j);
+            _Scheduler.AddTask(CrontabSchedule.Parse(cron), j.RunAsync);
+        }
 
+        public void Start()
+        {
+            _Scheduler.Start();
+        }
+
+        public void Stop()
+        {
+            _Scheduler.Stop();
+        }
     }
 }

@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "Luxopus (appsettings)": {
+      "commandName": "Project"
+    },
+    "Luxopus (rwb)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "rwb"
+      }
+    }
+  }
+}
