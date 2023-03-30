@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Permissions;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -47,6 +48,13 @@ namespace Luxopus.Services
         public string Mapn { get; set; }
     }
 
+    internal class TariffCode
+    {
+        public string Code { get; set; }
+        public DateTime ValidFrom { get; set; }
+        public DateTime ValidTo { get; set; }
+    }
+
     internal class MeterReading
     {
         public DateTime Time { get; set; }
@@ -58,10 +66,12 @@ namespace Luxopus.Services
         Task<IEnumerable<string>> GetElectricityMeterPoints();
         Task<IEnumerable<string>> GetElectricityMeters(string mapn);
         Task<IEnumerable<MeterReading>> GetElectricityMeterReadings(string mapn, string serialNumber, DateTime from, DateTime to);
+        Task<IEnumerable<TariffCode>> GetElectricityTarrifs();
 
         Task<IEnumerable<string>> GetGasMeterPoints();
         Task<IEnumerable<string>> GetGasMeters(string mprn);
         Task<IEnumerable<MeterReading>> GetGasMeterReadings(string mprn, string serialNumber, DateTime from, DateTime to);
+        Task<IEnumerable<TariffCode>> GetGasTariffs();
     }
 
     internal class OctopusService : Service<OctopusSettings>, IOctopusService
@@ -114,6 +124,28 @@ namespace Luxopus.Services
             }
         }
 
+        public async Task<IEnumerable<TariffCode>> GetElectricityTariffs()
+            {
+            string account = await GetAccount();
+            using (JsonDocument j = JsonDocument.Parse(account))
+            {
+                // And I thought jq was bad... Thanks MS.
+                var a = j.RootElement.GetArray("properties").ToList();
+                var b = a.GetArray("electricity_meter_points").ToList();
+                var c = b.GetArray("agreements").ToList();
+                return c.Select(z =>
+                {
+                    var p = z.EnumerateObject();
+                    return new TariffCode()
+                    {
+                        Code = p.Single(z => z.Name == "tariff_code").Value.GetString(),
+                        ValidFrom = DateTime.Parse(p.Single(z => z.Name == "valid_from").Value.GetString()),
+                        ValidTo = DateTime.Parse(p.Single(z => z.Name == "valid_to").Value.GetString())
+                    };
+                }).ToList();
+            }
+        }
+
         public async Task<IEnumerable<MeterReading>> GetElectricityMeterReadings(string mapn, string serialNumber, DateTime from, DateTime to)
         {
             return await Task.FromResult(new List<MeterReading>());
@@ -124,12 +156,11 @@ namespace Luxopus.Services
             string account = await GetAccount();
             using (JsonDocument j = JsonDocument.Parse(account))
             {
-                return j.RootElement.EnumerateObject()
-                    .Single(z => z.Name == "properties")
-                    .Value.EnumerateObject()
-                    .Single(z => z.Name == "gas_meter_points")
-                    .Value.EnumerateArray()
-                    .Select(z => z.EnumerateObject().Single(z => z.Name == "mprn").Value.GetString());
+                // And I thought jq was bad... Thanks MS.
+                return j.RootElement.GetArray("properties").ToList()
+                .GetArray("gas_meter_points").ToList()
+                .GetPropertValueAsString("mprn").ToList()
+                .ToList();
             }
         }
 
@@ -138,16 +169,34 @@ namespace Luxopus.Services
             string account = await GetAccount();
             using (JsonDocument j = JsonDocument.Parse(account))
             {
-                return j.RootElement.EnumerateObject()
-                    .Single(z => z.Name == "properties")
-                    .Value.EnumerateObject()
-                    .Single(z => z.Name == "gas_meter_points")
-                    .Value.EnumerateArray()
-                    .Select(z => z.EnumerateObject())
-                    .Single(z => z.Any(y => y.Name == "mprn" && y.Value.GetString() == mprn))
-                    .Single(z => z.Name == "meters")
-                    .Value.EnumerateArray()
-                    .Select(z => z.EnumerateObject().Single(y => y.Name == "serial_number").Value.GetString());
+                return j.RootElement
+                    .GetArray("properties")
+                    .GetArrayWhere("gas_meter_points", "mprn", mprn)
+                    .GetArray("meters")
+                    .GetPropertValueAsString("serial_number")
+                    .ToList();
+            }
+        }
+
+        public async Task<IEnumerable<TariffCode>> GetGasTariffs()
+        {
+            string account = await GetAccount();
+            using (JsonDocument j = JsonDocument.Parse(account))
+            {
+                // And I thought jq was bad... Thanks MS.
+                var a = j.RootElement.GetArray("properties").ToList();
+                var b = a.GetArray("gas_meter_points").ToList();
+                var c = b.GetArray("agreements").ToList();
+                return c.Select(z =>
+                {
+                    var p = z.EnumerateObject();
+                    return new TariffCode()
+                    {
+                        Code = p.Single(z => z.Name == "tariff_code").Value.GetString(),
+                        ValidFrom = DateTime.Parse(p.Single(z => z.Name == "valid_from").Value.GetString()),
+                        ValidTo = DateTime.Parse(p.Single(z => z.Name == "valid_to").Value.GetString())
+                    };
+                }).ToList();
             }
         }
 
