@@ -1,8 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Security.Permissions;
 using System.Text;
@@ -45,7 +47,7 @@ namespace Luxopus.Services
         public string BaseAddress { get; set; }
         public string AccountNumber { get; set; }
 
-        public string Mapn { get; set; }
+        //public string Mapn { get; set; }
     }
 
     internal class TariffCode
@@ -57,13 +59,14 @@ namespace Luxopus.Services
 
     internal class MeterReading
     {
-        public DateTime Time { get; set; }
-        public int Valie { get; set; }
+        public DateTime IntervalStart { get; set; }
+        public DateTime IntervalEnd { get; set; }
+        public decimal Consumption { get; set; }
     }
 
     internal class Price
     {
-        public float Pence { get; set; }
+        public decimal Pence { get; set; }
         public DateTime ValidFrom { get; set; }
         public DateTime ValidTo { get; set; }
     }
@@ -85,6 +88,7 @@ namespace Luxopus.Services
 
     internal class OctopusService : Service<OctopusSettings>, IOctopusService
     {
+        private const string DateFormat = "yyyy-MM-ddTHH:MM:ss";
         public OctopusService(ILogger<OctopusService> logger, IOptions<OctopusSettings> settings) : base(logger, settings) { }
 
         public override bool ValidateSettings()
@@ -100,12 +104,21 @@ namespace Luxopus.Services
             return ok;
         }
 
+        private static string GetProductOfTariff(string tariffCode)
+        {
+            // Remove E-1R- from the start.
+            // Remove -E from the end.
+            // https://forum.octopus.energy/t/product-codes-tariff-codes/5154
+            string a = tariffCode.Substring(4);
+            return a.Substring(0, a.Length - 2);
+        }
+
         public async Task<IEnumerable<string>> GetElectricityMeterPoints()
         {
-            if (!string.IsNullOrEmpty(Settings.Mapn))
-            {
-                return Settings.Mapn.Split(",");
-            }
+            //if (!string.IsNullOrEmpty(Settings.Mapn))
+            //{
+            //    return Settings.Mapn.Split(",");
+            //}
 
             string account = await GetAccount();
             using (JsonDocument j = JsonDocument.Parse(account))
@@ -155,15 +168,80 @@ namespace Luxopus.Services
             }
         }
 
+
         public async Task<IEnumerable<Price>> GetElectricityPrices(string product, string tariff, DateTime from, DateTime to)
         {
-
+            List<Price> prices = new List<Price>();
+            using (HttpClient httpClient = GetHttpClient())
+            {
+                HttpResponseMessage response = await httpClient.GetAsync($"/v1/products/{product}/tariff/{tariff}/standard-unit-rates?period_from={from.ToString(DateFormat)}&period_to={to.ToString(DateFormat)}");
+                response.EnsureSuccessStatusCode();
+                string? json = await response.Content.ReadAsStringAsync();
+                while (json != null)
+                {
+                    string? next = null;
+                    using (JsonDocument j = JsonDocument.Parse(json))
+                    {
+                        prices.AddRange(
+                            j.RootElement.GetArray("results").Select(z =>
+                            {
+                                var p = z.EnumerateObject();
+                                return new Price()
+                                {
+                                    Pence = p.Single(z => z.Name == "value_inc_vat").Value.GetDecimal(),
+                                    ValidFrom = DateTime.Parse(p.Single(z => z.Name == "valid_from").Value.GetString()),
+                                    ValidTo = DateTime.Parse(p.Single(z => z.Name == "valid_to").Value.GetString())
+                                };
+                            })
+                        );
+                        next = j.RootElement.EnumerateObject().Single(z => z.Name == "next").Value.GetString();
+                    }
+                    json = await GetNextPage(next);
+                }
+            }
+            return prices;
         }
 
 
-        public async Task<IEnumerable<MeterReading>> GetElectricityMeterReadings(string mapn, string serialNumber, DateTime from, DateTime to)
+        public async Task<IEnumerable<MeterReading>> GetElectricityMeterReadings(string mpan, string serialNumber, DateTime from, DateTime to)
         {
-            return await Task.FromResult(new List<MeterReading>());
+            List<MeterReading> consumption = new List<MeterReading>();
+           using (HttpClient httpClient = GetHttpClient())
+            {
+                // Fucking slash.
+                HttpResponseMessage response = await httpClient.GetAsync($"/v1/electricity-meter-points/{mpan}/meters/{serialNumber}/consumption/?period_from={from.ToString(DateFormat)}&period_to={to.ToString(DateFormat)}");
+                response.EnsureSuccessStatusCode();
+                string? json = await response.Content.ReadAsStringAsync();
+                while (json != null)
+                {
+                    string? next = null;
+                    using (JsonDocument j = JsonDocument.Parse(json))
+                    {
+                        consumption.AddRange(
+                            j.RootElement.GetArray("results").Select(z =>
+                            {
+                                var p = z.EnumerateObject();
+                                try
+                                {
+                                    return new MeterReading()
+                                    {
+                                        IntervalStart = DateTime.Parse(p.Single(z => z.Name == "interval_start").Value.GetString()),
+                                        IntervalEnd = DateTime.Parse(p.Single(z => z.Name == "interval_end").Value.GetString()),
+                                        Consumption = p.Single(z => z.Name == "consumption").Value.GetDecimal(),
+                                    };
+                                }
+                                catch
+                                {
+                                    return null;
+                                }
+                            })
+                        );
+                        next = j.RootElement.EnumerateObject().Single(z => z.Name == "next").Value.GetString();
+                    }
+                    json = await GetNextPage(next);
+                }
+            }
+            return consumption;
         }
 
         public async Task<IEnumerable<string>> GetGasMeterPoints()
@@ -218,12 +296,68 @@ namespace Luxopus.Services
 
         public async Task<IEnumerable<Price>> GetGasPrices(string product, string tariff, DateTime from, DateTime to)
         {
-
+            List<Price> prices = new List<Price>();
+            using (HttpClient httpClient = GetHttpClient())
+            {
+                HttpResponseMessage response = await httpClient.GetAsync($"/v1/products/{product}/gas-tariffs/{tariff}/standard-unit-rates?period_from={from.ToString(DateFormat)}&period_to={to.ToString(DateFormat)}");
+                response.EnsureSuccessStatusCode();
+                string? json = await response.Content.ReadAsStringAsync();
+                while (json != null)
+                {
+                    string? next = null;
+                    using (JsonDocument j = JsonDocument.Parse(json))
+                    {
+                        prices.AddRange(
+                            j.RootElement.GetArray("results").Select(z =>
+                            {
+                                var p = z.EnumerateObject();
+                                return new Price()
+                                {
+                                    Pence = p.Single(z => z.Name == "value_inc_vat").Value.GetDecimal(),
+                                    ValidFrom = DateTime.Parse(p.Single(z => z.Name == "valid_from").Value.GetString()),
+                                    ValidTo = DateTime.Parse(p.Single(z => z.Name == "valid_to").Value.GetString())
+                                };
+                            })
+                        );
+                        next = j.RootElement.EnumerateObject().Single(z => z.Name == "next").Value.GetString();
+                    }
+                    json = await GetNextPage(next);
+                }
+            }
+            return prices;
         }
 
-        public async Task<IEnumerable<MeterReading>> GetGasMeterReadings(string mprn, string seriaNumber, DateTime from, DateTime to)
+        public async Task<IEnumerable<MeterReading>> GetGasMeterReadings(string mprn, string serialNumber, DateTime from, DateTime to)
         {
-            return await Task.FromResult(new List<MeterReading>());
+            List<MeterReading> consumption = new List<MeterReading>();
+            using (HttpClient httpClient = GetHttpClient())
+            {
+                HttpResponseMessage response = await httpClient.GetAsync($"/v1/gas-meter-points/{mprn}/meters/{serialNumber}/consumption/?period_from={from.ToString(DateFormat)}&period_to={to.ToString(DateFormat)}");
+                response.EnsureSuccessStatusCode();
+                string? json = await response.Content.ReadAsStringAsync();
+                while (json != null)
+                {
+                    string? next = null;
+                    using (JsonDocument j = JsonDocument.Parse(json))
+                    {
+                        consumption.AddRange(
+                            j.RootElement.GetArray("results").Select(z =>
+                            {
+                                var p = z.EnumerateObject();
+                                return new MeterReading()
+                                {
+                                    IntervalStart = DateTime.Parse(p.Single(z => z.Name == "interval_start").Value.GetString()),
+                                    IntervalEnd = DateTime.Parse(p.Single(z => z.Name == "interval_end").Value.GetString()),
+                                    Consumption = p.Single(z => z.Name == "consumption").Value.GetDecimal(),
+                                };
+                            })
+                        );
+                        next = j.RootElement.EnumerateObject().Single(z => z.Name == "next").Value.GetString();
+                    }
+                    json = await GetNextPage(next);
+                }
+            }
+            return consumption;
         }
 
         private HttpClient GetHttpClient()
@@ -251,7 +385,16 @@ namespace Luxopus.Services
             return await Task.FromResult((string)null);
         }
 
-        private void HandlePages() { }
-
+        private async Task<string?> GetNextPage(string? url)
+        {
+            if (string.IsNullOrEmpty(url)){ return null; }
+            using (HttpClient httpClient = GetHttpClient())
+            {
+                HttpResponseMessage response = await httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+                string json = await response.Content.ReadAsStringAsync();
+                return json;
+            }
+        }
     }
 }

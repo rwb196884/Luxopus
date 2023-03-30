@@ -1,4 +1,5 @@
 ﻿using InfluxDB.Client;
+using InfluxDB.Client.Core.Flux.Domain;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NodaTime;
@@ -36,6 +37,11 @@ namespace Luxopus.Services
         protected InfluxService(ILogger<InfluxService> logger, IOptions<InfluxDBSettings> settings) : base(logger, settings) {
             Client = new InfluxDBClient(Settings.Server, Settings.Token); // TODO: DI.
         }
+
+        public async Task<List<FluxTable>> QueryAsync(string flux)
+        {
+            return await Client.GetQueryApi().QueryAsync(flux, Settings.Org);
+        } 
 
         public override bool ValidateSettings()
         {
@@ -91,6 +97,8 @@ namespace Luxopus.Services
 
     internal interface IInfluxQueryService
     {
+        Task<List<FluxTable>> QueryAsync(string flux);
+
         Task<List<Price>> GetPricesAsync();
     }
 

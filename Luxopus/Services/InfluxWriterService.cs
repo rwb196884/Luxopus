@@ -22,7 +22,11 @@ namespace Luxopus.Services
         {
             IWriteApiAsync w = Client.GetWriteApiAsync();
             string[] lines = lineData.GetLineData();
-            await w.WriteRecordsAsync(lines, InfluxDB.Client.Api.Domain.WritePrecision.S, "cstest", Settings.Org);
+            // Do in batches because of shitty timeout.
+            for (int i = 0; i < lines.Length / 100; i++)
+            {
+                await w.WriteRecordsAsync(lines.Skip(i * 100).Take(100).ToArray(), InfluxDB.Client.Api.Domain.WritePrecision.S, "cstest", Settings.Org);
+            }
         }
     }
 
@@ -50,7 +54,7 @@ namespace Luxopus.Services
             string tagString = "";
             if (tags.Count() > 0)
             {
-                tagString = "," + string.Join(", ", tags.Select(z => $"{z.Key}={z.Value}"));
+                tagString = "," + string.Join(",", tags.Select(z => $"{z.Key}={z.Value}"));
             }
             _Lines.Add($"{measurement}{tagString} {fieldKey}={fieldValue} {time.ToUnix()}");
         }
