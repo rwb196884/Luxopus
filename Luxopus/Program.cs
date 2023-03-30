@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Threading;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace Luxopus
 {
@@ -34,12 +36,15 @@ namespace Luxopus
                     services.Register<IInfluxWriterService, InfluxWriterService, InfluxDBSettings>(context);
                     services.Register<IEmailService, EmailService, EmailSettings>(context);
                     services.Register<ILuxService, LuxService, LuxSettings>(context);
+                    services.Register<IOctopusService, OctopusService, OctopusSettings>(context);
 
                     // Main thingy.
                     services.AddScoped<Luxopus>();
 
                     // Jobs.
                     services.AddScoped<LuxMonitor>();
+                    services.AddScoped<OctopusMeters>();
+                    services.AddScoped<OctopusPrices>();
 
                 })
                 .ConfigureLogging((context, cfg) =>
@@ -54,6 +59,10 @@ namespace Luxopus
             {
                 using (IServiceScope scope = host.Services.CreateScope())
                 {
+                    OctopusMeters m = scope.ServiceProvider.GetRequiredService<OctopusMeters>();
+                    m.RunAsync(CancellationToken.None).Wait();
+                    return;
+
                     Luxopus l = scope.ServiceProvider.GetRequiredService<Luxopus>();
                     l.Start();
 
