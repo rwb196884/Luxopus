@@ -75,7 +75,7 @@ namespace Luxopus.Jobs
             string flux = $@"
 from(bucket:""{bucket}"")
   |> range(start: -1y, stop: now())
-  |> filter(fn: (r) => r[""_measurement""] == ""meters"" and r[""serialNumber""] == ""{serialNumber}"" and r[""fuel""] == ""electricity"")
+  |> filter(fn: (r) => r[""_measurement""] == ""meters"" and r[""serialNumber""] == ""{serialNumber}"")
   |> last()
 ";
             List<FluxTable> q = await _InfluxQuery.QueryAsync(flux);

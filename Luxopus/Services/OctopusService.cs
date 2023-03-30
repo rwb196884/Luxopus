@@ -54,7 +54,7 @@ namespace Luxopus.Services
     {
         public string Code { get; set; }
         public DateTime ValidFrom { get; set; }
-        public DateTime ValidTo { get; set; }
+        public DateTime? ValidTo { get; set; }
     }
 
     internal class MeterReading
@@ -104,15 +104,6 @@ namespace Luxopus.Services
             return ok;
         }
 
-        private static string GetProductOfTariff(string tariffCode)
-        {
-            // Remove E-1R- from the start.
-            // Remove -E from the end.
-            // https://forum.octopus.energy/t/product-codes-tariff-codes/5154
-            string a = tariffCode.Substring(4);
-            return a.Substring(0, a.Length - 2);
-        }
-
         public async Task<IEnumerable<string>> GetElectricityMeterPoints()
         {
             //if (!string.IsNullOrEmpty(Settings.Mapn))
@@ -158,11 +149,19 @@ namespace Luxopus.Services
                 return c.Select(z =>
                 {
                     var p = z.EnumerateObject();
+
+                    DateTime? to = null;
+                    JsonElement t = p.Single(z => z.Name == "valid_to").Value;
+                    if (t.ValueKind == JsonValueKind.String)
+                    {
+                        to = DateTime.Parse(t.GetString());
+                    }
+
                     return new TariffCode()
                     {
                         Code = p.Single(z => z.Name == "tariff_code").Value.GetString(),
                         ValidFrom = DateTime.Parse(p.Single(z => z.Name == "valid_from").Value.GetString()),
-                        ValidTo = DateTime.Parse(p.Single(z => z.Name == "valid_to").Value.GetString())
+                        ValidTo = to
                     };
                 }).ToList();
             }
@@ -190,8 +189,10 @@ namespace Luxopus.Services
                                 {
                                     Pence = p.Single(z => z.Name == "value_inc_vat").Value.GetDecimal(),
                                     ValidFrom = DateTime.Parse(p.Single(z => z.Name == "valid_from").Value.GetString()),
-                                    ValidTo = DateTime.Parse(p.Single(z => z.Name == "valid_to").Value.GetString())
+                                    ValidTo =  DateTime.Parse(p.Single(z => z.Name == "valid_to").Value.GetString())
                                 };
+
+
                             })
                         );
                         next = j.RootElement.EnumerateObject().Single(z => z.Name == "next").Value.GetString();
@@ -283,11 +284,19 @@ namespace Luxopus.Services
                 return c.Select(z =>
                 {
                     var p = z.EnumerateObject();
+
+                    DateTime? to = null;
+                    JsonElement t = p.Single(z => z.Name == "valid_to").Value;
+                    if (t.ValueKind == JsonValueKind.String)
+                    {
+                        to = DateTime.Parse(t.GetString());
+                    }
+
                     return new TariffCode()
                     {
                         Code = p.Single(z => z.Name == "tariff_code").Value.GetString(),
                         ValidFrom = DateTime.Parse(p.Single(z => z.Name == "valid_from").Value.GetString()),
-                        ValidTo = DateTime.Parse(p.Single(z => z.Name == "valid_to").Value.GetString())
+                        ValidTo = to
                     };
                 }).ToList();
             }
