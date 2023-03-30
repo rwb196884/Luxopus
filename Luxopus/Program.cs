@@ -37,6 +37,7 @@ namespace Luxopus
                     services.Register<IEmailService, EmailService, EmailSettings>(context);
                     services.Register<ILuxService, LuxService, LuxSettings>(context);
                     services.Register<IOctopusService, OctopusService, OctopusSettings>(context);
+                    services.Register<ISolcastService, SolcastService, SolcastSettings>(context);
 
                     // Main thingy.
                     services.AddScoped<Luxopus>();
@@ -45,6 +46,7 @@ namespace Luxopus
                     services.AddScoped<LuxMonitor>();
                     services.AddScoped<OctopusMeters>();
                     services.AddScoped<OctopusPrices>();
+                    services.AddScoped<Solcast>();
 
                 })
                 .ConfigureLogging((context, cfg) =>

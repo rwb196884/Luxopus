@@ -16,8 +16,8 @@ namespace Luxopus
             LuxMonitor luxMonitor,
             LuxDaily luxDaily,
             OctopusMeters octopusMeters,
-            OctopusPrices octopusPrices
-            // Solcast
+            OctopusPrices octopusPrices,
+            Solcast solcast
             // Openweathermap
             // Solar elevation angle
             )
@@ -31,6 +31,7 @@ namespace Luxopus
             AddJob(luxDaily, "51 23 * *"); // at the end of every day
             AddJob(octopusMeters, "53 16 * * *"); // will get yesterday's meters.
             AddJob(octopusPrices, "51 16 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
+            AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
         }
 
         private void _Scheduler_Next(object? sender, ScheduledEventArgs e)

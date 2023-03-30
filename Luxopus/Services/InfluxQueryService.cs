@@ -27,6 +27,7 @@ namespace Luxopus.Services
         public string Token { get; set; }
         public string Server { get; set; }
         public string Org { get; set; }
+        public string Bucket { get; set; }
     }
 
     internal abstract class InfluxService : Service<InfluxDBSettings>
@@ -42,6 +43,8 @@ namespace Luxopus.Services
         {
             return await Client.GetQueryApi().QueryAsync(flux, Settings.Org);
         } 
+
+        public string Bucket {  get { return Settings.Bucket; } }
 
         public override bool ValidateSettings()
         {
@@ -97,6 +100,7 @@ namespace Luxopus.Services
 
     internal interface IInfluxQueryService
     {
+        string Bucket { get; }
         Task<List<FluxTable>> QueryAsync(string flux);
 
         Task<List<Price>> GetPricesAsync();

@@ -65,15 +65,15 @@ namespace Luxopus.Jobs
                     {
                         lines.Add(Measurement, tags, "consumption", mr.Consumption, mr.IntervalStart);
                     }
+                    await _InfluxWrite.WriteAsync(lines);
                 }
             }
         }
 
         private async Task<DateTime> GetLatestMeterReadingAsync(string serialNumber)
         {
-            string bucket = "solar";
             string flux = $@"
-from(bucket:""{bucket}"")
+from(bucket:""{_InfluxQuery.Bucket}"")
   |> range(start: -1y, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""meters"" and r[""serialNumber""] == ""{serialNumber}"")
   |> last()

@@ -60,9 +60,8 @@ namespace Luxopus.Jobs
 
         private async Task<DateTime> GetLatestPriceAsync(string tariffCode)
         {
-            string bucket = "solar";
             string flux = $@"
-from(bucket:""{bucket}"")
+from(bucket:""{_InfluxQuery.Bucket}"")
   |> range(start: -1y, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""prices"" and r[""tariff""] == ""{tariffCode}"")
   |> last()

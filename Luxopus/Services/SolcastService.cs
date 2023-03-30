@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -17,13 +18,17 @@ namespace Luxopus.Services
 
     internal interface ISolcastService
     {
-        async Task GetEstimatedActuals();
-        async Task GetForecasts();
+        Task<string> GetForecasts();
+        Task<string> GetEstimatedActuals();
     }
 
     internal class SolcastService : Service<SolcastSettings>, ISolcastService
     {
-        public SolcastService(ILogger<SolcastService> logger, IOptions<SolcastSettings> settings) : base(logger, settings) { }
+        private readonly IInfluxWriterService _InfluxWrite;
+        public SolcastService(ILogger<SolcastService> logger, IOptions<SolcastSettings> settings, IInfluxWriterService influxWrite) : base(logger, settings)
+        {
+            _InfluxWrite = influxWrite;
+        }
 
         public override bool ValidateSettings()
         {
@@ -48,30 +53,22 @@ namespace Luxopus.Services
             return ok;
         }
 
-        public async Task GetEstimatedActuals()
-        {
-            using (HttpClient httpClient = GetHttpClient())
-            {
-                HttpResponseMessage response = await httpClient.GetAsync($"/rooftop_sites/{Settings.SiteId}/estimated_actuals?format=json");
-                response.EnsureSuccessStatusCode();
-                string? json = await response.Content.ReadAsStringAsync();
-                using (JsonDocument j = JsonDocument.Parse(json))
-                {
-
-                }
-            }
-        }
-        public async Task GetForecasts()
+        public async Task<string> GetForecasts()
         {
             using (HttpClient httpClient = GetHttpClient())
             {
                 HttpResponseMessage response = await httpClient.GetAsync($"/rooftop_sites/{Settings.SiteId}/forecasts?format=json");
                 response.EnsureSuccessStatusCode();
-                string? json = await response.Content.ReadAsStringAsync();
-                using (JsonDocument j = JsonDocument.Parse(json))
-                {
-
-                }
+                return await response.Content.ReadAsStringAsync();
+            }
+        }
+        public async Task<string> GetEstimatedActuals()
+        {
+            using (HttpClient httpClient = GetHttpClient())
+            {
+                HttpResponseMessage response = await httpClient.GetAsync($"/rooftop_sites/{Settings.SiteId}/estimated_actuals?format=json");
+                response.EnsureSuccessStatusCode();
+                return await response.Content.ReadAsStringAsync();
             }
         }
 
