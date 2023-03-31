@@ -1,6 +1,7 @@
 ﻿using InfluxDB.Client.Core.Flux.Domain;
 using Luxopus.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualBasic;
 using NodaTime;
 using System;
 using System.Collections.Generic;
@@ -49,12 +50,14 @@ namespace Luxopus.Jobs
 
                 string p = GetProductOfTariff(t);
                 DateTime from = await GetLatestPriceAsync(t);
-                IEnumerable<Price> prices = await _Octopus.GetElectricityPrices(p, t, from, DateTime.Now.Date.AddDays(1).AddHours(22));
+                DateTime to = DateTime.Now.Date.AddDays(1).AddHours(22);
+                IEnumerable<Price> prices = await _Octopus.GetElectricityPrices(p, t, from, to);
                 LineDataBuilder lines = new LineDataBuilder();
                 foreach (Price price in prices)
                 {
                     lines.Add(Measurement, tags, "prices", price.Pence, price.ValidFrom);
                 }
+                Logger.LogInformation($"Got {prices.Count()} prices for tariff {t} from {from.ToString("dd MMM HH:mm")} to {to.ToString("dd MMM HH:mm")}.");
                 await _InfluxWrite.WriteAsync(lines);
             }
 
@@ -69,12 +72,14 @@ namespace Luxopus.Jobs
 
                 string p = GetProductOfTariff(t);
                 DateTime from = await GetLatestPriceAsync(t);
-                IEnumerable<Price> prices = await _Octopus.GetGasPrices(p, t, from, DateTime.Now.Date.AddDays(1).AddHours(22));
+                DateTime to = DateTime.Now.Date.AddDays(1).AddHours(22);
+                IEnumerable<Price> prices = await _Octopus.GetGasPrices(p, t, from, to);
                 LineDataBuilder lines = new LineDataBuilder();
                 foreach (Price price in prices)
                 {
                     lines.Add(Measurement, tags, "prices", price.Pence, price.ValidFrom);
                 }
+                Logger.LogInformation($"Got {prices.Count()} prices for tariff {t} from {from.ToString("dd MMM HH:mm")} to {to.ToString("dd MMM HH:mm")}.");
                 await _InfluxWrite.WriteAsync(lines);
             }
         }
@@ -83,7 +88,7 @@ namespace Luxopus.Jobs
         {
             string flux = $@"
 from(bucket:""{_InfluxQuery.Bucket}"")
-  |> range(start: -1y, stop: now())
+  |> range(start: -1y, stop: 2d)
   |> filter(fn: (r) => r[""_measurement""] == ""prices"" and r[""tariff""] == ""{tariffCode}"")
   |> last()
 ";

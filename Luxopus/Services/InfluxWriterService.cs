@@ -90,12 +90,17 @@ namespace Luxopus.Services
 
         public void Add(string measurement, IEnumerable<KeyValuePair<string, string>> tags, string fieldKey, object fieldValue, DateTime time)
         {
+            if( time.Kind != DateTimeKind.Utc)
+            {
+                throw new NotImplementedException();
+            }
+
             string tagString = "";
             if (tags.Count() > 0)
             {
                 tagString = "," + string.Join(",", tags.Select(z => $"{z.Key}={z.Value}"));
             }
-            _Lines.Add($"{measurement}{tagString} {fieldKey}={fieldValue} {time.ToUnix()}");
+            _Lines.Add($"{measurement}{tagString} {fieldKey}={fieldValue} {time.Ticks}");
         }
 
         public string[] GetLineData()

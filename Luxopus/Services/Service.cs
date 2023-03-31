@@ -4,10 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NodaTime;
-using NodaTime.TimeZones;
 using System;
-using System.Globalization;
-using System.Linq;
 using System.Text.Json;
 
 namespace Luxopus.Services
@@ -56,64 +53,48 @@ namespace Luxopus.Services
         }
     }
 
-    internal static class DateTimeExensions
-    {
-        public static long ToUnix(this DateTime t)
-        {
-            TimeSpan timeSpan = (t - new DateTime(1970, 1, 1, 0, 0, 0));
-            return (long)timeSpan.TotalSeconds;
-        }
+    //internal static class DateTimeExensions
+    //{
+    //    /// <summary>
+    //    /// https://stackoverflow.com/questions/19695439/get-the-default-timezone-for-a-country-via-cultureinfo
+    //    /// </summary>
+    //    /// <param name="longitude"></param>
+    //    private static void GuessTimeZone(double longitude)
+    //    {
+    //        var zones = TzdbDateTimeZoneSource.Default.ZoneLocations.AsQueryable();
+    //            zones = zones.OrderBy(o => Distance(o.Latitude, longitude, o.Latitude, o.Longitude, DistanceUnit.Kilometer));
+    //        var bestZone = zones.FirstOrDefault();
+    //        var dateTimeZone = TzdbDateTimeZoneSource.Default.ForId(bestZone.ZoneId);
 
-        public static DateTime ToLocalTime(this DateTime t, TimeZoneInfo timeZone)
-        {
-            return TimeZoneInfo.ConvertTimeFromUtc(t, timeZone);
+    //        var newTime = DateTime.UtcNow.AddSeconds(dateTimeZone.MaxOffset.Seconds);
 
-        }
-        public static DateTime ToUtc(this DateTime t, TimeZoneInfo timeZone)
-        {
-            return TimeZoneInfo.ConvertTimeToUtc(t, timeZone);
-        }
+    //    }
+    //    private enum DistanceUnit { StatuteMile, Kilometer, NauticalMile };
+    //    private static double Distance(double lat1, double lon1, double lat2, double lon2, DistanceUnit unit)
+    //    {
+    //        double rlat1 = Math.PI * lat1 / 180;
+    //        double rlat2 = Math.PI * lat2 / 180;
+    //        double theta = lon1 - lon2;
+    //        double rtheta = Math.PI * theta / 180;
+    //        double dist =
+    //            Math.Sin(rlat1) * Math.Sin(rlat2) + Math.Cos(rlat1) *
+    //            Math.Cos(rlat2) * Math.Cos(rtheta);
+    //        dist = Math.Acos(dist);
+    //        dist = dist * 180 / Math.PI;
+    //        dist = dist * 60 * 1.1515;
 
-        /// <summary>
-        /// https://stackoverflow.com/questions/19695439/get-the-default-timezone-for-a-country-via-cultureinfo
-        /// </summary>
-        /// <param name="longitude"></param>
-        private static void GuessTimeZone(double longitude)
-        {
-            var zones = TzdbDateTimeZoneSource.Default.ZoneLocations.AsQueryable();
-                zones = zones.OrderBy(o => Distance(o.Latitude, longitude, o.Latitude, o.Longitude, DistanceUnit.Kilometer));
-            var bestZone = zones.FirstOrDefault();
-            var dateTimeZone = TzdbDateTimeZoneSource.Default.ForId(bestZone.ZoneId);
-
-            var newTime = DateTime.UtcNow.AddSeconds(dateTimeZone.MaxOffset.Seconds);
-
-        }
-        private enum DistanceUnit { StatuteMile, Kilometer, NauticalMile };
-        private static double Distance(double lat1, double lon1, double lat2, double lon2, DistanceUnit unit)
-        {
-            double rlat1 = Math.PI * lat1 / 180;
-            double rlat2 = Math.PI * lat2 / 180;
-            double theta = lon1 - lon2;
-            double rtheta = Math.PI * theta / 180;
-            double dist =
-                Math.Sin(rlat1) * Math.Sin(rlat2) + Math.Cos(rlat1) *
-                Math.Cos(rlat2) * Math.Cos(rtheta);
-            dist = Math.Acos(dist);
-            dist = dist * 180 / Math.PI;
-            dist = dist * 60 * 1.1515;
-
-            switch (unit)
-            {
-                case DistanceUnit.Kilometer:
-                    return dist * 1.609344;
-                case DistanceUnit.NauticalMile:
-                    return dist * 0.8684;
-                default:
-                case DistanceUnit.StatuteMile: //Miles
-                    return dist;
-            }
-        }
-    }
+    //        switch (unit)
+    //        {
+    //            case DistanceUnit.Kilometer:
+    //                return dist * 1.609344;
+    //            case DistanceUnit.NauticalMile:
+    //                return dist * 0.8684;
+    //            default:
+    //            case DistanceUnit.StatuteMile: //Miles
+    //                return dist;
+    //        }
+    //    }
+    //}
 
     internal abstract class Settings { }
 

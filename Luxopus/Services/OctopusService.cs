@@ -1,12 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
-using System.Security.Permissions;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -39,6 +36,15 @@ namespace Luxopus.Services
         {
             return source.GetProperty(propertyName).Select(z => z.GetString());
         }
+
+        public static DateTime? GetDate(this JsonProperty p)
+        {
+            if (p.Value.ValueKind == JsonValueKind.String)
+            {
+                return DateTime.Parse(p.Value.GetString());
+            }
+            return null;
+        }
     }
 
     internal class OctopusSettings : Settings
@@ -69,7 +75,7 @@ namespace Luxopus.Services
     {
         public decimal Pence { get; set; }
         public DateTime ValidFrom { get; set; }
-        public DateTime ValidTo { get; set; }
+        public DateTime? ValidTo { get; set; }
     }
 
     internal interface IOctopusService
@@ -89,7 +95,7 @@ namespace Luxopus.Services
 
     internal class OctopusService : Service<OctopusSettings>, IOctopusService
     {
-        private const string DateFormat = "yyyy-MM-ddTHH:MM:ss";
+        private const string DateFormat = "yyyy-MM-ddTHH:MM:ss"; // API doesn't accept zzz but does accept a Z on the end.
         public OctopusService(ILogger<OctopusService> logger, IOptions<OctopusSettings> settings) : base(logger, settings) { }
 
         public override bool ValidateSettings()
@@ -151,18 +157,11 @@ namespace Luxopus.Services
                 {
                     var p = z.EnumerateObject();
 
-                    DateTime? to = null;
-                    JsonElement t = p.Single(z => z.Name == "valid_to").Value;
-                    if (t.ValueKind == JsonValueKind.String)
-                    {
-                        to = DateTime.Parse(t.GetString());
-                    }
-
                     return new TariffCode()
                     {
                         Code = p.Single(z => z.Name == "tariff_code").Value.GetString(),
-                        ValidFrom = DateTime.Parse(p.Single(z => z.Name == "valid_from").Value.GetString()),
-                        ValidTo = to
+                        ValidFrom = p.Single(z => z.Name == "valid_from").GetDate().Value.ToUniversalTime(),
+                        ValidTo = p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
                     };
                 }).ToList();
             }
@@ -172,9 +171,10 @@ namespace Luxopus.Services
         public async Task<IEnumerable<Price>> GetElectricityPrices(string product, string tariff, DateTime from, DateTime to)
         {
             List<Price> prices = new List<Price>();
+            if( to <= from) { return prices; }
             using (HttpClient httpClient = GetHttpClient())
             {
-                HttpResponseMessage response = await httpClient.GetAsync($"/v1/products/{product}/electricity-tariffs/{tariff}/standard-unit-rates/?period_from={from.ToString(DateFormat)}&period_to={to.ToString(DateFormat)}");
+                HttpResponseMessage response = await httpClient.GetAsync($"/v1/products/{product}/electricity-tariffs/{tariff}/standard-unit-rates/?period_from={from.ToString(DateFormat)}Z&period_to={to.ToString(DateFormat)}Z");
                 response.EnsureSuccessStatusCode();
                 string? json = await response.Content.ReadAsStringAsync();
                 while (json != null)
@@ -189,8 +189,8 @@ namespace Luxopus.Services
                                 return new Price()
                                 {
                                     Pence = p.Single(z => z.Name == "value_inc_vat").Value.GetDecimal(),
-                                    ValidFrom = DateTime.Parse(p.Single(z => z.Name == "valid_from").Value.GetString()),
-                                    ValidTo =  DateTime.Parse(p.Single(z => z.Name == "valid_to").Value.GetString())
+                                    ValidFrom = p.Single(z => z.Name == "valid_from").GetDate().Value.ToUniversalTime(),
+                                    ValidTo =  p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
                                 };
 
 
@@ -211,7 +211,7 @@ namespace Luxopus.Services
            using (HttpClient httpClient = GetHttpClient())
             {
                 // Fucking slash.
-                HttpResponseMessage response = await httpClient.GetAsync($"/v1/electricity-meter-points/{mpan}/meters/{serialNumber}/consumption/?period_from={from.ToString(DateFormat)}&period_to={to.ToString(DateFormat)}");
+                HttpResponseMessage response = await httpClient.GetAsync($"/v1/electricity-meter-points/{mpan}/meters/{serialNumber}/consumption/?period_from={from.ToString(DateFormat)}Z&period_to={to.ToString(DateFormat)}Z");
                 response.EnsureSuccessStatusCode();
                 string? json = await response.Content.ReadAsStringAsync();
                 while (json != null)
@@ -227,8 +227,8 @@ namespace Luxopus.Services
                                 {
                                     return new MeterReading()
                                     {
-                                        IntervalStart = DateTime.Parse(p.Single(z => z.Name == "interval_start").Value.GetString()),
-                                        IntervalEnd = DateTime.Parse(p.Single(z => z.Name == "interval_end").Value.GetString()),
+                                        IntervalStart = p.Single(z => z.Name == "interval_start").GetDate().Value.ToUniversalTime(),
+                                        IntervalEnd = p.Single(z => z.Name == "interval_end").GetDate().Value.ToUniversalTime(),
                                         Consumption = p.Single(z => z.Name == "consumption").Value.GetDecimal(),
                                     };
                                 }
@@ -284,20 +284,12 @@ namespace Luxopus.Services
                 var c = b.GetArray("agreements").ToList();
                 return c.Select(z =>
                 {
-                    var p = z.EnumerateObject();
-
-                    DateTime? to = null;
-                    JsonElement t = p.Single(z => z.Name == "valid_to").Value;
-                    if (t.ValueKind == JsonValueKind.String)
-                    {
-                        to = DateTime.Parse(t.GetString());
-                    }
-
+                    JsonElement.ObjectEnumerator p = z.EnumerateObject();
                     return new TariffCode()
                     {
                         Code = p.Single(z => z.Name == "tariff_code").Value.GetString(),
-                        ValidFrom = DateTime.Parse(p.Single(z => z.Name == "valid_from").Value.GetString()),
-                        ValidTo = to
+                        ValidFrom = p.Single(z => z.Name == "valid_from").GetDate().Value.ToUniversalTime(),
+                        ValidTo = p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
                     };
                 }).ToList();
             }
@@ -307,6 +299,7 @@ namespace Luxopus.Services
         public async Task<IEnumerable<Price>> GetGasPrices(string product, string tariff, DateTime from, DateTime to)
         {
             List<Price> prices = new List<Price>();
+            if (to <= from) { return prices; }
             using (HttpClient httpClient = GetHttpClient())
             {
                 HttpResponseMessage response = await httpClient.GetAsync($"/v1/products/{product}/gas-tariffs/{tariff}/standard-unit-rates?period_from={from.ToString(DateFormat)}&period_to={to.ToString(DateFormat)}");
@@ -320,12 +313,12 @@ namespace Luxopus.Services
                         prices.AddRange(
                             j.RootElement.GetArray("results").Select(z =>
                             {
-                                var p = z.EnumerateObject();
+                                JsonElement.ObjectEnumerator p = z.EnumerateObject();
                                 return new Price()
                                 {
                                     Pence = p.Single(z => z.Name == "value_inc_vat").Value.GetDecimal(),
-                                    ValidFrom = DateTime.Parse(p.Single(z => z.Name == "valid_from").Value.GetString()),
-                                    ValidTo = DateTime.Parse(p.Single(z => z.Name == "valid_to").Value.GetString())
+                                    ValidFrom = p.Single(z => z.Name == "valid_from").GetDate().Value.ToUniversalTime(),
+                                    ValidTo = p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
                                 };
                             })
                         );
@@ -356,8 +349,8 @@ namespace Luxopus.Services
                                 var p = z.EnumerateObject();
                                 return new MeterReading()
                                 {
-                                    IntervalStart = DateTime.Parse(p.Single(z => z.Name == "interval_start").Value.GetString()),
-                                    IntervalEnd = DateTime.Parse(p.Single(z => z.Name == "interval_end").Value.GetString()),
+                                    IntervalStart = p.Single(z => z.Name == "interval_start").GetDate().Value.ToUniversalTime(),
+                                    IntervalEnd = p.Single(z => z.Name == "interval_end").GetDate().Value.ToUniversalTime(),
                                     Consumption = p.Single(z => z.Name == "consumption").Value.GetDecimal(),
                                 };
                             })

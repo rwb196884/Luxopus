@@ -30,7 +30,7 @@ namespace Luxopus.Jobs
                 foreach (var z in j.RootElement.GetArray("forecasts"))
                 {
                     JsonElement.ObjectEnumerator p = z.EnumerateObject();
-                    DateTime d = DateTime.Parse(p.Single(z => z.Name == "period_end").Value.GetString());
+                    DateTime d = p.Single(z => z.Name == "period_end").GetDate().Value.ToUniversalTime();
                     decimal e = p.Single(z => z.Name == "pv_estimate").Value.GetDecimal();
                     lines.Add("solcast", "actual", e, d);
                 }
@@ -44,7 +44,7 @@ namespace Luxopus.Jobs
                 foreach (var z in j.RootElement.GetArray("estimated_actuals"))
                 {
                     JsonElement.ObjectEnumerator p = z.EnumerateObject();
-                    DateTime d = DateTime.Parse(p.Single(z => z.Name == "period_end").Value.GetString());
+                    DateTime d = p.Single(z => z.Name == "period_end").GetDate().Value.ToUniversalTime();
                     decimal e = p.Single(z => z.Name == "pv_estimate").Value.GetDecimal();
                     lines.Add("solcast", "actual", e, d);
                 }
