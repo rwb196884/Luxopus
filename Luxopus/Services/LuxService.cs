@@ -1,9 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NodaTime;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Luxopus.Services
@@ -14,12 +17,18 @@ namespace Luxopus.Services
         public string Password { get; set; }
         public string Station { get; set; }
         public string BaseAddress { get; set; }
+        public string TimeZone { get; set; }
     }
 
     internal interface ILuxService
     {
         Task<string> GetInverterRuntimeAsync();
         Task<string> GetInverterEnergyInfoAsync();
+
+        Task SetChargeFromGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
+        Task SetDishargeToGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
+        Task SetBatteryChargeRate(int batteryChargeRatePercent);
+        Task Reset();
     }
 
     internal class LuxService : Service<LuxSettings>, ILuxService, IDisposable
@@ -62,22 +71,33 @@ namespace Luxopus.Services
                 Logger.LogError("Setting Lux.BaseAddress is required.");
                 ok = false;
             }
+
+            try
+            {
+                DateTimeZone ntz = DateTimeZoneProviders.Tzdb[Settings.TimeZone];
+            }
+            catch (Exception e)
+            {
+                Logger.LogError(e, "Setting Lux.TimeZone could not construct a DateTimeZone.");
+                ok = false;
+            }
+
             return ok;
         }
 
-        private async Task<HttpResponseMessage> PostAsync(string path, KeyValuePair<string, string>[] formData)
+        private async Task<HttpResponseMessage> PostAsync(string path, IEnumerable<KeyValuePair<string, string>> formData)
         {
-                FormUrlEncodedContent content = new FormUrlEncodedContent(formData);
-                return await _Client.PostAsync(path, content);
+            FormUrlEncodedContent content = new FormUrlEncodedContent(formData);
+            return await _Client.PostAsync(path, content);
         }
 
         private async Task LoginAsync()
         {
-            HttpResponseMessage result = await PostAsync("/WManage/web/login", new[]
+            HttpResponseMessage result = await PostAsync("/WManage/web/login", new Dictionary<string, string>()
             {
-                    new KeyValuePair<string, string>("account", Settings.Username),
-                    new KeyValuePair<string, string>("password", Settings.Password),
-                });
+                    {"account", Settings.Username },
+                    { "password", Settings.Password }
+            });
             result.EnsureSuccessStatusCode();
         }
 
@@ -85,9 +105,9 @@ namespace Luxopus.Services
         {
             while (true)
             {
-                HttpResponseMessage r = await PostAsync(GetInverterRuntimePath, new[]
+                HttpResponseMessage r = await PostAsync(GetInverterRuntimePath, new Dictionary<string, string>()
                 {
-                    new KeyValuePair<string, string>("serialNum", Settings.Station),
+                    { "serialNum", Settings.Station },
                 });
 
                 if (r.StatusCode == HttpStatusCode.Unauthorized)
@@ -105,9 +125,9 @@ namespace Luxopus.Services
         {
             while (true)
             {
-                HttpResponseMessage r = await PostAsync(GetInverterEnergyInfoPath, new[]
+                HttpResponseMessage r = await PostAsync(GetInverterEnergyInfoPath, new Dictionary<string, string>()
                 {
-                    new KeyValuePair<string, string>("serialNum", Settings.Station),
+                    { "serialNum", Settings.Station },
                 });
 
                 if (r.StatusCode == HttpStatusCode.Unauthorized)
@@ -120,6 +140,78 @@ namespace Luxopus.Services
                 }
             }
         }
+
+        public async Task SetChargeFromGridAsync(DateTime start, DateTime stop, int batteryLimitPercent)
+        {
+            bool enable = start != stop && batteryLimitPercent >= 0 && batteryLimitPercent <= 100;
+
+            await PostAsync("", new Dictionary<string, string>()
+            {
+                { "functionParam", "FUNC_AC_CHARGE"},
+                { "enable", enable ? "true" : "false"}
+            });
+            if (!enable) { return; }
+
+            await PostAsync("", new Dictionary<string, string>()
+            {
+                { "timeParam", "HOLD_AC_CHARGE_START_TIME"},
+                { "hour", start.ToString("HH")},
+                { "minute", start.ToString("mm")}
+            });
+            await PostAsync("", new Dictionary<string, string>()
+            {
+                { "timeParam", "HOLD_AC_CHARGE_END_TIME"},
+                { "hour", stop.ToString("HH")},
+                { "minute", stop.ToString("mm")}
+            });
+            await PostAsync("", new Dictionary<string, string>()
+            {
+                { "holdParam", "HOLD_AC_CHARGE_SOC_LIMIT"},
+                { "valueText", batteryLimitPercent.ToString()}
+            });
+        }
+
+        public async Task SetDishargeToGridAsync(DateTime start, DateTime stop, int batteryLimitPercent)
+        {
+            bool enable = start != stop && batteryLimitPercent >= 0 && batteryLimitPercent <= 100;
+
+            await PostAsync("", new Dictionary<string, string>()
+            {
+                { "functionParam", "FUNC_FORCED_DISCHG_EN"},
+                { "enable", enable ? "true" : "false"}
+            });
+            if (!enable) { return; }
+
+            await PostAsync("", new Dictionary<string, string>()
+            {
+                { "timeParam", "HOLD_FORCED_DISCHARGE_START_TIME"},
+                { "hour", start.ToString("HH")},
+                { "minute", start.ToString("mm")}
+            });
+            await PostAsync("", new Dictionary<string, string>()
+            {
+                { "timeParam", "HOLD_FORCED_DISCHARGE_END_TIME"},
+                { "hour", stop.ToString("HH")},
+                { "minute", stop.ToString("mm")}
+            });
+            await PostAsync("", new Dictionary<string, string>()
+            {
+                { "holdParam", "HOLD_FORCED_DISCHG_SOC_LIMIT"},
+                { "valueText", batteryLimitPercent.ToString()}
+            });
+        }
+
+        public async Task SetBatteryChargeRate(int batteryChargeRatePercent)
+        {
+            await PostAsync("", new Dictionary<string, string>()
+            {
+                { "holdParam", "HOLD_CHARGE_POWER_PERCENT_CMD"},
+                { "valueText", batteryChargeRatePercent.ToString()}
+            });
+        }
+
+        public async Task Reset() { }
+
 
         protected virtual void Dispose(bool disposing)
         {

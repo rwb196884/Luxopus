@@ -34,7 +34,7 @@ namespace Luxopus.Jobs
                 lines.Add(Measurement, "import", r.Single(z => z.Name == "todayImport").Value.GetInt32());
                 lines.Add(Measurement, "consumption", r.Single(z => z.Name == "todayUsage").Value.GetInt32());
                 lines.Add(Measurement, "to_batt", r.Single(z => z.Name == "todayCharging").Value.GetInt32());
-                lines.Add(Measurement, "from_batt", r.Single(z => z.Name == "to_batt").Value.GetInt32());
+                lines.Add(Measurement, "from_batt", r.Single(z => z.Name == "todayDischarging").Value.GetInt32());
             }
             await _Influx.WriteAsync(lines);
         }

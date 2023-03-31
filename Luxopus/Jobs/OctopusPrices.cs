@@ -1,6 +1,7 @@
 ﻿using InfluxDB.Client.Core.Flux.Domain;
 using Luxopus.Services;
 using Microsoft.Extensions.Logging;
+using NodaTime;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,7 +30,7 @@ namespace Luxopus.Jobs
             // Remove E-1R- from the start.
             // Remove -E from the end.
             // https://forum.octopus.energy/t/product-codes-tariff-codes/5154
-            string a = tariffCode.Substring(4);
+            string a = tariffCode.Substring(5);
             return a.Substring(0, a.Length - 2);
         }
 
@@ -56,6 +57,26 @@ namespace Luxopus.Jobs
                 }
                 await _InfluxWrite.WriteAsync(lines);
             }
+
+            foreach (string t in (await _Octopus.GetGasTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Union(Tariffs.Split(',')).Distinct())
+            {
+                Dictionary<string, string> tags = new Dictionary<string, string>()
+                {
+                        { "fuel", "gas" },
+                        { "tariff", t },
+                        { "type", t.Contains("OUTGOING") ? "sell" : "buy" }
+                };
+
+                string p = GetProductOfTariff(t);
+                DateTime from = await GetLatestPriceAsync(t);
+                IEnumerable<Price> prices = await _Octopus.GetGasPrices(p, t, from, DateTime.Now.Date.AddDays(1).AddHours(22));
+                LineDataBuilder lines = new LineDataBuilder();
+                foreach (Price price in prices)
+                {
+                    lines.Add(Measurement, tags, "prices", price.Pence, price.ValidFrom);
+                }
+                await _InfluxWrite.WriteAsync(lines);
+            }
         }
 
         private async Task<DateTime> GetLatestPriceAsync(string tariffCode)
@@ -70,6 +91,10 @@ from(bucket:""{_InfluxQuery.Bucket}"")
             if (q.Count > 0 && q[0].Records.Count > 0)
             {
                 object o = q[0].Records[0].Values["_time"];
+                if (o.GetType() == typeof(Instant))
+                {
+                    return ((Instant)o).ToDateTimeUtc();
+                }
                 return (DateTime)o;
             }
             return DateTime.Now.AddYears(-1);

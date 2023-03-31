@@ -1,9 +1,9 @@
 ﻿using InfluxDB.Client.Core.Flux.Domain;
 using Luxopus.Services;
 using Microsoft.Extensions.Logging;
+using NodaTime;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -52,6 +52,7 @@ namespace Luxopus.Jobs
             {
                 foreach (string serialNumber in await _Octopus.GetGasMeters(mprn))
                 {
+                    DateTime from = await GetLatestMeterReadingAsync(serialNumber);
                     Dictionary<string, string> tags = new Dictionary<string, string>()
                     {
                         { "fuel", "gas" },
@@ -59,7 +60,7 @@ namespace Luxopus.Jobs
                         { "serialNumber", serialNumber}
                     };
 
-                    IEnumerable<MeterReading> m = await _Octopus.GetGasMeterReadings(mprn, serialNumber, DateTime.Now.AddDays(-7), DateTime.Now);
+                    IEnumerable<MeterReading> m = await _Octopus.GetGasMeterReadings(mprn, serialNumber, from, DateTime.Now);
                     LineDataBuilder lines = new LineDataBuilder();
                     foreach (MeterReading mr in m)
                     {
@@ -82,6 +83,10 @@ from(bucket:""{_InfluxQuery.Bucket}"")
             if (q.Count > 0 && q[0].Records.Count > 0)
             {
                 object o = q[0].Records[0].Values["_time"];
+                if( o.GetType() == typeof(Instant))
+                {
+                    return ((Instant)o).ToDateTimeUtc();
+                }
                 return (DateTime)o;
             }
             return DateTime.Now.AddYears(-1);

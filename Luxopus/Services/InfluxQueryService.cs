@@ -6,19 +6,12 @@ using NodaTime;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
 namespace Luxopus.Services
 {
-    internal static class FluxExtensions
-    {
-        public static DateTime ToDateTime(this Instant instant)
-        {
-            return DateTime.Now;
-        }
-    }
-
     /// <summary>
     /// Seems not to be provided by InfluxDB.Client so we make on rather than demand the entire config and then do .GetValue("InfluxDB:Token");.
     /// </summary>
@@ -35,16 +28,17 @@ namespace Luxopus.Services
         protected readonly IInfluxDBClient Client;
         private bool disposedValue;
 
-        protected InfluxService(ILogger<InfluxService> logger, IOptions<InfluxDBSettings> settings) : base(logger, settings) {
+        protected InfluxService(ILogger<InfluxService> logger, IOptions<InfluxDBSettings> settings) : base(logger, settings)
+        {
             Client = new InfluxDBClient(Settings.Server, Settings.Token); // TODO: DI.
         }
 
         public async Task<List<FluxTable>> QueryAsync(string flux)
         {
             return await Client.GetQueryApi().QueryAsync(flux, Settings.Org);
-        } 
+        }
 
-        public string Bucket {  get { return Settings.Bucket; } }
+        public string Bucket { get { return Settings.Bucket; } }
 
         public override bool ValidateSettings()
         {
@@ -102,8 +96,23 @@ namespace Luxopus.Services
     {
         string Bucket { get; }
         Task<List<FluxTable>> QueryAsync(string flux);
+        Task<List<FluxTable>> QueryAsync(Query query, DateTime today);
 
-        Task<List<Price>> GetPricesAsync();
+        /// <summary>
+        /// Get prices starting on the afternoon of the <paramref name="day"/> through to the end of the next day.
+        /// </summary>
+        /// <param name="day"></param>
+        /// <returns></returns>
+        Task<List<HalfHour>> GetPricesAsync(DateTime day);
+    }
+
+    public enum Query
+    {
+        EveningSellMax,
+        OvernightMin,
+        MorningSellMax,
+        DytimeSellMedian,
+        DaytimeBuyMin
     }
 
     internal class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable
@@ -132,21 +141,85 @@ namespace Luxopus.Services
             }
         }
 
-        public async Task<List<Price>> GetPricesAsync()
+        public async Task<List<FluxTable>> QueryAsync(Query query, DateTime today)
         {
-            return await Task.FromResult(new List<Price>());
-            //string flux = await ReadFluxAsync("prices");
+            string flux = await ReadFluxAsync(query.ToString());
+            flux = flux.Replace("bucket: \"solar\"", $"bucket: \"{Settings.Bucket}\"");
+            flux = flux.Replace("today()", $"{today.ToString("yyyy-MM-ddZ")}T00:00:00");
+            return await QueryAsync(flux);
 
-            //List<FluxTable> tables = await Client.GetQueryApi().QueryAsync(flux, Settings.Org);
-
-            //return tables.SelectMany(table =>
-            //    table.Records.Select(record =>
-            //        new Price
-            //        {
-            //            Time = record.GetTime()?.ToDateTime(),
-            //            Buy = (float)record.get("Buy"),
-            //            Sell = (float)record.GetField("Sell")
-            //        }));
         }
+
+        public async Task<List<HalfHour>> GetPricesAsync(DateTime day)
+        {
+            string flux = $@"
+import ""{Settings.Bucket}""
+
+t0 = {day.ToString("yyyy-MM-ddTHH:mm:ss")}Z
+t1 = date.add(d: 36h, to: t0)
+
+from(bucket: ""solar"")
+  |> range(start: t0, stop: t1)
+  |> filter(fn: (r) => r[""_measurement""] == ""prices"" and r[""fuel""] == ""electricity"")
+  |> keep(columns: [""_time"", ""_value"", ""type""])";
+
+            List<FluxTable> q = await QueryAsync(flux);
+            return q[0].Records.GroupBy(z => (DateTime)z.GetValueByKey("_time"))
+                .Select(z => new HalfHour()
+                {
+                    Start = z.Key,
+                    Buy = (decimal)(z.Single(z => (string)z.GetValueByKey("type") == "buy").GetValueByKey("_value")),
+                    Sell = (decimal)(z.Single(z => (string)z.GetValueByKey("type") == "sell").GetValueByKey("_value"))
+                })
+                .ToList();
+        }
+    }
+
+    internal class HalfHour
+    {
+        public DateTime Start { get; set; }
+        public decimal Buy { get; set; }
+        public decimal Sell { get; set; }
+    }
+
+    public static class FluxExtensions
+    {
+        public static T GetValue<T>(this FluxRecord record, string column = "_value")
+        {
+            object o = record.GetValueByKey(column);
+            if (o.GetType() == typeof(Instant) && typeof(T) == typeof(DateTime))
+            {
+                return (T)(object)((Instant)o).ToDateTimeUtc();
+            }
+            return (T)o;
+        }
+
+        public static IEnumerable<(DateTime, T)> GetValues<T>(this FluxTable table)
+        {
+            return table.Records.Select(z => (
+                z.GetValue<DateTime>("_time"),
+                z.GetValue<T>("_value")
+            ));
+        }
+
+        public static (DateTime, T) FirstOrDefault<T>(this FluxTable table)
+        {
+            if (table.Records.Count == 0)
+            {
+                return (new List<(DateTime, T)>()).FirstOrDefault();
+            }
+
+            return table.GetValues<T>().FirstOrDefault();
+        }
+
+        //public static T First<T>(this IEnumerable<FluxTable> table)
+        //{
+        //    if (table.Records.Count == 0)
+        //    {
+        //        return (new List<(DateTime, T)>()).FirstOrDefault();
+        //    }
+
+        //    return table.GetValues<T>().FirstOrDefault();
+        //}
     }
 }

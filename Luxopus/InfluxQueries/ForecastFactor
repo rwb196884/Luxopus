@@ -1,0 +1,51 @@
+import "date"
+import "join"
+import "strings"
+
+getValue = (tables=<-, field = "") => {
+    extract = tables
+        |> findColumn(fn: (key) => strings.strlen(v: field) == 0 or key._field == field, column: "_value")
+
+    return extract[0]
+}
+
+// Daily generation data.
+generation = from(bucket: "solar")
+  |> range(start: -1y, stop: today())
+  |> filter(fn: (r) => r["_measurement"] == "daily" and r["_field"] == "generation")
+  |> keep(columns: ["_field", "_time", "_value"])
+  |> map(fn: (r) => ({_time: date.truncate(t: r._time, unit: 1d), _value: float( v: r._value)}))
+  |> last()
+
+// Daily actuals integral.
+solcast = from(bucket: "solar")
+  |> range(start: -1y, stop: today())
+  |> filter(fn: (r) => r["_measurement"] == "solcast"and r["_field"] == "actual")
+  |> window(every: 1d)
+  |> integral(interpolate: "linear")
+  |> map(fn: (r) => ({
+    _time: date.truncate(t: r._start, unit: 1d),
+    _value: r._value,
+	//_field: "solcast"
+  }))
+
+  //solcast |> yield(name: "s")
+
+union(tables: [solcast, generation])
+|> yield(name: "u")
+
+// Join
+j = join.full(
+  left: generation, 
+  right: solcast, 
+  on: (l, r) => l._time == r._time,
+  as: (l, r) => ({
+    _time: l._time,
+    generation: l._value,
+    solcast: r._value,
+    factor: l._value / r._value,
+    _field: "field"
+  })
+  ) 
+  
+  j |> yield()

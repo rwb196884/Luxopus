@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Luxopus.Services
@@ -22,10 +23,43 @@ namespace Luxopus.Services
         {
             IWriteApiAsync w = Client.GetWriteApiAsync();
             string[] lines = lineData.GetLineData();
-            // Do in batches because of shitty timeout.
-            for (int i = 0; i < lines.Length / 100; i++)
+            int n = 100;
+            if(lines.Length > 500)
             {
-                await w.WriteRecordsAsync(lines.Skip(i * 100).Take(100).ToArray(), InfluxDB.Client.Api.Domain.WritePrecision.S, Settings.Bucket, Settings.Org);
+                n = 50;
+            }
+            // Do in batches because of shitty timeout.
+            for (int i = 0; i <= lines.Length / n; i++)
+            {
+                while (true)
+                {
+                    try
+                    {
+                        await w.WriteRecordsAsync(lines.Skip(i * n).Take(n).ToArray(), InfluxDB.Client.Api.Domain.WritePrecision.S, Settings.Bucket, Settings.Org);
+                        if (i > 1)
+                        {
+                            Thread.Sleep(500);
+                            if (i % 8 == 0)
+                            {
+                                Thread.Sleep(3000); // It's very shit.
+                            }
+                        }
+                        Logger.LogDebug($"Written page {1+i} of {1 + lines.Length / n} to InfluxDB.");
+                        break;
+                    }
+                    catch (Exception e)
+                    {
+                        if (e.Message.ToLower().Contains("timeout"))
+                        {
+                            Logger.LogWarning($"Timeout writing page {1 + i} of {1 + lines.Length / n} to InfluxDB. Waiting to retry...");
+                            Thread.Sleep(3000);
+                        }
+                        else
+                        {
+                            throw;
+                        }
+                    }
+                }
             }
         }
     }
@@ -37,6 +71,11 @@ namespace Luxopus.Services
         public LineDataBuilder()
         {
             _Lines = new List<string>();
+        }
+
+        public override string ToString()
+        {
+            return $"{_Lines.Count} lines";
         }
 
         public void Add(string measurement, string fieldKey, object fieldValue)

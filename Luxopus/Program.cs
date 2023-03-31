@@ -6,7 +6,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
-using static System.Formats.Asn1.AsnWriter;
 
 namespace Luxopus
 {
@@ -14,6 +13,30 @@ namespace Luxopus
     {
         static void Main(string[] args)
         {
+            // MS handles timezones incorrectly: London is always GMT.
+            // Therefore we use NodaTime instead.
+
+            /*
+            DateTimeZone ntz = DateTimeZoneProviders.Tzdb["Europe/London"];
+
+            DateTime tu = DateTime.UtcNow;
+            DateTime tl = DateTime.Now;
+            DateTime tO = DateTime.Parse("2023-03-03T15:55:00+0100");
+
+            Instant iu = Instant.FromDateTimeUtc(tu);
+            Instant il = Instant.FromDateTimeOffset(tl);
+            Instant iO = Instant.FromDateTimeOffset(tO);
+
+            ZonedDateTime ltu = iu.InZone(ntz);
+            ZonedDateTime lt1 = il.InZone(ntz);
+            ZonedDateTime ltO = iO.InZone(ntz);
+
+            string su = tu.ToString("yyyy-MM-ddTHH:MM:sszzz");
+            string sl = tl.ToString("yyyy-MM-ddTHH:MM:sszzz");
+
+            DateTime u = tO.ToUniversalTime();
+            */
+
             using (IHost host = Host.CreateDefaultBuilder(args)
                 .ConfigureAppConfiguration(cfg =>
                 {
@@ -44,6 +67,7 @@ namespace Luxopus
 
                     // Jobs.
                     services.AddScoped<LuxMonitor>();
+                    services.AddScoped<LuxDaily>();
                     services.AddScoped<OctopusMeters>();
                     services.AddScoped<OctopusPrices>();
                     services.AddScoped<Solcast>();
@@ -61,7 +85,12 @@ namespace Luxopus
             {
                 using (IServiceScope scope = host.Services.CreateScope())
                 {
-                    OctopusMeters m = scope.ServiceProvider.GetRequiredService<OctopusMeters>();
+                    Job m = null;
+                    //m = scope.ServiceProvider.GetRequiredService<LuxMonitor>();
+                    //m = scope.ServiceProvider.GetRequiredService<LuxDaily>();
+                    //m = scope.ServiceProvider.GetRequiredService<OctopusMeters>();
+                    m = scope.ServiceProvider.GetRequiredService<OctopusPrices>();
+                    //m = scope.ServiceProvider.GetRequiredService<Solcast>();
                     m.RunAsync(CancellationToken.None).Wait();
                     return;
 

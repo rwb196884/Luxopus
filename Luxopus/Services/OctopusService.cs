@@ -47,6 +47,7 @@ namespace Luxopus.Services
         public string BaseAddress { get; set; }
         public string AccountNumber { get; set; }
 
+        //public string TimeZone { get; set; } // Not needeed because Octopus data is in format yyyy-MM-ddTHH:MM:sszzz
         //public string Mapn { get; set; }
     }
 
@@ -173,7 +174,7 @@ namespace Luxopus.Services
             List<Price> prices = new List<Price>();
             using (HttpClient httpClient = GetHttpClient())
             {
-                HttpResponseMessage response = await httpClient.GetAsync($"/v1/products/{product}/tariff/{tariff}/standard-unit-rates?period_from={from.ToString(DateFormat)}&period_to={to.ToString(DateFormat)}");
+                HttpResponseMessage response = await httpClient.GetAsync($"/v1/products/{product}/electricity-tariffs/{tariff}/standard-unit-rates/?period_from={from.ToString(DateFormat)}&period_to={to.ToString(DateFormat)}");
                 response.EnsureSuccessStatusCode();
                 string? json = await response.Content.ReadAsStringAsync();
                 while (json != null)
