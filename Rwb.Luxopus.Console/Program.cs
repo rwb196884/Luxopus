@@ -38,49 +38,14 @@ namespace Rwb.Luxopus.Console
             */
 
             using (IHost host = Host.CreateDefaultBuilder(args)
-                .ConfigureAppConfiguration(cfg =>
-                {
-                    cfg.AddJsonFile("appsettings.json");
-
-                    string? env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-                    if (!string.IsNullOrEmpty(env))
-                    {
-                        cfg.AddJsonFile($"appsettings.{env}.json", true);
-                    }
-                })
-                .ConfigureServices((context, services) =>
-                {
-                    // NCrontab is a singleton.
-                    services.AddScheduler();
-
-                    // Serivces.
-                    services.Register<ILuxopusPlanService, LuxopusPlanService, LuxopusPlanSettings>(context);
-                    services.Register<IInfluxQueryService, InfluxQueryService, InfluxDBSettings>(context);
-                    services.Register<IInfluxWriterService, InfluxWriterService, InfluxDBSettings>(context);
-                    services.Register<IEmailService, EmailService, EmailSettings>(context);
-                    services.Register<ILuxService, LuxService, LuxSettings>(context);
-                    services.Register<IOctopusService, OctopusService, OctopusSettings>(context);
-                    services.Register<ISolcastService, SolcastService, SolcastSettings>(context);
-
-                    // Main thingy.
-                    services.AddScoped<Luxopus>();
-
-                    // Jobs.
-                    services.AddScoped<LuxMonitor>();
-                    services.AddScoped<LuxDaily>();
-                    services.AddScoped<OctopusMeters>();
-                    services.AddScoped<OctopusPrices>();
-                    services.AddScoped<Solcast>();
-
-                    services.AddScoped<PlanA>();
-
-                })
                 .ConfigureLogging((context, cfg) =>
                 {
                     cfg.ClearProviders();
                     cfg.AddConfiguration(context.Configuration.GetSection("Logging"));
                     cfg.AddConsole();
                 })
+                .AddAppsettingsWithAspNetCoreEnvironment()
+                .AddLuxopus()
                 .Build()
                 )
 

@@ -22,9 +22,10 @@
     <None Remove="InfluxQueries\DaytimeBuyMin" />
     <None Remove="InfluxQueries\DaytimeSellMedian" />
     <None Remove="InfluxQueries\EveningSellMAx" />
-    <None Remove="InfluxQueries\ForecastFactor" />
     <None Remove="InfluxQueries\MorningSellMax" />
     <None Remove="InfluxQueries\OvernightMin" />
+    <None Remove="InfluxQueries\SolcastFactors" />
+    <None Remove="InfluxQueries\SolcastTomorrow" />
   </ItemGroup>
 
   <ItemGroup>

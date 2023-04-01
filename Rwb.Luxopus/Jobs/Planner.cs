@@ -5,12 +5,48 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Rwb.Luxopus.Jobs
 {
+    public static class ThingyExtensions
+    {
+        public static IEnumerable<T> Evening<T>(this IEnumerable<T> things) where T : HalfHour
+        {
+            // This is probably a proxy for 'global maximum'
+            return things.Where(z => z.Start.Hour >= 16 && z.Start.Hour < 20);
+        }
+        public static IEnumerable<T> Overnight<T>(this IEnumerable<T> things) where T : HalfHour
+        {
+            // This is probably a proxy for 'global minimum'
+            return things.Where(z => z.Start.Hour >= 0 && z.Start.Hour < 9);
+        }
+        public static IEnumerable<T> Morning<T>(this IEnumerable<T> things) where T : HalfHour
+        {
+            // This is probably a proxy for 'second maximum'
+            return things.Where(z => z.Start.Hour >= 7 && z.Start.Hour < 11);
+        }
+        public static IEnumerable<T> Daytime<T>(this IEnumerable<T> things) where T : HalfHour
+        {
+            // This is probably a proxy for 'second maximum'
+            return things.Where(z => z.Start.Hour >= 9 && z.Start.Hour < 16);
+        }
+
+        public static IEnumerable<decimal> BuyPrice<T>(this IEnumerable<T> things) where T : ElectricityPrice
+        {
+            return things.Select(z => z.Buy);
+        }
+        public static IEnumerable<decimal> SellPrice<T>(this IEnumerable<T> things) where T : ElectricityPrice
+        {
+            return things.Select(z => z.Sell);
+        }
+    }
+
     public class HalfHourPlan : ElectricityPrice
     {
         // Base class: date, buy price, sell price.
+
+        public int PredictedGeneration { get; set; }
 
         public PeriodAction Action { get; set; }
 
@@ -36,8 +72,16 @@ namespace Rwb.Luxopus.Jobs
     public class PeriodAction
     {
         public bool ChargeFromGrid { get; set; }
+
+        /// <summary>
+        /// If false then generation will be sold.
+        /// </summary>
         public bool ChargeFromGeneration { get; set; }
-        public bool DischargeToGrid { get; set; }
+        
+        /// <summary>
+        /// Battery limit for discharge. Use 100 to disable discharge to grid.
+        /// </summary>
+        public int DischargeToGrid { get; set; }
     }
 
     public class PeriodState

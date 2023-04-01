@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Rwb.Luxopus.Jobs
 {
@@ -25,6 +26,11 @@ namespace Rwb.Luxopus.Jobs
 
         public override async Task RunAsync(CancellationToken cancellationToken)
         {
+            if( DateTime.UtcNow.Minute % 30 > 2) { return; }
+
+            DateTime t0 = new DateTime(2023, 03, 31, 18, 00, 00);
+            IEnumerable<Plan> ps = _Plans.LoadAll(t0.AddHours(3));
+
             Plan? plan = _Plans.Load(DateTime.UtcNow);
             if(plan == null)
             {

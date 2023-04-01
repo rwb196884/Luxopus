@@ -1,0 +1,58 @@
+import "date"
+import "join"
+import "strings"
+
+getValue = (tables=<-, field = "") => {
+    extract = tables
+        |> findColumn(fn: (key) => strings.strlen(v: field) == 0 or key._field == field, column: "_value")
+
+    return extract[0]
+}
+
+// Daily generation data.
+generation = from(bucket: "solar")
+  |> range(start: -1y, stop: now())
+  |> filter(fn: (r) => r["_measurement"] == "daily" and r["_field"] == "generation")
+  |> keep(columns: ["_field", "_time", "_value"])
+  |> map(fn: (r) => ({_time: date.truncate(t: r._time, unit: 1d), _value: float( v: r._value)}))
+
+// Daily forecast integral (we want to predict from forecast -- not actuals)
+solcast = from(bucket: "solar")
+  |> range(start: -1y, stop: 2d)
+  |> filter(fn: (r) => r["_measurement"] == "solcast"and r["_field"] == "forecast")
+  |> window(every: 1d)
+  |> integral(interpolate: "linear", unit: 1d) // Not sure what unit is for. Omitting it changes the result by a factor of ~500,000.
+  |> map(fn: (r) => ({
+    _time: date.truncate(t: r._start, unit: 1d),
+    _value: r._value,
+	//_field: "solcast"
+  }))
+
+// Join
+j = join.inner(
+  left: generation, 
+  right: solcast, 
+  on: (l, r) => l._time == r._time,
+  as: (l, r) => ({
+    _time: l._time,
+    generation: l._value,
+    solcast: r._value,
+    _value: l._value / r._value,
+    _field: "field"
+  })
+  ) 
+
+u = union( tables: [
+	j |> min() |> map(fn: (r) => ({r with agg: "min"})),
+	j |> quantile(q: 0.25, method: "exact_selector") |> map(fn: (r) => ({r with agg: "lq"})),
+	j |> median() |> map(fn: (r) => ({r with agg: "median"})),
+	j |> mean() |> map(fn: (r) => ({r with agg: "mean"})),
+	j |> quantile(q: 0.75, method: "exact_selector") |> map(fn: (r) => ({r with agg: "uq"})),
+	j |> max() |> map(fn: (r) => ({r with agg: "max"}))
+
+]) 
+  |> keep(columns: ["agg", "_value"])
+  |> map(fn: (r) => ({r with rowKey: "rowKey"}))
+  |> pivot(rowKey: ["rowKey"], columnKey:["agg"], valueColumn: "_value")
+  
+u |> yield()

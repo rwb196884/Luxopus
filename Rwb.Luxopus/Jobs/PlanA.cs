@@ -1,15 +1,14 @@
-﻿using InfluxDB.Client.Core.Flux.Domain;
+﻿using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Jobs
 {
-
     /// <summary>
     /// <para>
     /// Buy/sell strategy
@@ -27,45 +26,130 @@ namespace Rwb.Luxopus.Jobs
         private readonly IInfluxQueryService _InfluxQuery;
         private readonly ILuxopusPlanService _Plan;
         IEmailService _Email;
+        ISmsService _Sms;
 
-        public PlanA(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email) : base(logger)
+        public PlanA(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger)
         {
             _Lux = lux;
             _InfluxQuery = influxQuery;
             _Plan = plan;
             _Email = email;
+            _Sms = sms;
         }
 
         public override async Task RunAsync(CancellationToken cancellationToken)
         {
-            int b = await _Lux.GetBatteryLevelAsync();
-            int periods = (b - BatteryMin) / BatteryDrainPerHalfHour;
-
             DateTime t0 = new DateTime(2023, 03, 31, 18, 00, 00);
 
-            IEnumerable<Plan> ps = _Plan.LoadAll(t0.AddHours(3));
-            Plan pp = _Plan.Load(t0.AddHours(3));
-
-            // Prices.
+            // Get prices and set up plan.
             List<ElectricityPrice> prices = await _InfluxQuery.GetPricesAsync(t0);
 
             Plan plan = new Plan(prices);
 
+            // How low can we go?
+            int battMin = BatteryMin;
+            if (plan.Plans.Any(z => z.Buy < 0))
+            {
+                battMin = 30;
+            }
+
+            if (plan.Plans.Morning().SellPrice().Max() > plan.Plans.Overnight().BuyPrice().Min())
+            {
+                battMin = 40;
+            }
+
+            // Battery: current level.
+            int b = await _Lux.GetBatteryLevelAsync();
+
+            // Battery: level change per kWh.
+
+            // Set SELL in order to reach the required battery (low) level.
+            int periods = (b - battMin) / BatteryDrainPerHalfHour;
+
             // TO DO: we might want to choose periods after the maximum.
-            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Sell > 15).OrderByDescending(z => z.Sell).Take(periods + 2 /* Use batt limit to stop */))
+            foreach (HalfHourPlan p in plan.Plans.OrderByDescending(z => z.Sell).Take(periods + 2 /* Use batt limit to stop */))
             {
                 p.Action = new PeriodAction()
                 {
                     ChargeFromGrid = false,
                     ChargeFromGeneration = false,
-                    DischargeToGrid = true
+                    DischargeToGrid = battMin
                 };
             }
 
+            // Buy over night when price is -ve or lower than morning sell price.
+            decimal morningSellMax = plan.Plans.Morning().SellPrice().Max();
+            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 /* paid to buy*/ || z.Buy < morningSellMax - 2M))
+            {
+                p.Action = new PeriodAction()
+                {
+                    ChargeFromGrid = true,
+                    ChargeFromGeneration = false,
+                    DischargeToGrid = 100
+                };
+            }
+            decimal overnightBuyMean = plan.Plans.Where(z => z.Buy < 0 /* paid to buy*/ || z.Buy < morningSellMax - 2M).Select(z => z.Buy).Average();
+
+            // Morning sell.
+            foreach (HalfHourPlan p in plan.Plans.Morning().Where(z => z.Sell < overnightBuyMean - 2M))
+            {
+                if (overnightBuyMean < morningSellMax - 2M)
+                {
+                    p.Action = new PeriodAction()
+                    {
+                        ChargeFromGrid = false,
+                        ChargeFromGeneration = false,
+                        DischargeToGrid = 30
+                    };
+                }
+            }
+
+            // Daytime
+            // Should have made enough space in the battery to store in order to sell during the evening peak.
+
             _Plan.Save(plan);
+            SendEmail(plan);
+        }
 
-            // TO DO: send email.
+        private void SendEmail(Plan plan)
+        {
+            StringBuilder message = new StringBuilder();
+            foreach (HalfHourPlan p in plan.Plans.OrderBy(z => z.Start)){
+                string a = "";
+                if(p.Action != null)
+                {
+                    if (p.Action.ChargeFromGrid)
+                    {
+                        a = " G->B";
+                    }
+                    else if(p.Action.DischargeToGrid < 100)
+                    {
+                        a = $" G <-B ({p.Action.DischargeToGrid})";
+                    }
 
+                }
+                message.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} B:{p.Buy.ToString("00.0")}  S:{p.Sell.ToString("00.0")}{a}");
+            }
+
+            string emailSubjectPrefix = "";
+            if (plan.Plans.Any(z => (z.Action?.DischargeToGrid ?? 101) <= 100))
+            {
+                emailSubjectPrefix += "*";
+            }
+
+            if (plan.Plans.Any(z => (z.Action?.ChargeFromGrid ?? false)))
+            {
+                emailSubjectPrefix += "*";
+            }
+
+            _Email.SendEmail(emailSubjectPrefix + "Solar strategy " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString());
+
+            if (emailSubjectPrefix.Length > 0)
+            {
+                decimal eveningSellHigh = plan.Plans.Evening().Select(z => z.Sell).Max();
+                decimal overnightBuyMin = plan.Plans.Overnight().Select(z => z.Buy).Min();
+                _Sms.SendSms($"SOLAR! Sell {eveningSellHigh.ToString("00.0")} Buy {overnightBuyMin.ToString("00.0")}");
+            }
         }
     }
 }

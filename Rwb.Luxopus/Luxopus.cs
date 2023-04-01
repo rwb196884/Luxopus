@@ -17,9 +17,11 @@ namespace Rwb.Luxopus
             LuxDaily luxDaily,
             OctopusMeters octopusMeters,
             OctopusPrices octopusPrices,
-            Solcast solcast
+            Solcast solcast,
             // Openweathermap
             // Solar elevation angle
+            PlanChecker planChecker,
+            PlanA planA
             )
         {
             _Logger = logger;
@@ -30,12 +32,15 @@ namespace Rwb.Luxopus
             AddJob(luxMonitor, "*/8 * * * *"); // every 8 minutes.
             AddJob(luxDaily, "51 23 * * *"); // at the end of every day
             AddJob(octopusMeters, "53 16 * * *"); // will get yesterday's meters.
-            AddJob(octopusPrices, "51 16 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
+            AddJob(octopusPrices, "34 16 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
             AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
+            AddJob(planChecker, "1,31 * * * *"); // At the start of every half hour.
+            AddJob(planA, "34 16 * * *"); // Make plan after getting prices and before evening peak.
         }
 
         private void _Scheduler_Next(object? sender, ScheduledEventArgs e)
         {
+            // Hello.
         }
 
         private void AddJob(Job j, string cron)

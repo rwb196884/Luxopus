@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using System;
 using System.Net;
 using System.Net.Mail;
+using System.Runtime;
 
 namespace Rwb.Luxopus.Services
 {
@@ -66,8 +67,8 @@ namespace Rwb.Luxopus.Services
 
         public void SendEmail(string subject, string body)
         {
+            if (string.IsNullOrEmpty(Settings.Server)) { return; }
             if (string.IsNullOrEmpty(body)) { return; }
-            if (string.IsNullOrEmpty(Settings.Password)) { return; }
             try
             {
                 using (SmtpClient client = new SmtpClient(Settings.Server)
