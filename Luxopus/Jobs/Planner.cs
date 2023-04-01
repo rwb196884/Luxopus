@@ -8,23 +8,40 @@ using System.Threading.Tasks;
 
 namespace Luxopus.Jobs
 {
-	public class SystemState
-	{
-		public DateTime Start { get; set; }
+    public class HalfHourPlan : ElectricityPrice
+    {
+        // Base class: date, buy price, sell price.
 
-		public int PredictedGeneration { get; set; }
-		public int PredictedUse { get; set; }
+        public PeriodAction Action { get; set; }
 
-		public decimal PriceToBuy { get; set; }
-		public decimal PriceToSell { get; set; }
+        public PeriodState ExpectedStartState { get; set; }
+        public PeriodState ExpectedEndState { get; set; }
 
-		public bool DischargeToGrid { get; set; }
-		public bool ChargeFromGrid { get; set; }
-		public bool ChargeBatt { get; set; }
+        public PeriodState ActualStartState { get; set; }
+        public PeriodState ActualEndState { get; set; }
 
-		public int PredictedImport { get; set; } // Negative for import.
-	}
+        public HalfHourPlan(ElectricityPrice e)
+        {
+            Start = e.Start;
+            Buy = e.Buy;
+            Sell = e.Sell;
+        }
+    }
 
+    public class PeriodAction
+    {
+        public bool ChargeFromGrid { get; set; }
+        public bool ChargeFromGeneration { get; set; }
+        public bool DischargeToGrid { get; set; }
+    }
+
+    public class PeriodState
+    {
+        public Boolean Generating { get; set; }
+        public Boolean Importing { get; set; }
+        public Boolean Exporting { get; set; }
+        public Boolean Storing { get; set; }
+    }
 
     /// <summary>
     /// <para>
@@ -38,47 +55,47 @@ namespace Luxopus.Jobs
     {
         private readonly IInfluxQueryService _InfluxQuery;
 
-        public Planner(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery)  :base(logger)
+        public Planner(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery) : base(logger)
         {
             _InfluxQuery = influxQuery;
         }
 
         public override async Task RunAsync(CancellationToken cancellationToken)
         {
-			// Make a plan! (And write it down.)
-			DateTime day = DateTime.Now;
+            // Make a plan! (And write it down.)
+            DateTime day = DateTime.Now;
 
-			// First collect some data.
+            // First collect some data.
 
-			// How much battery does the house use over night?
-			int battForNight = 30;
-			
+            // How much battery does the house use over night?
+            int battForNight = 30;
 
 
-			// TO DO:
-			// * integrate usage (lq, med, uq) to estimate typical energy use by time of day.
-			// * integrate batt charge/discharge to estimate how much energy is a percent.
-			// * 'night' and 'day' depend on time of year and time zone daylight saving.
 
-			// How much battery does the house use throgh the day?
-			int battForDay = 40; // 262/210 * 30% from Solar dashboard.
+            // TO DO:
+            // * integrate usage (lq, med, uq) to estimate typical energy use by time of day.
+            // * integrate batt charge/discharge to estimate how much energy is a percent.
+            // * 'night' and 'day' depend on time of year and time zone daylight saving.
 
-			// How fast does the battery discharge to the grid? (Percent per half hour.)
-			int battDischargePerHalfHour = 20;
+            // How much battery does the house use throgh the day?
+            int battForDay = 40; // 262/210 * 30% from Solar dashboard.
 
-			// Current battery level.
-			int batteryLevelNow = await GetBatteryLevel();
+            // How fast does the battery discharge to the grid? (Percent per half hour.)
+            int battDischargePerHalfHour = 20;
 
-			// Prices.
-			List<HalfHour> prices = await _InfluxQuery.GetPricesAsync(DateTime.Now);
-			decimal pEveningSellMax = 19;
-			decimal pNightBuyMin = 18;
-			decimal pMorningSellMax = 14;
-			decimal pDaytimeMedianSell = 12;
-			decimal pAfternoonBuyMin = 20;
+            // Current battery level.
+            int batteryLevelNow = await GetBatteryLevel();
 
-			// Charging forecast.
-			int batteryForecast = 120; 
+            // Prices.
+            List<HalfHour> prices = await _InfluxQuery.GetPricesAsync(DateTime.Now);
+            decimal pEveningSellMax = 19;
+            decimal pNightBuyMin = 18;
+            decimal pMorningSellMax = 14;
+            decimal pDaytimeMedianSell = 12;
+            decimal pAfternoonBuyMin = 20;
+
+            // Charging forecast.
+            int batteryForecast = 120;
 
 
 
@@ -133,8 +150,8 @@ namespace Luxopus.Jobs
 			*/
         }
 
-		private async Task<int> GetBatteryLevel()
-		{
+        private async Task<int> GetBatteryLevel()
+        {
             string flux = $@"
 from(bucket:""{_InfluxQuery.Bucket}"")
   |> range(start: -15m, stop: now())

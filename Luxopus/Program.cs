@@ -72,6 +72,8 @@ namespace Luxopus
                     services.AddScoped<OctopusPrices>();
                     services.AddScoped<Solcast>();
 
+                    services.AddScoped<PlanA>();
+
                 })
                 .ConfigureLogging((context, cfg) =>
                 {
@@ -89,8 +91,9 @@ namespace Luxopus
                     //m = scope.ServiceProvider.GetRequiredService<LuxMonitor>();
                     //m = scope.ServiceProvider.GetRequiredService<LuxDaily>();
                     //m = scope.ServiceProvider.GetRequiredService<OctopusMeters>();
-                    m = scope.ServiceProvider.GetRequiredService<OctopusPrices>();
+                    //m = scope.ServiceProvider.GetRequiredService<OctopusPrices>();
                     //m = scope.ServiceProvider.GetRequiredService<Solcast>();
+                    m = scope.ServiceProvider.GetRequiredService<PlanA>();
                     m.RunAsync(CancellationToken.None).Wait();
                     return;
 

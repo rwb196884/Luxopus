@@ -28,6 +28,8 @@ namespace Luxopus.Jobs
             {
                 JsonElement.ObjectEnumerator r = j.RootElement.EnumerateObject();
 
+                //DateTime t = r.Single(z => z.Name == "serverTime").GetDate().Value;
+
                 lines.Add(Measurement, "generation", r.Single(z => z.Name == "ppv").Value.GetInt32());
                 lines.Add(Measurement, "inverter_output", r.Single(z => z.Name == "pinv").Value.GetInt32());
                 lines.Add(Measurement, "batt_charge", r.Single(z => z.Name == "pCharge").Value.GetInt32());

@@ -99,11 +99,11 @@ namespace Luxopus.Services
         Task<List<FluxTable>> QueryAsync(Query query, DateTime today);
 
         /// <summary>
-        /// Get prices starting on the afternoon of the <paramref name="day"/> through to the end of the next day.
+        /// Get prices at <paramref name="day"/> through to the end of the next day.
         /// </summary>
         /// <param name="day"></param>
         /// <returns></returns>
-        Task<List<HalfHour>> GetPricesAsync(DateTime day);
+        Task<List<ElectricityPrice>> GetPricesAsync(DateTime day);
     }
 
     public enum Query
@@ -150,13 +150,13 @@ namespace Luxopus.Services
 
         }
 
-        public async Task<List<HalfHour>> GetPricesAsync(DateTime day)
+        public async Task<List<ElectricityPrice>> GetPricesAsync(DateTime day)
         {
             string flux = $@"
 import ""{Settings.Bucket}""
 
 t0 = {day.ToString("yyyy-MM-ddTHH:mm:ss")}Z
-t1 = date.add(d: 36h, to: t0)
+t1 = date.add(d: 25h, to: t0)
 
 from(bucket: ""solar"")
   |> range(start: t0, stop: t1)
@@ -165,7 +165,7 @@ from(bucket: ""solar"")
 
             List<FluxTable> q = await QueryAsync(flux);
             return q[0].Records.GroupBy(z => (DateTime)z.GetValueByKey("_time"))
-                .Select(z => new HalfHour()
+                .Select(z => new ElectricityPrice()
                 {
                     Start = z.Key,
                     Buy = (decimal)(z.Single(z => (string)z.GetValueByKey("type") == "buy").GetValueByKey("_value")),
@@ -175,9 +175,13 @@ from(bucket: ""solar"")
         }
     }
 
-    internal class HalfHour
+    public abstract class HalfHour
     {
         public DateTime Start { get; set; }
+    }
+
+    public class ElectricityPrice : HalfHour
+    {
         public decimal Buy { get; set; }
         public decimal Sell { get; set; }
     }

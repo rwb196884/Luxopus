@@ -1,6 +1,7 @@
 ﻿using InfluxDB.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NodaTime;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -95,12 +96,14 @@ namespace Luxopus.Services
                 throw new NotImplementedException();
             }
 
+            Instant i = Instant.FromDateTimeUtc(time);
+
             string tagString = "";
             if (tags.Count() > 0)
             {
                 tagString = "," + string.Join(",", tags.Select(z => $"{z.Key}={z.Value}"));
             }
-            _Lines.Add($"{measurement}{tagString} {fieldKey}={fieldValue} {time.Ticks}");
+            _Lines.Add($"{measurement}{tagString} {fieldKey}={fieldValue} {i.ToUnixTimeSeconds()}");
         }
 
         public string[] GetLineData()
