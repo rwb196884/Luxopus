@@ -8,14 +8,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.PortableExecutable;
 using System.Threading.Tasks;
 
-namespace Luxopus.Services
+namespace Rwb.Luxopus.Services
 {
     /// <summary>
     /// Seems not to be provided by InfluxDB.Client so we make on rather than demand the entire config and then do .GetValue("InfluxDB:Token");.
     /// </summary>
-    internal class InfluxDBSettings : Settings
+    public class InfluxDBSettings : Settings
     {
         public string Token { get; set; }
         public string Server { get; set; }
@@ -23,7 +24,7 @@ namespace Luxopus.Services
         public string Bucket { get; set; }
     }
 
-    internal abstract class InfluxService : Service<InfluxDBSettings>
+    public abstract class InfluxService : Service<InfluxDBSettings>
     {
         protected readonly IInfluxDBClient Client;
         private bool disposedValue;
@@ -92,7 +93,7 @@ namespace Luxopus.Services
         }
     }
 
-    internal interface IInfluxQueryService
+    public interface IInfluxQueryService
     {
         string Bucket { get; }
         Task<List<FluxTable>> QueryAsync(string flux);
@@ -115,7 +116,7 @@ namespace Luxopus.Services
         DaytimeBuyMin
     }
 
-    internal class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable
+    public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable
     {
 
         public InfluxQueryService(ILogger<InfluxQueryService> logger, IOptions<InfluxDBSettings> settings) : base(logger, settings) { }
@@ -153,25 +154,30 @@ namespace Luxopus.Services
         public async Task<List<ElectricityPrice>> GetPricesAsync(DateTime day)
         {
             string flux = $@"
-import ""{Settings.Bucket}""
+import ""date""
 
 t0 = {day.ToString("yyyy-MM-ddTHH:mm:ss")}Z
 t1 = date.add(d: 25h, to: t0)
 
-from(bucket: ""solar"")
+from(bucket: ""{Settings.Bucket}"")
   |> range(start: t0, stop: t1)
   |> filter(fn: (r) => r[""_measurement""] == ""prices"" and r[""fuel""] == ""electricity"")
-  |> keep(columns: [""_time"", ""_value"", ""type""])";
+  |> keep(columns: [""_time"", ""_value"", ""type""])
+  |> group(columns: [])"; // if not group then it comes out in two tables.
 
             List<FluxTable> q = await QueryAsync(flux);
-            return q[0].Records.GroupBy(z => (DateTime)z.GetValueByKey("_time"))
-                .Select(z => new ElectricityPrice()
-                {
-                    Start = z.Key,
-                    Buy = (decimal)(z.Single(z => (string)z.GetValueByKey("type") == "buy").GetValueByKey("_value")),
-                    Sell = (decimal)(z.Single(z => (string)z.GetValueByKey("type") == "sell").GetValueByKey("_value"))
-                })
-                .ToList();
+            if (q.Count > 0 && q[0].Records.Count > 0)
+            {
+                return q[0].Records.GroupBy(z => z.GetValue<DateTime>("_time"))
+                    .Select(z => new ElectricityPrice()
+                    {
+                        Start = z.Key,
+                        Buy = z.SingleOrDefault(z => (string)z.GetValueByKey("type") == "buy")?.GetValue<decimal>("_value") ?? -1M,
+                        Sell = z.SingleOrDefault(z => (string)z.GetValueByKey("type") == "sell")?.GetValue<decimal>("_value") ?? -1M
+                    })
+                    .ToList();
+            }
+            return new List<ElectricityPrice>();
         }
     }
 
@@ -195,6 +201,19 @@ from(bucket: ""solar"")
             {
                 return (T)(object)((Instant)o).ToDateTimeUtc();
             }
+
+            if (typeof(T) == typeof(decimal))
+            {
+                if(o.GetType() == typeof(decimal))
+                {
+                    return (T)o;
+                }
+                else if(o.GetType() == typeof(double))
+                {
+                    return (T)(object)Convert.ToDecimal((double)(o));
+                }
+            }
+
             return (T)o;
         }
 

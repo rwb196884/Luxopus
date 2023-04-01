@@ -1,57 +1,88 @@
-﻿using CsvHelper;
-using Luxopus.Jobs;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Rwb.Luxopus.Jobs;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 
-namespace Luxopus.Services
+namespace Rwb.Luxopus.Services
 {
-    public class Plan : List<HalfHourPlan>
+    public class Plan //: IQueryable<HalfHourPlan>
     {
+        // Simply extending List<> doens't work with JsonSerializer.
+        // Implementing IQueryable<HalfHourPlan> fucks it up too.
+        public List<HalfHourPlan> Plans { get; set; }
+
+        public Plan(IEnumerable<ElectricityPrice> prices)
+        {
+            Plans = prices.Select(z => new HalfHourPlan(z)).ToList();
+        }
+
+        [JsonIgnore]
         public HalfHourPlan? Current
         {
             get
             {
-                return this.OrderByDescending(z => z.Start).FirstOrDefault(z => z.Start < DateTime.UtcNow);
+                return Plans.OrderByDescending(z => z.Start).FirstOrDefault(z => z.Start < DateTime.UtcNow);
             }
         }
 
+        [JsonIgnore]
         public HalfHourPlan? Previous
         {
             get
             {
-                return this.OrderByDescending(z => z.Start).Where(z => z.Start < DateTime.UtcNow).Skip(1).Take(1).SingleOrDefault();
+                return Plans.OrderByDescending(z => z.Start).Where(z => z.Start < DateTime.UtcNow).Skip(1).Take(1).SingleOrDefault();
             }
         }
 
+        [JsonIgnore]
         public HalfHourPlan? Next
         {
             get
             {
-                return this.OrderBy(z => z.Start).Where(z => z.Start > DateTime.UtcNow).FirstOrDefault();
+                return Plans.OrderBy(z => z.Start).Where(z => z.Start > DateTime.UtcNow).FirstOrDefault();
             }
         }
+
+        #region IQueryable
+        /*
+        public Type ElementType => Plans.AsQueryable().ElementType;
+
+        public Expression Expression => Plans.AsQueryable().Expression;
+
+        public IQueryProvider Provider => Plans.AsQueryable().Provider;
+
+        public IEnumerator<HalfHourPlan> GetEnumerator()
+        {
+            return Plans.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return ((IEnumerable)Plans).GetEnumerator();
+        }
+        */
+        #endregion
     }
 
-    internal class LuxopusPlanSettings : Settings
+    public class LuxopusPlanSettings : Settings
     {
         public string PlanLocation { get; set; }
     }
 
-    internal interface ILuxopusPlanService
+    public interface ILuxopusPlanService
     {
         Plan? Load(DateTime t);
         IEnumerable<Plan> LoadAll(DateTime t);
         void Save(Plan plan);
     }
 
-    internal class LuxopusPlanService : Service<LuxopusPlanSettings>, ILuxopusPlanService
+    public class LuxopusPlanService : Service<LuxopusPlanSettings>, ILuxopusPlanService
     {
         const string FileDateFormat = "yyyy-MM-dd_HH-mm";
         public LuxopusPlanService(ILogger<LuxopusPlanService> logger, IOptions<LuxopusPlanSettings> settings) : base(logger, settings) { }
@@ -63,7 +94,7 @@ namespace Luxopus.Services
 
         private static string GetFilename(Plan p)
         {
-            IEnumerable<HalfHourPlan> o = p.OrderBy(z => z.Start);
+            IEnumerable<HalfHourPlan> o = p.Plans.OrderBy(z => z.Start);
             return o.First().Start.ToString(FileDateFormat) + "__" + o.Last().Start.ToString(FileDateFormat);
         }
 
@@ -74,6 +105,7 @@ namespace Luxopus.Services
 
         private static Plan Load(FileInfo planFile)
         {
+            if( !planFile.Exists) { return null; }
             using (FileStream fs = planFile.OpenRead())
             {
                 using (StreamReader r = new StreamReader(fs))
@@ -135,7 +167,8 @@ namespace Luxopus.Services
             {
                 using (StreamWriter w = new StreamWriter(fs))
                 {
-                    w.Write(JsonSerializer.Serialize(plan));
+                    string json = JsonSerializer.Serialize(plan);
+                    w.Write(json);
                 }
             }
         }

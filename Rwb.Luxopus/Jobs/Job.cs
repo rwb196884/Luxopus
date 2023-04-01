@@ -2,9 +2,9 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Luxopus.Jobs
+namespace Rwb.Luxopus.Jobs
 {
-    internal abstract class Job
+    public abstract class Job
     {
         protected ILogger Logger;
 

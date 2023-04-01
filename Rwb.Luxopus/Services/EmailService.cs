@@ -4,9 +4,9 @@ using System;
 using System.Net;
 using System.Net.Mail;
 
-namespace Luxopus.Services
+namespace Rwb.Luxopus.Services
 {
-    internal class EmailSettings : Settings
+    public class EmailSettings : Settings
     {
         public string Server { get; set; }
         public string Username { get; set; }
@@ -15,12 +15,12 @@ namespace Luxopus.Services
         public string MailTo { get; set; }
     }
 
-    internal interface IEmailService
+    public interface IEmailService
     {
         void SendEmail(string subject, string body);
     }
 
-    internal class EmailService : Service<EmailSettings>, IEmailService
+    public class EmailService : Service<EmailSettings>, IEmailService
     {
         public EmailService(ILogger<EmailService> logger, IOptions<EmailSettings> settings) : base(logger, settings) { }
 

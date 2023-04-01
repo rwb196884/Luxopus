@@ -9,9 +9,9 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace Luxopus.Services
+namespace Rwb.Luxopus.Services
 {
-    internal class LuxSettings : Settings
+    public class LuxSettings : Settings
     {
         public string Username { get; set; }
         public string Password { get; set; }
@@ -20,7 +20,7 @@ namespace Luxopus.Services
         public string TimeZone { get; set; }
     }
 
-    internal interface ILuxService
+    public interface ILuxService
     {
         Task<string> GetInverterRuntimeAsync();
         Task<string> GetInverterEnergyInfoAsync();
@@ -33,7 +33,7 @@ namespace Luxopus.Services
         Task Reset();
     }
 
-    internal class LuxService : Service<LuxSettings>, ILuxService, IDisposable
+    public class LuxService : Service<LuxSettings>, ILuxService, IDisposable
     {
         private const string GetInverterRuntimePath = "/WManage/api/inverter/getInverterRuntime";
         private const string GetInverterEnergyInfoPath = "/WManage/api/inverter/getInverterEnergyInfo";

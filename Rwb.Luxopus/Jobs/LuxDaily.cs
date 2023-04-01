@@ -1,4 +1,4 @@
-﻿using Luxopus.Services;
+﻿using Rwb.Luxopus.Services;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
@@ -6,9 +6,9 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Luxopus.Jobs
+namespace Rwb.Luxopus.Jobs
 {
-    internal class LuxDaily : Job
+    public class LuxDaily : Job
     {
         private const string Measurement = "daily";
 

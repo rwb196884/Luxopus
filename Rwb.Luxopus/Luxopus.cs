@@ -1,12 +1,12 @@
-﻿using Luxopus.Jobs;
+﻿using Rwb.Luxopus.Jobs;
 using Microsoft.Extensions.Logging;
 using NCrontab;
 using NCrontab.Scheduler;
 using System.Collections.Generic;
 
-namespace Luxopus
+namespace Rwb.Luxopus
 {
-    internal class Luxopus
+    public class Luxopus
     {
         private readonly List<Job> _Jobs; 
         private readonly IScheduler _Scheduler; // https://github.com/thomasgalliker/NCrontab.Scheduler

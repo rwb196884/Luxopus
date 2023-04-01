@@ -7,7 +7,7 @@ using NodaTime;
 using System;
 using System.Text.Json;
 
-namespace Luxopus.Services
+namespace Rwb.Luxopus.Services
 {
     public static class IServiceCollectionExtensions
     {
@@ -41,7 +41,7 @@ namespace Luxopus.Services
         }
     }
 
-    internal static class ServiceRegistrationExtensions
+    public static class ServiceRegistrationExtensions
     {
         public static void Register<I, T, S>(this IServiceCollection services, HostBuilderContext context)
             where I : class
@@ -53,7 +53,7 @@ namespace Luxopus.Services
         }
     }
 
-    //internal static class DateTimeExensions
+    //public static class DateTimeExensions
     //{
     //    /// <summary>
     //    /// https://stackoverflow.com/questions/19695439/get-the-default-timezone-for-a-country-via-cultureinfo
@@ -96,9 +96,9 @@ namespace Luxopus.Services
     //    }
     //}
 
-    internal abstract class Settings { }
+    public abstract class Settings { }
 
-    internal abstract class Service<T> where T : Settings
+    public abstract class Service<T> where T : Settings
     {
         protected readonly T Settings;
         protected readonly ILogger Logger;

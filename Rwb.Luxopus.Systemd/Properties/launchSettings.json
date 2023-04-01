@@ -1,0 +1,11 @@
+﻿{
+  "profiles": {
+    "Rwb.Luxopus.Systemd": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

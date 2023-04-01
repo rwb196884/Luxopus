@@ -12,7 +12,6 @@
     <Version Condition=" '$(VersionSuffix)' == '' ">0.0.1.0</Version>
     <Version Condition=" '$(VersionSuffix)' != '' ">$(VersionSuffix)</Version>
     <LangVersion>8</LangVersion>
-    <!-- EF requires nullable. Otherwise, 6.-->
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,23 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="InfluxQueries/*" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="InfluxQueries\DaytimeBuyMin" />
-    <None Remove="InfluxQueries\DaytimeSellMedian" />
-    <None Remove="InfluxQueries\EveningSellMAx" />
-    <None Remove="InfluxQueries\ForecastFactor" />
-    <None Remove="InfluxQueries\MorningSellMax" />
-    <None Remove="InfluxQueries\OvernightMin" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="InfluxDB.Client" Version="4.11.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="6.0.0" />
-    <PackageReference Include="NCrontab.Scheduler.AspNetCore" Version="1.1.17" />
+    <ProjectReference Include="..\Rwb.Luxopus\Rwb.Luxopus.csproj" />
   </ItemGroup>
 
 </Project>

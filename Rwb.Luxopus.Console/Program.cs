@@ -1,5 +1,5 @@
-﻿using Luxopus.Jobs;
-using Luxopus.Services;
+﻿using Rwb.Luxopus.Jobs;
+using Rwb.Luxopus.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
 
-namespace Luxopus
+namespace Rwb.Luxopus.Console
 {
     public static class Program
     {
@@ -100,13 +100,13 @@ namespace Luxopus
                     Luxopus l = scope.ServiceProvider.GetRequiredService<Luxopus>();
                     l.Start();
 
-                    Console.WriteLine("Started. Press <enter> to stop.");
-                    Console.ReadLine();
-                    Console.WriteLine("Stopping...");
+                    System.Console.WriteLine("Started. Press <enter> to stop.");
+                    System.Console.ReadLine();
+                    System.Console.WriteLine("Stopping...");
                     l.Stop();
                 }
             }
-            Console.WriteLine("Done.");
+            System.Console.WriteLine("Done.");
         }
     }
 }

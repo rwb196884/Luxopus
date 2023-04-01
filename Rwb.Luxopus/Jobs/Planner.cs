@@ -1,12 +1,12 @@
 ﻿using InfluxDB.Client.Core.Flux.Domain;
-using Luxopus.Services;
+using Rwb.Luxopus.Services;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Luxopus.Jobs
+namespace Rwb.Luxopus.Jobs
 {
     public class HalfHourPlan : ElectricityPrice
     {
@@ -25,6 +25,11 @@ namespace Luxopus.Jobs
             Start = e.Start;
             Buy = e.Buy;
             Sell = e.Sell;
+        }
+
+        public override string ToString()
+        {
+            return $"{Start.ToString("dd MMM HH:mm")} {Sell.ToString("00.0")}-{Buy.ToString("00.0")}";
         }
     }
 
@@ -51,7 +56,7 @@ namespace Luxopus.Jobs
 	/// Probably heavily biassed to the UK market with lots of hard-coded assumptions.
 	/// </para>
     /// </summary>
-    internal class Planner : Job
+    public class Planner : Job
     {
         private readonly IInfluxQueryService _InfluxQuery;
 
@@ -87,7 +92,7 @@ namespace Luxopus.Jobs
             int batteryLevelNow = await GetBatteryLevel();
 
             // Prices.
-            List<HalfHour> prices = await _InfluxQuery.GetPricesAsync(DateTime.Now);
+            List<ElectricityPrice> prices = await _InfluxQuery.GetPricesAsync(DateTime.Now);
             decimal pEveningSellMax = 19;
             decimal pNightBuyMin = 18;
             decimal pMorningSellMax = 14;

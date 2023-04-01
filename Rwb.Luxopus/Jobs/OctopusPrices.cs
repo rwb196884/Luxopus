@@ -1,5 +1,5 @@
 ﻿using InfluxDB.Client.Core.Flux.Domain;
-using Luxopus.Services;
+using Rwb.Luxopus.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualBasic;
 using NodaTime;
@@ -9,9 +9,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Luxopus.Jobs
+namespace Rwb.Luxopus.Jobs
 {
-    internal class OctopusPrices : Job
+    public class OctopusPrices : Job
     {
         private const string Measurement = "prices";
 

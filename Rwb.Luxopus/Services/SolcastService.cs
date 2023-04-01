@@ -6,23 +6,23 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace Luxopus.Services
+namespace Rwb.Luxopus.Services
 {
 
-    internal class SolcastSettings : Settings
+    public class SolcastSettings : Settings
     {
         public string BaseAddress { get; set; }
         public string ApiKey { get; set; }
         public string SiteId { get; set; }
     }
 
-    internal interface ISolcastService
+    public interface ISolcastService
     {
         Task<string> GetForecasts();
         Task<string> GetEstimatedActuals();
     }
 
-    internal class SolcastService : Service<SolcastSettings>, ISolcastService
+    public class SolcastService : Service<SolcastSettings>, ISolcastService
     {
         private readonly IInfluxWriterService _InfluxWrite;
         public SolcastService(ILogger<SolcastService> logger, IOptions<SolcastSettings> settings, IInfluxWriterService influxWrite) : base(logger, settings)

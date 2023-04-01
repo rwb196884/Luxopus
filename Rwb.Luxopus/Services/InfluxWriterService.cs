@@ -9,14 +9,14 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Luxopus.Services
+namespace Rwb.Luxopus.Services
 {
-    internal interface IInfluxWriterService
+    public interface IInfluxWriterService
     {
         Task WriteAsync(LineDataBuilder lineData);
     }
 
-    internal class InfluxWriterService : InfluxService, IInfluxWriterService
+    public class InfluxWriterService : InfluxService, IInfluxWriterService
     {
         public InfluxWriterService(ILogger<InfluxWriterService> logger, IOptions<InfluxDBSettings> settings) : base(logger, settings) { }
 
@@ -65,7 +65,7 @@ namespace Luxopus.Services
         }
     }
 
-    internal class LineDataBuilder
+    public class LineDataBuilder
     {
         private readonly List<string> _Lines;
 

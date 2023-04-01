@@ -1,0 +1,12 @@
+﻿# https://swimburger.net/blog/dotnet/how-to-run-a-dotnet-core-console-app-as-a-service-using-systemd-on-linux
+
+[Unit]
+Description=Luxopus
+
+[Service]
+Type=notify
+ExecStart=/opt/luxopus/run.sh
+User=rwb
+
+[Install]
+WantedBy=multi-user.target

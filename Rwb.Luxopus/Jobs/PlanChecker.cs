@@ -1,10 +1,10 @@
-﻿using Luxopus.Services;
+﻿using Rwb.Luxopus.Services;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Luxopus.Jobs
+namespace Rwb.Luxopus.Jobs
 {
 
     /// <summary>
@@ -12,7 +12,7 @@ namespace Luxopus.Jobs
     /// Check that plans are running. Could
     /// </para>
     /// </summary>
-    internal class PlanChecker : Job
+    public class PlanChecker : Job
     {
         private readonly ILuxopusPlanService _Plans;
         private readonly ILuxService _Lux;
@@ -25,7 +25,7 @@ namespace Luxopus.Jobs
 
         public override async Task RunAsync(CancellationToken cancellationToken)
         {
-            HalfHourPlan? plan = _Plans.GetCurrentPlan();
+            Plan? plan = _Plans.Load(DateTime.UtcNow);
             if(plan == null)
             {
                 Logger.LogError($"No current plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");

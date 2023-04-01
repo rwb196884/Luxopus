@@ -1,5 +1,5 @@
 ﻿using InfluxDB.Client.Core.Flux.Domain;
-using Luxopus.Services;
+using Rwb.Luxopus.Services;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Luxopus.Jobs
+namespace Rwb.Luxopus.Jobs
 {
 
     /// <summary>
@@ -18,7 +18,7 @@ namespace Luxopus.Jobs
 	/// Probably heavily biassed to the UK market with lots of hard-coded assumptions.
 	/// </para>
     /// </summary>
-    internal class PlanA : Job
+    public class PlanA : Job
     {
         const int BatteryDrainPerHalfHour = 10;
         const int BatteryMin = 50;
@@ -28,12 +28,12 @@ namespace Luxopus.Jobs
         private readonly ILuxopusPlanService _Plan;
         IEmailService _Email;
 
-        public PlanA(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email)  :base(logger)
+        public PlanA(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email) : base(logger)
         {
-            _Lux= lux;
-            _InfluxQuery= influxQuery;
-            _Plan= plan;
-            _Email= email;
+            _Lux = lux;
+            _InfluxQuery = influxQuery;
+            _Plan = plan;
+            _Email = email;
         }
 
         public override async Task RunAsync(CancellationToken cancellationToken)
@@ -43,13 +43,16 @@ namespace Luxopus.Jobs
 
             DateTime t0 = new DateTime(2023, 03, 31, 18, 00, 00);
 
-			// Prices.
-			List<ElectricityPrice> prices = await _InfluxQuery.GetPricesAsync(t0);
+            IEnumerable<Plan> ps = _Plan.LoadAll(t0.AddHours(3));
+            Plan pp = _Plan.Load(t0.AddHours(3));
 
-            List<HalfHourPlan> plan = prices.Select(z => new HalfHourPlan(z)).ToList();
+            // Prices.
+            List<ElectricityPrice> prices = await _InfluxQuery.GetPricesAsync(t0);
+
+            Plan plan = new Plan(prices);
 
             // TO DO: we might want to choose periods after the maximum.
-            foreach( HalfHourPlan p in plan.Where(z => z.Sell > 15).OrderByDescending(z => z.Sell).Take(periods + 2 /* Use batt limit to stop */))
+            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Sell > 15).OrderByDescending(z => z.Sell).Take(periods + 2 /* Use batt limit to stop */))
             {
                 p.Action = new PeriodAction()
                 {
@@ -59,7 +62,7 @@ namespace Luxopus.Jobs
                 };
             }
 
-            _Plan.SavePlans(plan);
+            _Plan.Save(plan);
 
             // TO DO: send email.
 

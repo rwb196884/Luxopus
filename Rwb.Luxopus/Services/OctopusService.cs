@@ -8,9 +8,9 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace Luxopus.Services
+namespace Rwb.Luxopus.Services
 {
-    internal static class JsonQueryExtensions
+    public static class JsonQueryExtensions
     {
         public static IEnumerable<JsonElement> GetArray(this JsonElement source, string propertyName)
         {
@@ -47,7 +47,7 @@ namespace Luxopus.Services
         }
     }
 
-    internal class OctopusSettings : Settings
+    public class OctopusSettings : Settings
     {
         public string ApiKey { get; set; }
         public string BaseAddress { get; set; }
@@ -57,28 +57,28 @@ namespace Luxopus.Services
         //public string Mapn { get; set; }
     }
 
-    internal class TariffCode
+    public class TariffCode
     {
         public string Code { get; set; }
         public DateTime ValidFrom { get; set; }
         public DateTime? ValidTo { get; set; }
     }
 
-    internal class MeterReading
+    public class MeterReading
     {
         public DateTime IntervalStart { get; set; }
         public DateTime IntervalEnd { get; set; }
         public decimal Consumption { get; set; }
     }
 
-    internal class Price
+    public class Price
     {
         public decimal Pence { get; set; }
         public DateTime ValidFrom { get; set; }
         public DateTime? ValidTo { get; set; }
     }
 
-    internal interface IOctopusService
+    public interface IOctopusService
     {
         Task<IEnumerable<string>> GetElectricityMeterPoints();
         Task<IEnumerable<string>> GetElectricityMeters(string mapn);
@@ -93,7 +93,7 @@ namespace Luxopus.Services
         Task<IEnumerable<Price>> GetGasPrices(string product, string tariff, DateTime from, DateTime to);
     }
 
-    internal class OctopusService : Service<OctopusSettings>, IOctopusService
+    public class OctopusService : Service<OctopusSettings>, IOctopusService
     {
         private const string DateFormat = "yyyy-MM-ddTHH:MM:ss"; // API doesn't accept zzz but does accept a Z on the end.
         public OctopusService(ILogger<OctopusService> logger, IOptions<OctopusSettings> settings) : base(logger, settings) { }

@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UserSecretsId>dotnet-Rwb.Luxopus.Systemd-15706158-46aa-4a0d-8979-97299b69988e</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="unit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="unit">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Rwb.Luxopus\Rwb.Luxopus.csproj" />
+  </ItemGroup>
+</Project>
