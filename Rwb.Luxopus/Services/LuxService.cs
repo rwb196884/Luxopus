@@ -27,6 +27,8 @@ namespace Rwb.Luxopus.Services
 
         //Task<int> GetBatteryLevelAsync();
 
+        Task<Dictionary<string, string>> GetSettingsAsync();
+
         Task SetChargeFromGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
         Task SetDishargeToGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
         Task SetBatteryChargeRate(int batteryChargeRatePercent);

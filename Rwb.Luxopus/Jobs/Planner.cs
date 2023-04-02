@@ -33,18 +33,21 @@ namespace Rwb.Luxopus.Jobs
 
         public override string ToString()
         {
-            return $"{Start.ToString("dd MMM HH:mm")} {Sell.ToString("00.0")}-{Buy.ToString("00.0")} {Action?.ToString() ?? "no action"}";
+            return $"{base.ToString()} {Action?.ToString() ?? "no action"}";
         }
     }
 
     public class PeriodAction
     {
+        /// <summary>
+        /// If true then charge the battery from the grid.
+        /// </summary>
         public bool ChargeFromGrid { get; set; }
 
         /// <summary>
-        /// If false then generation will be sold.
+        /// If true then export generation to grid in preference to storing.
         /// </summary>
-        public bool ChargeFromGeneration { get; set; }
+        public bool ExportGeneration { get; set; }
 
         /// <summary>
         /// Battery limit for discharge. Use 100 to disable discharge to grid.
@@ -57,29 +60,29 @@ namespace Rwb.Luxopus.Jobs
 
             if (ChargeFromGrid)
             {
-                a += "(G>B)";
+                a += "(grid to batt)";
             }
             else
             {
-                a += "(G|B)";
+                a += "(batt no charge from grid)";
             }
 
-            if (ChargeFromGeneration)
+            if (ExportGeneration)
             {
-                a += "(P>B)";
+                a += "(solar to grid not batt)";
             }
             else
             {
-                a += "(P|B)";
+                a += "(solar to batt not grid)";
             }
 
             if (DischargeToGrid < 100)
             {
-                a += $"(G<B @{DischargeToGrid})";
+                a += $"(batt over {DischargeToGrid} to grid)";
             }
             else
             {
-                a += "(G|B)";
+                a += "(batt no discharge to grid)";
             }
             return a;
         }
@@ -107,16 +110,16 @@ namespace Rwb.Luxopus.Jobs
             string flux = $@"
 from(bucket:""{InfluxQuery.Bucket}"")
   |> range(start: -15m, stop: now())
-  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""level"")
+  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""batt_level"")
   |> last()
 ";
             List<FluxTable> q = await InfluxQuery.QueryAsync(flux);
             if (q.Count > 0 && q[0].Records.Count > 0)
             {
-                object o = q[0].Records[0].Values["_time"];
-                return (int)o;
+                object o = q[0].Records[0].Values["_value"];
+                return Convert.ToInt32(o); // It's long.
             }
-            return 0;
+            return -1;
         }
 
         protected async Task<(decimal min, decimal lq, decimal median, decimal mean, decimal uq, decimal max)> GetSolcastFactorsAsync()

@@ -134,7 +134,7 @@ namespace Rwb.Luxopus.Services
 
         private async Task<string> ReadFluxAsync(string name)
         {
-            string resourceName = $"Luxopus.InfluxQueries.{name}";
+            string resourceName = $"Rwb.Luxopus.InfluxQueries.{name}";
 
             using (Stream stream = Assembly.GetAssembly(GetType()).GetManifestResourceStream(resourceName))
             {
@@ -149,9 +149,8 @@ namespace Rwb.Luxopus.Services
         {
             string flux = await ReadFluxAsync(query.ToString());
             flux = flux.Replace("bucket: \"solar\"", $"bucket: \"{Settings.Bucket}\"");
-            flux = flux.Replace("today()", $"{today.ToString("yyyy-MM-ddZ")}T00:00:00");
+            flux = flux.Replace("today()", $"{today.ToString("yyyy-MM-dd")}T00:00:00Z");
             return await QueryAsync(flux);
-
         }
 
         public async Task<List<ElectricityPrice>> GetPricesAsync(DateTime day)
@@ -160,7 +159,7 @@ namespace Rwb.Luxopus.Services
 import ""date""
 
 t0 = {day.ToString("yyyy-MM-ddTHH:mm:ss")}Z
-t1 = date.add(d: 25h, to: t0)
+t1 = date.add(d: 1d, to: t0)
 
 from(bucket: ""{Settings.Bucket}"")
   |> range(start: t0, stop: t1)
@@ -193,6 +192,11 @@ from(bucket: ""{Settings.Bucket}"")
     {
         public decimal Buy { get; set; }
         public decimal Sell { get; set; }
+
+        public override string ToString()
+        {
+            return $"{Start.ToString("dd MMM HH:mm")} S:{Sell.ToString("00.0")} B:{Buy.ToString("00.0")}";
+        }
     }
 
     public static class FluxExtensions

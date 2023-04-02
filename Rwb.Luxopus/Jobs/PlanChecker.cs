@@ -38,11 +38,49 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
 
-            // Check that it's doing what it's supposed to be doing
+            HalfHourPlan p = plan.Current;
+
+            if(p.Action == null)
+            {
+                await _Lux.ResetAsync();
+                if( false /* batt > 97 */ )
+                {
+                    _Lux.SetBatteryChargeRate(1);
+                }
+                return;
+            }
+
+            // Check that it's doing what it's supposed to be doing.
             // update settings and log warning in case of discrepancy.
 
             // Are we on target?
             // If not then what can we do about it?
+
+            Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
+
+            bool defaultCase = true;
+            if(p.Action.DischargeToGrid < 100)
+            {
+                defaultCase = false;
+
+            }
+            
+            if( p.Action.ChargeFromGrid)
+            {
+                defaultCase = false;
+
+            }
+
+            if ( p.Action.ExportGeneration)
+            {
+                defaultCase = false;
+
+            }
+
+            if (defaultCase)
+            {
+                await _Lux.ResetAsync();
+            }
         }
     }
 }

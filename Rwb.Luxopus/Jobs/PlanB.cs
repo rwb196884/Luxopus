@@ -9,53 +9,6 @@ using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Jobs
 {
-    static class PlanAHExtensions
-    {
-        public static IEnumerable<T> Evening<T>(this IEnumerable<T> things) where T : HalfHour
-        {
-            // This is probably a proxy for 'global maximum'
-            return things.Where(z => z.Start.Hour >= 16 && z.Start.Hour < 20);
-        }
-        public static IEnumerable<T> Overnight<T>(this IEnumerable<T> things) where T : HalfHour
-        {
-            // This is probably a proxy for 'global minimum'
-            return things.Where(z => z.Start.Hour >= 0 && z.Start.Hour < 9);
-        }
-        public static IEnumerable<T> Morning<T>(this IEnumerable<T> things) where T : HalfHour
-        {
-            // This is probably a proxy for 'second maximum'
-            return things.Where(z => z.Start.Hour >= 7 && z.Start.Hour < 11);
-        }
-        public static IEnumerable<T> Daytime<T>(this IEnumerable<T> things) where T : HalfHour
-        {
-            // This is probably a proxy for 'second minimum' and/or 'generation period'.
-            return things.Where(z => z.Start.Hour >= 9 && z.Start.Hour < 16);
-        }
-
-        public static IEnumerable<decimal> BuyPrice<T>(this IEnumerable<T> things) where T : ElectricityPrice
-        {
-            return things.Select(z => z.Buy);
-        }
-        public static IEnumerable<decimal> SellPrice<T>(this IEnumerable<T> things) where T : ElectricityPrice
-        {
-            return things.Select(z => z.Sell);
-        }
-
-        public static decimal Median(this IEnumerable<decimal> things)
-        {
-            int n = things.Count();
-            if (n % 2 == 0)
-            {
-                return things.Skip(n / 2).Take(2).Average();
-            }
-            else
-            {
-                return things.Skip(n / 2).Take(1).Single();
-
-            }
-        }
-    }
-
     /// <summary>
     /// <para>
     /// Buy/sell strategy -- first attempt. Sell at the evening high but leave enough in the battery for use.
@@ -64,7 +17,7 @@ namespace Rwb.Luxopus.Jobs
 	/// Probably heavily biassed to the UK market with lots of hard-coded assumptions.
 	/// </para>
     /// </summary>
-    public class PlanA : Planner
+    public class PlanB : Planner
     {
         /// <summary>
         /// Rate at which battery discharges to grid. TODO: estimate from historical data.
@@ -89,7 +42,7 @@ namespace Rwb.Luxopus.Jobs
         IEmailService _Email;
         ISmsService _Sms;
 
-        public PlanA(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger, influxQuery)
+        public PlanB(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger, influxQuery)
         {
             _Lux = lux;
             _Plan = plan;
@@ -165,6 +118,18 @@ namespace Rwb.Luxopus.Jobs
                     };
                 }
             }
+
+            decimal daytimeSellMedian = plan.Plans.Daytime().Select(z => z.Sell).Median();
+            // if morning sell max > daytime sell median then empty the battery to store daytime generation.
+
+            // Daytime
+            // Should have made enough space in the battery to store in order to sell during the evening peak.
+            (decimal min, decimal lq, decimal median, decimal mean, decimal uq, decimal max) = await GetSolcastFactorsAsync();
+            decimal solcast = await GetSolcastTomorrowAsync(t0);
+
+            decimal forecast = solcast * mean;
+
+            // Battery not big enough to store generated, therefore have to sell at best available daytime price.
 
             _Plan.Save(plan);
             SendEmail(plan);
