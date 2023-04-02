@@ -15,7 +15,7 @@ namespace Rwb.Luxopus.Console
             {
                 cfg.AddJsonFile("appsettings.json");
 
-                string? env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+                string? env = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
                 if (!string.IsNullOrEmpty(env))
                 {
                     cfg.AddJsonFile($"appsettings.{env}.json", true);

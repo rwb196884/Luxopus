@@ -1,12 +1,15 @@
 {
   "profiles": {
-    "Luxopus (appsettings)": {
-      "commandName": "Project"
-    },
-    "Luxopus (rwb)": {
+    "Luxopus (work)": {
       "commandName": "Project",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "rwb"
+        "DOTNET_ENVIRONMENT": "rwb"
+      }
+    },
+    "Luxopus (laptop)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "laptop"
       }
     }
   }

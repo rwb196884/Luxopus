@@ -25,12 +25,12 @@ namespace Rwb.Luxopus.Services
         Task<string> GetInverterRuntimeAsync();
         Task<string> GetInverterEnergyInfoAsync();
 
-        Task<int> GetBatteryLevelAsync();
+        //Task<int> GetBatteryLevelAsync();
 
         Task SetChargeFromGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
         Task SetDishargeToGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
         Task SetBatteryChargeRate(int batteryChargeRatePercent);
-        Task Reset();
+        Task ResetAsync();
     }
 
     public class LuxService : Service<LuxSettings>, ILuxService, IDisposable
@@ -157,7 +157,12 @@ namespace Rwb.Luxopus.Services
             }
         }
 
-        public async Task<Dictionary<string, string>> GetSettings()
+        static class Setting
+        {
+            const string BatteryLevel = "soc";
+        }
+
+        public async Task<Dictionary<string, string>> GetSettingsAsync()
         {
             Dictionary<string, string> settings = new Dictionary<string, string>();
             foreach (int i in new int[] { 0, 40, 80, 120, 160 })
@@ -212,7 +217,7 @@ namespace Rwb.Luxopus.Services
 
             await PostAsync("", new Dictionary<string, string>()
             {
-                {"inverterSn", Settings.Station },
+                { "inverterSn", Settings.Station },
                 { "functionParam", "FUNC_AC_CHARGE"},
                 { "enable", enable ? "true" : "false"}
             });
@@ -220,22 +225,22 @@ namespace Rwb.Luxopus.Services
 
             await PostAsync("", new Dictionary<string, string>()
             {
-                {"inverterSn", Settings.Station },
+                { "inverterSn", Settings.Station },
                 { "timeParam", "HOLD_AC_CHARGE_START_TIME"},
                 { "hour", start.ToString("HH")},
                 { "minute", start.ToString("mm")}
             });
             await PostAsync("", new Dictionary<string, string>()
             {
-                {"inverterSn", Settings.Station },
+                { "inverterSn", Settings.Station },
                 { "timeParam", "HOLD_AC_CHARGE_END_TIME"},
                 { "hour", stop.ToString("HH")},
                 { "minute", stop.ToString("mm")}
             });
             await PostAsync("", new Dictionary<string, string>()
             {
-                     {"inverterSn", Settings.Station },
-               { "holdParam", "HOLD_AC_CHARGE_SOC_LIMIT"},
+                { "inverterSn", Settings.Station },
+                { "holdParam", "HOLD_AC_CHARGE_SOC_LIMIT"},
                 { "valueText", batteryLimitPercent.ToString()}
             });
         }
@@ -300,7 +305,9 @@ namespace Rwb.Luxopus.Services
             return parameters;
         }
 
-        public async Task Reset() { }
+        public async Task ResetAsync() {
+            Dictionary<string, string> settings = await GetSettingsAsync();
+        }
 
 
         protected virtual void Dispose(bool disposing)

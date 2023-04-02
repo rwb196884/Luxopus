@@ -8,6 +8,15 @@ LUXpower / Octopus control
 
 ## Installation
 
+## Configuration
+
+If `/etc/luxopus.config` exists then it will be used.
+
+To run the command line version in linux:
+```
+$ dotnet run --environment=linux Rwb.Luxopus.Console/Rwb.Luxopus.Console.csproj`
+```
+
 ### Prerequisites
 
 You require:

@@ -76,7 +76,7 @@ namespace Rwb.Luxopus.Services
                     UseDefaultCredentials = false,
                     Port = 587,
                     EnableSsl = true,
-                    Credentials = new NetworkCredential(Settings.MailTo, Settings.Password)
+                    Credentials = new NetworkCredential(Settings.Username, Settings.Password)
                 })
                 {
                     MailMessage mailMessage = new MailMessage()

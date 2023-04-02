@@ -9,6 +9,53 @@ using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Jobs
 {
+    static class PlanAHExtensions
+    {
+        public static IEnumerable<T> Evening<T>(this IEnumerable<T> things) where T : HalfHour
+        {
+            // This is probably a proxy for 'global maximum'
+            return things.Where(z => z.Start.Hour >= 16 && z.Start.Hour < 20);
+        }
+        public static IEnumerable<T> Overnight<T>(this IEnumerable<T> things) where T : HalfHour
+        {
+            // This is probably a proxy for 'global minimum'
+            return things.Where(z => z.Start.Hour >= 0 && z.Start.Hour < 9);
+        }
+        public static IEnumerable<T> Morning<T>(this IEnumerable<T> things) where T : HalfHour
+        {
+            // This is probably a proxy for 'second maximum'
+            return things.Where(z => z.Start.Hour >= 7 && z.Start.Hour < 11);
+        }
+        public static IEnumerable<T> Daytime<T>(this IEnumerable<T> things) where T : HalfHour
+        {
+            // This is probably a proxy for 'second minimum' and/or 'generation period'.
+            return things.Where(z => z.Start.Hour >= 9 && z.Start.Hour < 16);
+        }
+
+        public static IEnumerable<decimal> BuyPrice<T>(this IEnumerable<T> things) where T : ElectricityPrice
+        {
+            return things.Select(z => z.Buy);
+        }
+        public static IEnumerable<decimal> SellPrice<T>(this IEnumerable<T> things) where T : ElectricityPrice
+        {
+            return things.Select(z => z.Sell);
+        }
+
+        public static decimal Median(this IEnumerable<decimal> things)
+        {
+            int n = things.Count();
+            if (n % 2 == 0)
+            {
+                return things.Skip(n / 2).Take(2).Average();
+            }
+            else
+            {
+                return things.Skip(n / 2).Take(1).Single();
+
+            }
+        }
+    }
+
     /// <summary>
     /// <para>
     /// Buy/sell strategy
@@ -17,21 +64,20 @@ namespace Rwb.Luxopus.Jobs
 	/// Probably heavily biassed to the UK market with lots of hard-coded assumptions.
 	/// </para>
     /// </summary>
-    public class PlanA : Job
+    public class PlanA : Planner
     {
+
         const int BatteryDrainPerHalfHour = 10;
         const int BatteryMin = 50;
 
         private readonly ILuxService _Lux;
-        private readonly IInfluxQueryService _InfluxQuery;
         private readonly ILuxopusPlanService _Plan;
         IEmailService _Email;
         ISmsService _Sms;
 
-        public PlanA(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger)
+        public PlanA(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger, influxQuery)
         {
             _Lux = lux;
-            _InfluxQuery = influxQuery;
             _Plan = plan;
             _Email = email;
             _Sms = sms;
@@ -42,7 +88,7 @@ namespace Rwb.Luxopus.Jobs
             DateTime t0 = new DateTime(2023, 03, 31, 18, 00, 00);
 
             // Get prices and set up plan.
-            List<ElectricityPrice> prices = await _InfluxQuery.GetPricesAsync(t0);
+            List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(t0);
 
             Plan plan = new Plan(prices);
 
@@ -59,7 +105,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Battery: current level.
-            int b = await _Lux.GetBatteryLevelAsync();
+            int b = await GetBatteryLevelAsync();
 
             // Battery: level change per kWh.
 
@@ -104,8 +150,12 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
+            decimal daytimeSellMedian = plan.Plans.Daytime().Select(z => z.Sell).Median();
+            // if morning sell max > daytime sell median then empty the battery to store daytime generation.
+
             // Daytime
             // Should have made enough space in the battery to store in order to sell during the evening peak.
+            (decimal min, decimal lq, decimal median, decimal mean, decimal uq, decimal max) = await GetSolcastFactorsAsync();
 
             _Plan.Save(plan);
             SendEmail(plan);
@@ -114,32 +164,20 @@ namespace Rwb.Luxopus.Jobs
         private void SendEmail(Plan plan)
         {
             StringBuilder message = new StringBuilder();
-            foreach (HalfHourPlan p in plan.Plans.OrderBy(z => z.Start)){
-                string a = "";
-                if(p.Action != null)
-                {
-                    if (p.Action.ChargeFromGrid)
-                    {
-                        a = " G->B";
-                    }
-                    else if(p.Action.DischargeToGrid < 100)
-                    {
-                        a = $" G <-B ({p.Action.DischargeToGrid})";
-                    }
-
-                }
-                message.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} B:{p.Buy.ToString("00.0")}  S:{p.Sell.ToString("00.0")}{a}");
+            foreach (HalfHourPlan p in plan.Plans.OrderBy(z => z.Start))
+            {
+                message.AppendLine(p.ToString());
             }
 
             string emailSubjectPrefix = "";
             if (plan.Plans.Any(z => (z.Action?.DischargeToGrid ?? 101) <= 100))
             {
-                emailSubjectPrefix += "*";
+                emailSubjectPrefix += "E";
             }
 
             if (plan.Plans.Any(z => (z.Action?.ChargeFromGrid ?? false)))
             {
-                emailSubjectPrefix += "*";
+                emailSubjectPrefix += "I";
             }
 
             _Email.SendEmail(emailSubjectPrefix + "Solar strategy " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString());

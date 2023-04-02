@@ -9,63 +9,31 @@ using System.Linq;
 
 namespace Rwb.Luxopus.Jobs
 {
-    public static class ThingyExtensions
-    {
-        public static IEnumerable<T> Evening<T>(this IEnumerable<T> things) where T : HalfHour
-        {
-            // This is probably a proxy for 'global maximum'
-            return things.Where(z => z.Start.Hour >= 16 && z.Start.Hour < 20);
-        }
-        public static IEnumerable<T> Overnight<T>(this IEnumerable<T> things) where T : HalfHour
-        {
-            // This is probably a proxy for 'global minimum'
-            return things.Where(z => z.Start.Hour >= 0 && z.Start.Hour < 9);
-        }
-        public static IEnumerable<T> Morning<T>(this IEnumerable<T> things) where T : HalfHour
-        {
-            // This is probably a proxy for 'second maximum'
-            return things.Where(z => z.Start.Hour >= 7 && z.Start.Hour < 11);
-        }
-        public static IEnumerable<T> Daytime<T>(this IEnumerable<T> things) where T : HalfHour
-        {
-            // This is probably a proxy for 'second maximum'
-            return things.Where(z => z.Start.Hour >= 9 && z.Start.Hour < 16);
-        }
-
-        public static IEnumerable<decimal> BuyPrice<T>(this IEnumerable<T> things) where T : ElectricityPrice
-        {
-            return things.Select(z => z.Buy);
-        }
-        public static IEnumerable<decimal> SellPrice<T>(this IEnumerable<T> things) where T : ElectricityPrice
-        {
-            return things.Select(z => z.Sell);
-        }
-    }
-
     public class HalfHourPlan : ElectricityPrice
     {
         // Base class: date, buy price, sell price.
 
         public int PredictedGeneration { get; set; }
 
-        public PeriodAction Action { get; set; }
+        public PeriodAction? Action { get; set; }
 
-        public PeriodState ExpectedStartState { get; set; }
-        public PeriodState ExpectedEndState { get; set; }
+        //public PeriodState ExpectedStartState { get; set; }
+        //public PeriodState ExpectedEndState { get; set; }
 
-        public PeriodState ActualStartState { get; set; }
-        public PeriodState ActualEndState { get; set; }
+        //public PeriodState ActualStartState { get; set; }
+        //public PeriodState ActualEndState { get; set; }
 
         public HalfHourPlan(ElectricityPrice e)
         {
             Start = e.Start;
             Buy = e.Buy;
             Sell = e.Sell;
+            Action = null;
         }
 
         public override string ToString()
         {
-            return $"{Start.ToString("dd MMM HH:mm")} {Sell.ToString("00.0")}-{Buy.ToString("00.0")}";
+            return $"{Start.ToString("dd MMM HH:mm")} {Sell.ToString("00.0")}-{Buy.ToString("00.0")} {Action?.ToString() ?? "no action"}";
         }
     }
 
@@ -77,143 +45,98 @@ namespace Rwb.Luxopus.Jobs
         /// If false then generation will be sold.
         /// </summary>
         public bool ChargeFromGeneration { get; set; }
-        
+
         /// <summary>
         /// Battery limit for discharge. Use 100 to disable discharge to grid.
         /// </summary>
         public int DischargeToGrid { get; set; }
-    }
 
-    public class PeriodState
-    {
-        public Boolean Generating { get; set; }
-        public Boolean Importing { get; set; }
-        public Boolean Exporting { get; set; }
-        public Boolean Storing { get; set; }
+        public override string ToString()
+        {
+            string a = "a:";
+
+            if (ChargeFromGrid)
+            {
+                a += "(G>B)";
+            }
+            else
+            {
+                a += "(G|B)";
+            }
+
+            if (ChargeFromGeneration)
+            {
+                a += "(P>B)";
+            }
+            else
+            {
+                a += "(P|B)";
+            }
+
+            if (DischargeToGrid < 100)
+            {
+                a += $"(G<B @{DischargeToGrid})";
+            }
+            else
+            {
+                a += "(G|B)";
+            }
+            return a;
+        }
     }
 
     /// <summary>
     /// <para>
     /// Buy/sell strategy
     /// </para>
-	/// <para>
-	/// Probably heavily biassed to the UK market with lots of hard-coded assumptions.
-	/// </para>
+    /// <para>
+    /// Probably heavily biassed to the UK market with lots of hard-coded assumptions.
+    /// </para>
     /// </summary>
-    public class Planner : Job
+    public abstract class Planner : Job
     {
-        private readonly IInfluxQueryService _InfluxQuery;
+        protected readonly IInfluxQueryService InfluxQuery;
 
         public Planner(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery) : base(logger)
         {
-            _InfluxQuery = influxQuery;
+            InfluxQuery = influxQuery;
         }
 
-        public override async Task RunAsync(CancellationToken cancellationToken)
-        {
-            // Make a plan! (And write it down.)
-            DateTime day = DateTime.Now;
-
-            // First collect some data.
-
-            // How much battery does the house use over night?
-            int battForNight = 30;
-
-
-
-            // TO DO:
-            // * integrate usage (lq, med, uq) to estimate typical energy use by time of day.
-            // * integrate batt charge/discharge to estimate how much energy is a percent.
-            // * 'night' and 'day' depend on time of year and time zone daylight saving.
-
-            // How much battery does the house use throgh the day?
-            int battForDay = 40; // 262/210 * 30% from Solar dashboard.
-
-            // How fast does the battery discharge to the grid? (Percent per half hour.)
-            int battDischargePerHalfHour = 20;
-
-            // Current battery level.
-            int batteryLevelNow = await GetBatteryLevel();
-
-            // Prices.
-            List<ElectricityPrice> prices = await _InfluxQuery.GetPricesAsync(DateTime.Now);
-            decimal pEveningSellMax = 19;
-            decimal pNightBuyMin = 18;
-            decimal pMorningSellMax = 14;
-            decimal pDaytimeMedianSell = 12;
-            decimal pAfternoonBuyMin = 20;
-
-            // Charging forecast.
-            int batteryForecast = 120;
-
-
-
-            /*
-             * 	# run at about 4pm
-	battNightUse="30"
-	battDayUse="40" # 262/210 * 30% from Solar dashboard.
-	battDischargePerHalfHour="10" # ~3.6kW@90% | 15 mins: 93 to 
-	battSoc="0"
-	eveningSellMax="20"
-	overnightBuyMin="15"
-	morningSellMax="15"
-	forecast="0" # Estimated addition to battery percent.
-	
-	# Do we need battery for tomorrow daytime?
-	dischargeBattTarget=5
-	if [ "$forecast" -gt 0 ]l then
-		dischargeBattTarget=40
-	fi
-	
-	# Set PM discharge.
-	luxDischargeToGrid $dischargeStart $discahrgeEnd $dischargeBattTarget
-	
-	# Should we sell more now and buy back over night for the morning and tomorrow?
-	# Yes if the over night buy price 
-	
-	# Do we want to sell tomorrow morning?
-	if [ "$morningSellMax" -gt "$overnightBuyMin" * 1.2 ]; then
-	
-	fi
-	
-	chargeBattTarget="99"
-	if [ "$overnightBuyMin" -le 0 ]; then
-		chargeBattTarget="100"
-	fi;
-	
-	if [ "$forecast" -lt 10 ]l then
-		chargeBattTarget=40
-	fi
-	
-	# Set over night charge
-	luxChargeFromGrid $chargeStart $chargeEnd $chargeBattTarget
-	luxBattChargeRateSet 100
-	
-	# Set morning discharge. Aim for full by PM.
-	
-	# Solcast runs at 7am so it might get a better prediction.
-	
-	
-	# Send SMS.
-
-			*/
-        }
-
-        private async Task<int> GetBatteryLevel()
+        protected async Task<int> GetBatteryLevelAsync()
         {
             string flux = $@"
-from(bucket:""{_InfluxQuery.Bucket}"")
+from(bucket:""{InfluxQuery.Bucket}"")
   |> range(start: -15m, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""level"")
   |> last()
 ";
-            List<FluxTable> q = await _InfluxQuery.QueryAsync(flux);
+            List<FluxTable> q = await InfluxQuery.QueryAsync(flux);
             if (q.Count > 0 && q[0].Records.Count > 0)
             {
                 object o = q[0].Records[0].Values["_time"];
                 return (int)o;
             }
             return 0;
+        }
+
+        protected async Task<(decimal min, decimal lq, decimal median, decimal mean, decimal uq, decimal max)> GetSolcastFactorsAsync()
+        {
+            List<FluxTable> q = await InfluxQuery.QueryAsync(Query.SolcastFactors, DateTime.UtcNow);
+            FluxRecord r = q[0].Records[0];
+            return (
+                r.GetValue<decimal>("min"),
+                r.GetValue<decimal>("lq"),
+                r.GetValue<decimal>("median"),
+                r.GetValue<decimal>("mean"),
+                r.GetValue<decimal>("uq"),
+                r.GetValue<decimal>("max")
+                );
+        }
+
+        protected async Task<decimal> GetSolcastTomorrowAsync(DateTime today)
+        {
+            List<FluxTable> q = await InfluxQuery.QueryAsync(Query.SolcastTomorrow, today);
+            return q[0].Records[0].GetValue<decimal>();
         }
     }
 }

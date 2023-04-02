@@ -21,7 +21,7 @@ solcast = from(bucket: "solar")
   |> range(start: -1y, stop: 2d)
   |> filter(fn: (r) => r["_measurement"] == "solcast"and r["_field"] == "forecast")
   |> window(every: 1d)
-  |> integral(interpolate: "linear", unit: 1d) // Not sure what unit is for. Omitting it changes the result by a factor of ~500,000.
+  |> integral(interpolate: "linear") // Not sure what unit is for.
   |> map(fn: (r) => ({
     _time: date.truncate(t: r._start, unit: 1d),
     _value: r._value,

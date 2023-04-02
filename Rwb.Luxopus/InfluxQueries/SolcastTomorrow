@@ -4,6 +4,6 @@ solcast = from(bucket: "solar")
   |> range(start: date.add(d: 1d, to: today()), stop: date.add(d: 2d, to: today()))
   |> filter(fn: (r) => r["_measurement"] == "solcast"and r["_field"] == "forecast")
   |> window(every: 1d)
-  |> integral(interpolate: "linear", unit: 1d)
+  |> integral(interpolate: "linear") // Unit?
 
   solcast |> yield()

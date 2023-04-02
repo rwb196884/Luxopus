@@ -113,7 +113,10 @@ namespace Rwb.Luxopus.Services
         OvernightMin,
         MorningSellMax,
         DytimeSellMedian,
-        DaytimeBuyMin
+        DaytimeBuyMin,
+
+        SolcastFactors,
+        SolcastTomorrow
     }
 
     public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable
