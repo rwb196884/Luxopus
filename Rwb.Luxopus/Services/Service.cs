@@ -110,23 +110,5 @@ namespace Rwb.Luxopus.Services
         }
 
         public abstract bool ValidateSettings();
-
-        protected static DateTime GetUtc(string timestamp, string timeZone)
-        {
-            DateTimeZone ntz = DateTimeZoneProviders.Tzdb[timeZone];
-            //Offset o = ntz.GetUtcOffset();
-            DateTime t = DateTime.Parse(timestamp);
-            if( t.Kind != DateTimeKind.Utc)
-            {
-                return t.ToUniversalTime();
-            }
-            return t;
-
-        }
-
-        protected static DateTime GetUtc(JsonProperty e, string timeZone)
-        {
-            return GetUtc(e.Value.GetString(), timeZone);
-        }
     }
 }

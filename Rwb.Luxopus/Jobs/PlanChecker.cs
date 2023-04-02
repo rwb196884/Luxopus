@@ -17,11 +17,13 @@ namespace Rwb.Luxopus.Jobs
     {
         private readonly ILuxopusPlanService _Plans;
         private readonly ILuxService _Lux;
+        private readonly IInfluxQueryService _InfluxQuery;
 
-        public PlanChecker(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux)  :base(logger)
+        public PlanChecker(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery)  :base(logger)
         {
             _Plans = plans;
             _Lux= lux;
+            _InfluxQuery = influxQuery;
         }
 
         public override async Task RunAsync(CancellationToken cancellationToken)
@@ -43,10 +45,6 @@ namespace Rwb.Luxopus.Jobs
             if(p.Action == null)
             {
                 await _Lux.ResetAsync();
-                if( false /* batt > 97 */ )
-                {
-                    _Lux.SetBatteryChargeRate(1);
-                }
                 return;
             }
 
@@ -62,19 +60,19 @@ namespace Rwb.Luxopus.Jobs
             if(p.Action.DischargeToGrid < 100)
             {
                 defaultCase = false;
-
+                await _Lux.SetChargeFromGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.DischargeToGrid);
             }
-            
-            if( p.Action.ChargeFromGrid)
+
+            if ( p.Action.ChargeFromGrid > 0)
             {
                 defaultCase = false;
-
+                await _Lux.SetChargeFromGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.ChargeFromGrid);
             }
 
             if ( p.Action.ExportGeneration)
             {
                 defaultCase = false;
-
+                await _Lux.SetBatteryChargeRate(1);
             }
 
             if (defaultCase)

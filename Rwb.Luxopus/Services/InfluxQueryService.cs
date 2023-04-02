@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.PortableExecutable;
 using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Services
@@ -99,6 +98,7 @@ namespace Rwb.Luxopus.Services
         Task<List<FluxTable>> QueryAsync(string flux);
         Task<List<FluxTable>> QueryAsync(Query query, DateTime today);
 
+        Task<int> GetBatteryLevelAsync();
         /// <summary>
         /// Get prices at <paramref name="day"/> through to the end of the next day.
         /// </summary>
@@ -151,6 +151,23 @@ namespace Rwb.Luxopus.Services
             flux = flux.Replace("bucket: \"solar\"", $"bucket: \"{Settings.Bucket}\"");
             flux = flux.Replace("today()", $"{today.ToString("yyyy-MM-dd")}T00:00:00Z");
             return await QueryAsync(flux);
+        }
+
+        public async Task<int> GetBatteryLevelAsync()
+        {
+            string flux = $@"
+from(bucket:""{Settings.Bucket}"")
+  |> range(start: -15m, stop: now())
+  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""batt_level"")
+  |> last()
+";
+            List<FluxTable> q = await QueryAsync(flux);
+            if (q.Count > 0 && q[0].Records.Count > 0)
+            {
+                object o = q[0].Records[0].Values["_value"];
+                return Convert.ToInt32(o); // It's long.
+            }
+            return -1;
         }
 
         public async Task<List<ElectricityPrice>> GetPricesAsync(DateTime day)

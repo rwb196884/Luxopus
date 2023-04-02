@@ -40,9 +40,9 @@ namespace Rwb.Luxopus.Jobs
     public class PeriodAction
     {
         /// <summary>
-        /// If true then charge the battery from the grid.
+        /// Battery limit for charge. Use 0 to disable charge from grid.
         /// </summary>
-        public bool ChargeFromGrid { get; set; }
+        public int ChargeFromGrid { get; set; }
 
         /// <summary>
         /// If true then export generation to grid in preference to storing.
@@ -58,7 +58,7 @@ namespace Rwb.Luxopus.Jobs
         {
             string a = "a:";
 
-            if (ChargeFromGrid)
+            if (ChargeFromGrid > 0)
             {
                 a += "(grid to batt)";
             }
@@ -103,23 +103,6 @@ namespace Rwb.Luxopus.Jobs
         public Planner(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery) : base(logger)
         {
             InfluxQuery = influxQuery;
-        }
-
-        protected async Task<int> GetBatteryLevelAsync()
-        {
-            string flux = $@"
-from(bucket:""{InfluxQuery.Bucket}"")
-  |> range(start: -15m, stop: now())
-  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""batt_level"")
-  |> last()
-";
-            List<FluxTable> q = await InfluxQuery.QueryAsync(flux);
-            if (q.Count > 0 && q[0].Records.Count > 0)
-            {
-                object o = q[0].Records[0].Values["_value"];
-                return Convert.ToInt32(o); // It's long.
-            }
-            return -1;
         }
 
         protected async Task<(decimal min, decimal lq, decimal median, decimal mean, decimal uq, decimal max)> GetSolcastFactorsAsync()

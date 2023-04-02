@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -99,6 +100,9 @@ namespace Rwb.Luxopus.Jobs
 
         public override async Task RunAsync(CancellationToken cancellationToken)
         {
+            Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
+            string j = JsonSerializer.Serialize(settings);
+
             //DateTime t0 = new DateTime(2023, 03, 31, 17, 00, 00);
             DateTime t0 = new DateTime(2023, 04, 02, 17, 00, 00);
 
@@ -120,7 +124,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Battery: current level.
-            int b = await GetBatteryLevelAsync();
+            int b = await InfluxQuery.GetBatteryLevelAsync();
             if( b < 0) { b = 90; }
 
             // Battery: level change per kWh.
@@ -133,7 +137,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 p.Action = new PeriodAction()
                 {
-                    ChargeFromGrid = false,
+                    ChargeFromGrid = 0,
                     ExportGeneration = false,
                     DischargeToGrid = battMin
                 };
@@ -141,11 +145,11 @@ namespace Rwb.Luxopus.Jobs
 
             // Buy over night when price is -ve or lower than morning sell price.
             decimal morningSellMax = plan.Plans.Morning().SellPrice().Max();
-            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 /* paid to buy*/ || z.Buy < morningSellMax - 2M))
+            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 /* paid to buy*/ || z.Buy < morningSellMax / 1.2M))
             {
                 p.Action = new PeriodAction()
                 {
-                    ChargeFromGrid = true,
+                    ChargeFromGrid = 100,
                     ExportGeneration = false,
                     DischargeToGrid = 100
                 };
@@ -159,7 +163,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     p.Action = new PeriodAction()
                     {
-                        ChargeFromGrid = false,
+                        ChargeFromGrid = 0,
                         ExportGeneration = false,
                         DischargeToGrid = 50 // Enough space for the day's generation.
                     };
@@ -184,7 +188,7 @@ namespace Rwb.Luxopus.Jobs
                 emailSubjectPrefix += "E";
             }
 
-            if (plan.Plans.Any(z => (z.Action?.ChargeFromGrid ?? false)))
+            if (plan.Plans.Any(z => (z.Action?.ChargeFromGrid ?? 0) > 0))
             {
                 emailSubjectPrefix += "I";
             }

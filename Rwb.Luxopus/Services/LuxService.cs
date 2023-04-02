@@ -29,6 +29,10 @@ namespace Rwb.Luxopus.Services
 
         Task<Dictionary<string, string>> GetSettingsAsync();
 
+        (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetChargeFromGrid(Dictionary<string, string> settings);
+        (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDishargeToGrid(Dictionary<string, string> settings);
+        int GetBatteryChargeRate(Dictionary<string, string> settings);
+
         Task SetChargeFromGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
         Task SetDishargeToGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
         Task SetBatteryChargeRate(int batteryChargeRatePercent);
@@ -159,28 +163,39 @@ namespace Rwb.Luxopus.Services
             }
         }
 
-        static class Setting
-        {
-            const string BatteryLevel = "soc";
-        }
-
         public async Task<Dictionary<string, string>> GetSettingsAsync()
         {
             Dictionary<string, string> settings = new Dictionary<string, string>();
             foreach (int i in new int[] { 0, 40, 80, 120, 160 })
             {
-                HttpResponseMessage result = await PostAsync("/WManage/web/maintain/remoteRead/read", new Dictionary<string, string>()
-            {
-                    {"inverterSn", Settings.Station },
-                    { "startRegister", i.ToString() },
-                    { "pointNumber", "40" }
-            });
-                result.EnsureSuccessStatusCode();
-                string json = await result.Content.ReadAsStringAsync();
+                string json = null;
+                while (true)
+                {
+                    HttpResponseMessage r = await PostAsync("/WManage/web/maintain/remoteRead/read", new Dictionary<string, string>()
+                    {
+                            {"inverterSn", Settings.Station },
+                            { "startRegister", i.ToString() },
+                            { "pointNumber", "40" }
+                    });
+                    if (r.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        await LoginAsync();
+                    }
+                    else
+                    {
+                        json = await r.Content.ReadAsStringAsync();
+                        break;
+                    }
+                }
                 using (JsonDocument j = JsonDocument.Parse(json))
                 {
                     foreach (JsonProperty p in j.RootElement.EnumerateObject())
                     {
+                        if(p.Name == "valueFrame") { continue; }
+                        if(p.Name == "success") { continue; }
+                        if (settings.ContainsKey(p.Name))
+                        {
+                        }
                         switch (p.Value.ValueKind)
                         {
                             case JsonValueKind.String:
@@ -204,6 +219,58 @@ namespace Rwb.Luxopus.Services
             }
             return settings;
         }
+
+        public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetChargeFromGrid(Dictionary<string, string> settings)
+        {
+            bool enabled = settings["FUNC_AC_CHARGE"].ToUpper() == "TRUE";
+            int startH = int.Parse(settings["HOLD_AC_CHARGE_START_HOUR"]);
+            int startM = int.Parse(settings["HOLD_AC_CHARGE_START_MINUTE"]);
+            int endH = int.Parse(settings["HOLD_AC_CHARGE_END_HOUR"]);
+            int endM = int.Parse(settings["HOLD_AC_CHARGE_END_MINUTE"]);
+            int lim = int.Parse(settings["HOLD_AC_CHARGE_END_BATTERY_SOC"]);
+
+            DateTime t = DateTime.Parse(settings["inverterRuntimeDeviceTime"]);
+
+            return (
+                enabled,
+                GetDate(startH, startM, t),
+                GetDate(endH, endM, t),
+                lim
+                );
+        }
+
+        private DateTime GetDate(int hours, int minutes, DateTime relativeTo)
+        {
+            DateTime t = DateTime.Parse($"{relativeTo.ToString("yyyy-MM-dd")}T{hours.ToString("00")}:{minutes.ToString("00")}:ss+");
+            DateTimeZone ntz = DateTimeZoneProviders.Tzdb[Settings.TimeZone];
+            Offset o = ntz.GetUtcOffset(Instant.FromDateTimeOffset(relativeTo));
+            return t;
+        }
+
+        public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDishargeToGrid(Dictionary<string, string> settings)
+        {
+            bool enabled = settings["FUNC_FORCED_DISCHG_EN"] == "TRUE";
+            int startH = int.Parse(settings["HOLD_FORCED_DISCHARGE_START_HOUR"]);
+            int startM = int.Parse(settings["HOLD_FORCED_DISCHARGE_START_MINUTE"]);
+            int endH = int.Parse(settings["HOLD_FORCED_DISCHARGE_END_HOUR"]);
+            int endM = int.Parse(settings["HOLD_FORCED_DISCHARGE_END_MINUTE"]);
+            int lim = int.Parse(settings["HOLD_FORCED_DISCHG_SOC_LIMIT"]);
+
+            DateTime t = DateTime.Parse(settings["inverterRuntimeDeviceTime"]);
+
+            return (
+                enabled,
+                GetDate(startH, startM, t),
+                GetDate(endH, endM, t),
+                lim
+                );
+        }
+
+        public int GetBatteryChargeRate(Dictionary<string, string> settings)
+        {
+            return int.Parse(settings["HOLD_CHARGE_POWER_PERCENT_CMD"]);
+        }
+
 
         public async Task<int> GetBatteryLevelAsync()
         {

@@ -73,7 +73,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Battery: current level.
-            int b = await GetBatteryLevelAsync();
+            int b = await InfluxQuery.GetBatteryLevelAsync();
             if( b < 0) { b = 90; }
 
             // Battery: level change per kWh.
@@ -86,7 +86,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 p.Action = new PeriodAction()
                 {
-                    ChargeFromGrid = false,
+                    ChargeFromGrid = 0,
                     ExportGeneration = false,
                     DischargeToGrid = battMin
                 };
@@ -98,7 +98,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 p.Action = new PeriodAction()
                 {
-                    ChargeFromGrid = true,
+                    ChargeFromGrid = 100,
                     ExportGeneration = false,
                     DischargeToGrid = 100
                 };
@@ -112,7 +112,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     p.Action = new PeriodAction()
                     {
-                        ChargeFromGrid = false,
+                        ChargeFromGrid = 0,
                         ExportGeneration = false,
                         DischargeToGrid = 50 // Enough space for the day's generation.
                     };
@@ -149,7 +149,7 @@ namespace Rwb.Luxopus.Jobs
                 emailSubjectPrefix += "E";
             }
 
-            if (plan.Plans.Any(z => (z.Action?.ChargeFromGrid ?? false)))
+            if (plan.Plans.Any(z => (z.Action?.ChargeFromGrid ?? 0) > 0) )
             {
                 emailSubjectPrefix += "I";
             }
