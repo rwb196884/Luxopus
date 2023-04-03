@@ -11,6 +11,12 @@
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "laptop"
       }
+    },
+    "Luxopus (linux)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "linux"
+      }
     }
   }
 }

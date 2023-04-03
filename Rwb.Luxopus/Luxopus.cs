@@ -42,9 +42,9 @@ namespace Rwb.Luxopus
 
             _StartupTasks = new List<Job>()
             {
-                //octopusMeters,
-                //octopusPrices,
-                //solcast
+                octopusMeters,
+                octopusPrices,
+                //solcast // severely rate lmited.
                 planA,
                 planChecker
             };
@@ -63,14 +63,13 @@ namespace Rwb.Luxopus
 
         public void Start()
         {
-            _Logger.LogInformation("Luxopus is starting scheduler.");
-
             foreach (Job j in _StartupTasks)
             {
                 _Logger.LogInformation($"Running startup job {j.GetType().Name}.");
                 j.RunAsync(CancellationToken.None).Wait();
             }
 
+            _Logger.LogInformation("Luxopus is starting scheduler.");
             _Scheduler.Start();
         }
 

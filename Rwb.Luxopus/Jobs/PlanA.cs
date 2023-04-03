@@ -209,14 +209,14 @@ namespace Rwb.Luxopus.Jobs
             if (emailSubjectPrefix.Length > 0)
             {
                 string buy = "";
-                if(plan.Plans.Evening().Any())
+                if(plan.Plans.Overnight().Any())
                 {
                 decimal overnightBuyMin = plan.Plans.Overnight().Select(z => z.Buy).Min();
                     buy = $"Buy {overnightBuyMin.ToString("00.0")} ";
                 }
 
                 string sell = "";
-                if(plan.Plans.Overnight().Any())
+                if(plan.Plans.Evening().Any())
                 {
                     decimal eveningSellHigh = plan.Plans.Evening().Select(z => z.Sell).Max();
                     sell = $"Sell {eveningSellHigh.ToString("00.0")}";

@@ -390,7 +390,7 @@ namespace Rwb.Luxopus.Services
             if (outEnabled)
             {
                 await SetDishargeToGridAsync(t0, t0, -1);
-                Logger.LogWarning("Discharge to grid was turned off.");
+                Logger.LogWarning("Discharge to grid was turned on.");
             }
 
             if (inEnabled)
