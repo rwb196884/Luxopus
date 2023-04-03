@@ -21,7 +21,7 @@ namespace Rwb.Luxopus.Jobs
             _InfluxWrite = influx;
         }
 
-        public override async Task RunAsync(CancellationToken cancellationToken)
+        protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             string json = await _Solcast.GetForecasts();
             using (JsonDocument j = JsonDocument.Parse(json))

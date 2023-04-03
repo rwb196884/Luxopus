@@ -29,7 +29,7 @@ namespace Rwb.Luxopus.Jobs
             _Email = email;
         }
 
-        public override async Task RunAsync(CancellationToken cancellationToken)
+        protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             //DateTime t0 = new DateTime(2023, 03, 31, 18, 00, 00);
             DateTime t0 = DateTime.UtcNow;
@@ -94,7 +94,7 @@ namespace Rwb.Luxopus.Jobs
             string message = actions.ToString();
             if(!string.IsNullOrEmpty(message))
             {
-                _Email.SendEmail($"PlanChecker {DateTime.Now.ToString("dd MMM HH:mm")}", message);
+                _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", message);
             }
         }
     }

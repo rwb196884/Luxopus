@@ -46,7 +46,7 @@ namespace Rwb.Luxopus.Jobs
             _Sms = sms;
         }
 
-        public override async Task RunAsync(CancellationToken cancellationToken)
+        protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             //DateTime t0 = new DateTime(2023, 03, 31, 17, 00, 00);
             DateTime t0 = new DateTime(2023, 04, 02, 17, 00, 00);

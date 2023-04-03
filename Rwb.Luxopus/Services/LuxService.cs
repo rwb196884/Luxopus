@@ -55,6 +55,24 @@ namespace Rwb.Luxopus.Services
         private readonly HttpClient _Client;
         private bool disposedValue;
 
+        private DateTime ToUtc(DateTime localTime)
+        {
+            DateTimeZone ntz = DateTimeZoneProviders.Tzdb[Settings.TimeZone];
+            Offset o = ntz.GetUtcOffset(Instant.FromDateTimeOffset(localTime));
+            DateTime u = localTime.AddTicks(-1 * o.Ticks);
+            DateTime v = DateTime.SpecifyKind(u, DateTimeKind.Utc);
+            return v;
+        }
+
+        private DateTime ToLocal(DateTime utcTime)
+        {
+            DateTimeZone ntz = DateTimeZoneProviders.Tzdb[Settings.TimeZone];
+            Offset o = ntz.GetUtcOffset(Instant.FromDateTimeOffset(utcTime));
+            DateTime u = utcTime.AddTicks( o.Ticks);
+            DateTime v = DateTime.SpecifyKind(u, DateTimeKind.Local);
+            return v;
+        }
+
         public LuxService(ILogger<LuxService> logger, IOptions<LuxSettings> settings) : base(logger, settings)
         {
             _CookieContainer = new CookieContainer();
@@ -243,11 +261,7 @@ namespace Rwb.Luxopus.Services
         private DateTime GetDate(int hours, int minutes, DateTime relativeTo)
         {
             DateTime t = DateTime.Parse($"{relativeTo.ToString("yyyy-MM-dd")}T{hours.ToString("00")}:{minutes.ToString("00")}:00Z");
-            DateTimeZone ntz = DateTimeZoneProviders.Tzdb[Settings.TimeZone];
-            Offset o = ntz.GetUtcOffset(Instant.FromDateTimeOffset(relativeTo));
-            DateTime u = t.AddTicks(-1 * o.Ticks);
-            DateTime v = DateTime.SpecifyKind(u, DateTimeKind.Utc);
-            return v;
+            return ToUtc(t);
         }
 
         public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDishargeToGrid(Dictionary<string, string> settings)
@@ -287,43 +301,25 @@ namespace Rwb.Luxopus.Services
         {
             bool enable = start != stop && batteryLimitPercent >= 0 && batteryLimitPercent <= 100;
 
-            await PostAsync("", new Dictionary<string, string>()
-            {
-                { "inverterSn", Settings.Station },
-                { "functionParam", "FUNC_AC_CHARGE"},
-                { "enable", enable ? "true" : "false"}
-            });
-            if (!enable) { return; }
+            DateTime localStart = ToLocal(start);
+            DateTime localStop = ToLocal(stop);
 
-            await PostAsync("", new Dictionary<string, string>()
-            {
-                { "inverterSn", Settings.Station },
-                { "timeParam", "HOLD_AC_CHARGE_START_TIME"},
-                { "hour", start.ToString("HH")},
-                { "minute", start.ToString("mm")}
-            });
-            await PostAsync("", new Dictionary<string, string>()
-            {
-                { "inverterSn", Settings.Station },
-                { "timeParam", "HOLD_AC_CHARGE_END_TIME"},
-                { "hour", stop.ToString("HH")},
-                { "minute", stop.ToString("mm")}
-            });
-            await PostAsync("", new Dictionary<string, string>()
-            {
-                { "inverterSn", Settings.Station },
-                { "holdParam", "HOLD_AC_CHARGE_SOC_LIMIT"},
-                { "valueText", batteryLimitPercent.ToString()}
-            });
+            await PostAsync(UrlToWrite, GetEnableParams("FUNC_AC_CHARGE", enable));
+            await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_AC_CHARGE_START_TIME", localStart));
+            await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_AC_CHARGE_END_TIME", localStop));
+            await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_SOC_LIMIT", batteryLimitPercent.ToString()));
         }
 
         public async Task SetDishargeToGridAsync(DateTime start, DateTime stop, int batteryLimitPercent)
         {
             bool enable = start != stop && batteryLimitPercent >= 0 && batteryLimitPercent <= 100;
 
+            DateTime localStart = ToLocal(start);
+            DateTime localStop = ToLocal(stop);
+
             await PostAsync(UrlToWrite, GetEnableParams("FUNC_FORCED_DISCHG_EN", enable));
-            await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_START_TIME", start));
-            await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_END_TIME", stop));
+            await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_START_TIME", localStart));
+            await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_END_TIME", localStop));
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_SOC_LIMIT", batteryLimitPercent.ToString()));
         }
 

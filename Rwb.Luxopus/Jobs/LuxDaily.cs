@@ -21,7 +21,7 @@ namespace Rwb.Luxopus.Jobs
             _Influx= influx;
         }
 
-        public override async Task RunAsync(CancellationToken cancellationToken)
+        protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             LineDataBuilder lines = new LineDataBuilder();
             string json = await _Lux.GetInverterEnergyInfoAsync();

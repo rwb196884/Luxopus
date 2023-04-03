@@ -18,7 +18,7 @@ namespace Rwb.Luxopus.Jobs
             _Influx= influx;
         }
 
-        public override async Task RunAsync(CancellationToken cancellationToken)
+        protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             (DateTime tBattLevel, int battLevel) = (await _Influx.QueryAsync(@$"
 from(bucket: ""{_Influx.Bucket}"")

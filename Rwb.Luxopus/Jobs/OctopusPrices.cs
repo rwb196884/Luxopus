@@ -36,9 +36,9 @@ namespace Rwb.Luxopus.Jobs
 
         private const string ElectricityTariffs = "E-1R-AGILE-FLEX-22-11-25-E,E-1R-AGILE-OUTGOING-19-05-13-E,E-1R-FLUX-EXPORT-23-02-14-E,E-1R-FLUX-IMPORT-23-02-14-E";
 
-        public override async Task RunAsync(CancellationToken cancellationToken)
+        protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            foreach(string t in ( await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Union(ElectricityTariffs.Split(',')).Distinct() )
+            foreach (string t in ( await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Union(ElectricityTariffs.Split(',')).Distinct() )
             {
                 Dictionary<string, string> tags = new Dictionary<string, string>()
                 {
@@ -48,7 +48,7 @@ namespace Rwb.Luxopus.Jobs
                 };
 
                 string p = GetProductOfTariff(t);
-                DateTime from = await GetLatestPriceAsync(t);
+                DateTime from = (await GetLatestPriceAsync(t)).AddMinutes(15);
                 DateTime to = DateTime.Now.Date.AddDays(1).AddHours(22);
                 IEnumerable<Price> prices = await _Octopus.GetElectricityPrices(p, t, from, to);
                 LineDataBuilder lines = new LineDataBuilder();
@@ -70,7 +70,7 @@ namespace Rwb.Luxopus.Jobs
                 };
 
                 string p = GetProductOfTariff(t);
-                DateTime from = await GetLatestPriceAsync(t);
+                DateTime from = (await GetLatestPriceAsync(t)).AddMinutes(15);
                 DateTime to = DateTime.Now.Date.AddDays(1).AddHours(22);
                 IEnumerable<Price> prices = await _Octopus.GetGasPrices(p, t, from, to);
                 LineDataBuilder lines = new LineDataBuilder();

@@ -62,6 +62,11 @@ namespace Rwb.Luxopus.Services
         public string Code { get; set; }
         public DateTime ValidFrom { get; set; }
         public DateTime? ValidTo { get; set; }
+
+        public override string ToString()
+        {
+            return $"{Code} {ValidFrom.ToString("dd MMM HH:mm")} {ValidTo?.ToString("dd MMM HH:mm") ?? "->"}";
+        }
     }
 
     public class MeterReading
@@ -69,6 +74,11 @@ namespace Rwb.Luxopus.Services
         public DateTime IntervalStart { get; set; }
         public DateTime IntervalEnd { get; set; }
         public decimal Consumption { get; set; }
+
+        public override string ToString()
+        {
+            return $"{IntervalStart.ToString("dd MMM HH:mm")} {Consumption.ToString("0.00")}";
+        }
     }
 
     public class Price
@@ -76,6 +86,11 @@ namespace Rwb.Luxopus.Services
         public decimal Pence { get; set; }
         public DateTime ValidFrom { get; set; }
         public DateTime? ValidTo { get; set; }
+
+        public override string ToString()
+        {
+            return $"{ValidFrom.ToString("dd MMM HH:mm")} {Pence.ToString("0.00")}";
+        }
     }
 
     public interface IOctopusService

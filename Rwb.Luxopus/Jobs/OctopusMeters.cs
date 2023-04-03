@@ -24,7 +24,7 @@ namespace Rwb.Luxopus.Jobs
             _InfluxWrite = influxWrite;
         }
 
-        public override async Task RunAsync(CancellationToken cancellationToken)
+        protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             foreach (string mpan in await _Octopus.GetElectricityMeterPoints())
             {
@@ -38,7 +38,7 @@ namespace Rwb.Luxopus.Jobs
                         { "serialNumber", serialNumber},
                     };
 
-                    IEnumerable<MeterReading> m = await _Octopus.GetElectricityMeterReadings(mpan, serialNumber, from, DateTime.Now);
+                    IEnumerable<MeterReading> m = await _Octopus.GetElectricityMeterReadings(mpan, serialNumber, from.AddMinutes(15), DateTime.Now);
                     LineDataBuilder lines = new LineDataBuilder();
                     foreach (MeterReading mr in m)
                     {
@@ -60,7 +60,7 @@ namespace Rwb.Luxopus.Jobs
                         { "serialNumber", serialNumber}
                     };
 
-                    IEnumerable<MeterReading> m = await _Octopus.GetGasMeterReadings(mprn, serialNumber, from, DateTime.Now);
+                    IEnumerable<MeterReading> m = await _Octopus.GetGasMeterReadings(mprn, serialNumber, from.AddMinutes(15), DateTime.Now);
                     LineDataBuilder lines = new LineDataBuilder();
                     foreach (MeterReading mr in m)
                     {
