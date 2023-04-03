@@ -56,7 +56,7 @@ namespace Rwb.Luxopus.Jobs
             // Get prices and set up plan.
             DateTime start = t0.StartOfHalfHour();
             DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 18, 0, 0)).AddDays(1);
-            List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop);
+            List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, "E-1R-AGILE-FLEX-22-11-25-E", "E-1R-AGILE-OUTGOING-19-05-13-E");
 
             Plan plan = new Plan(prices);
 

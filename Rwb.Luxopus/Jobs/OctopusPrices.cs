@@ -34,7 +34,7 @@ namespace Rwb.Luxopus.Jobs
             return a.Substring(0, a.Length - 2);
         }
 
-        private const string ElectricityTariffs = "E-1R-AGILE-FLEX-22-11-25-E,E-1R-AGILE-OUTGOING-19-05-13-E,E-1R-FLUX-EXPORT-23-02-14-A";
+        private const string ElectricityTariffs = "E-1R-AGILE-FLEX-22-11-25-E,E-1R-AGILE-OUTGOING-19-05-13-E,E-1R-FLUX-EXPORT-23-02-14-E,E-1R-FLUX-IMPORT-23-02-14-E";
 
         public override async Task RunAsync(CancellationToken cancellationToken)
         {
@@ -44,7 +44,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                         { "fuel", "electricity" },
                         { "tariff", t },
-                        { "type", t.Contains("OUTGOING") ? "sell" : "buy" }
+                        { "type", t.Contains("OUTGOING") || t.Contains("EXPORT") ? "sell" : "buy" }
                 };
 
                 string p = GetProductOfTariff(t);
@@ -66,7 +66,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                         { "fuel", "gas" },
                         { "tariff", t },
-                        { "type", t.Contains("OUTGOING") ? "sell" : "buy" }
+                        { "type", t.Contains("OUTGOING") || t.Contains("EXPORT") ? "sell" : "buy" }
                 };
 
                 string p = GetProductOfTariff(t);

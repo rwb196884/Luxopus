@@ -105,16 +105,16 @@ namespace Rwb.Luxopus.Services
         /// </summary>
         /// <param name="day"></param>
         /// <returns></returns>
-        Task<List<ElectricityPrice>> GetPricesAsync(DateTime start, DateTime stop);
+        Task<List<ElectricityPrice>> GetPricesAsync(DateTime start, DateTime stop, string importTariff, string exportTariff);
     }
 
     public enum Query
     {
-        EveningSellMax,
-        OvernightMin,
-        MorningSellMax,
-        DytimeSellMedian,
-        DaytimeBuyMin,
+        //EveningSellMax,
+        //OvernightMin,
+        //MorningSellMax,
+        //DytimeSellMedian,
+        //DaytimeBuyMin,
 
         SolcastFactors,
         SolcastTomorrow
@@ -171,7 +171,7 @@ from(bucket:""{Settings.Bucket}"")
             return -1;
         }
 
-        public async Task<List<ElectricityPrice>> GetPricesAsync(DateTime start, DateTime stop)
+        public async Task<List<ElectricityPrice>> GetPricesAsync(DateTime start, DateTime stop, string importTariff, string exportTariff)
         {
             string flux = $@"
 import ""date""
@@ -181,7 +181,7 @@ t1 = {stop.ToString("yyyy-MM-ddTHH:mm:ss")}Z
 
 from(bucket: ""{Settings.Bucket}"")
   |> range(start: t0, stop: t1)
-  |> filter(fn: (r) => r[""_measurement""] == ""prices"" and r[""fuel""] == ""electricity"")
+  |> filter(fn: (r) => r[""_measurement""] == ""prices"" and (r[""tariff""] == ""{importTariff}"" or r[""tariff""] == ""{exportTariff}""))
   |> keep(columns: [""_time"", ""_value"", ""type""])
   |> group(columns: [])"; // if not group then it comes out in two tables.
 
