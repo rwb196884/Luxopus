@@ -1,11 +1,9 @@
 ﻿using InfluxDB.Client.Core.Flux.Domain;
-using Rwb.Luxopus.Services;
 using Microsoft.Extensions.Logging;
+using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Linq;
 
 namespace Rwb.Luxopus.Jobs
 {
@@ -13,7 +11,7 @@ namespace Rwb.Luxopus.Jobs
     {
         // Base class: date, buy price, sell price.
 
-        public int PredictedGeneration { get; set; }
+        //public int PredictedGeneration { get; set; }
 
         public PeriodAction? Action { get; set; }
 
@@ -29,6 +27,15 @@ namespace Rwb.Luxopus.Jobs
             Buy = e.Buy;
             Sell = e.Sell;
             Action = null;
+        }
+
+        /// <summary>
+        /// Required for System.Text.Json.JsonSerializer.Deserialize.
+        /// </summary>
+        /// <param name="plans"></param>
+        public HalfHourPlan()
+        {
+
         }
 
         public override string ToString()
@@ -99,10 +106,12 @@ namespace Rwb.Luxopus.Jobs
     public abstract class Planner : Job
     {
         protected readonly IInfluxQueryService InfluxQuery;
+        protected readonly ILuxopusPlanService PlanService;
 
-        public Planner(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery) : base(logger)
+        public Planner(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery, ILuxopusPlanService planService) : base(logger)
         {
             InfluxQuery = influxQuery;
+            PlanService = planService;
         }
 
         protected async Task<(decimal min, decimal lq, decimal median, decimal mean, decimal uq, decimal max)> GetSolcastFactorsAsync()

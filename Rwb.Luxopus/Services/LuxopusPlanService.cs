@@ -13,6 +13,8 @@ namespace Rwb.Luxopus.Services
 {
     public class Plan //: IQueryable<HalfHourPlan>
     {
+        //public DateTime Created { get; set; }
+
         // Simply extending List<> doens't work with JsonSerializer.
         // Implementing IQueryable<HalfHourPlan> fucks it up too.
         public List<HalfHourPlan> Plans { get; set; }
@@ -21,6 +23,12 @@ namespace Rwb.Luxopus.Services
         {
             Plans = prices.Select(z => new HalfHourPlan(z)).ToList();
         }
+
+        /// <summary>
+        /// Required for System.Text.Json.JsonSerializer.Deserialize.
+        /// </summary>
+        /// <param name="plans"></param>
+        public Plan() { }
 
         [JsonIgnore]
         public HalfHourPlan? Current
@@ -47,6 +55,18 @@ namespace Rwb.Luxopus.Services
             {
                 return Plans.OrderBy(z => z.Start).Where(z => z.Start > DateTime.UtcNow).FirstOrDefault();
             }
+        }
+
+        public HalfHourPlan? GetPrevious(HalfHourPlan current)
+        {
+            return Plans.OrderByDescending(z => z.Start).Where(z => z.Start < current.Start).Skip(1).Take(1).SingleOrDefault();
+        }
+
+        public override string ToString()
+        {
+            if(Plans.Count == 0) { return "Ce n'est pas un plan."; }
+            IEnumerable<HalfHourPlan> plans = Plans.OrderBy(z => z.Start);
+            return $"{plans.First().Start.ToString("dd MMM HH:mm")} to {plans.Last().Start.ToString("dd MMM HH:mm")}";
         }
 
         #region IQueryable
@@ -172,6 +192,5 @@ namespace Rwb.Luxopus.Services
                 }
             }
         }
-
     }
 }

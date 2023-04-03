@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Permissions;
 using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Services
@@ -104,7 +105,7 @@ namespace Rwb.Luxopus.Services
         /// </summary>
         /// <param name="day"></param>
         /// <returns></returns>
-        Task<List<ElectricityPrice>> GetPricesAsync(DateTime day);
+        Task<List<ElectricityPrice>> GetPricesAsync(DateTime start, DateTime stop);
     }
 
     public enum Query
@@ -170,13 +171,13 @@ from(bucket:""{Settings.Bucket}"")
             return -1;
         }
 
-        public async Task<List<ElectricityPrice>> GetPricesAsync(DateTime day)
+        public async Task<List<ElectricityPrice>> GetPricesAsync(DateTime start, DateTime stop)
         {
             string flux = $@"
 import ""date""
 
-t0 = {day.ToString("yyyy-MM-ddTHH:mm:ss")}Z
-t1 = date.add(d: 1d, to: t0)
+t0 = {start.ToString("yyyy-MM-ddTHH:mm:ss")}Z
+t1 = {stop.ToString("yyyy-MM-ddTHH:mm:ss")}Z
 
 from(bucket: ""{Settings.Bucket}"")
   |> range(start: t0, stop: t1)
@@ -203,6 +204,14 @@ from(bucket: ""{Settings.Bucket}"")
     public abstract class HalfHour
     {
         public DateTime Start { get; set; }
+    }
+
+    public static class DateTimeExtensions
+    {
+        public static DateTime StartOfHalfHour(this DateTime t)
+        {
+            return new DateTime(t.Year, t.Month, t.Day, t.Hour, t.Minute >= 30 ? 30 : 0, 0);
+        }
     }
 
     public class ElectricityPrice : HalfHour

@@ -3,16 +3,19 @@ using Microsoft.Extensions.Logging;
 using NCrontab;
 using NCrontab.Scheduler;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace Rwb.Luxopus
 {
     public class Luxopus
     {
-        private readonly List<Job> _Jobs; 
+        private readonly List<Job> _Jobs;
         private readonly IScheduler _Scheduler; // https://github.com/thomasgalliker/NCrontab.Scheduler
         private readonly ILogger _Logger;
 
-        public Luxopus(ILogger<Luxopus> logger, IScheduler scheduler, 
+        private readonly IReadOnlyList<Job> _StartupTasks;
+
+        public Luxopus(ILogger<Luxopus> logger, IScheduler scheduler,
             LuxMonitor luxMonitor,
             LuxDaily luxDaily,
             OctopusMeters octopusMeters,
@@ -36,6 +39,15 @@ namespace Rwb.Luxopus
             AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
             AddJob(planChecker, "1,31 * * * *"); // At the start of every half hour.
             AddJob(planA, "34 16 * * *"); // Make plan after getting prices and before evening peak.
+
+            _StartupTasks = new List<Job>()
+            {
+                //octopusMeters,
+                //octopusPrices,
+                //solcast
+                planA,
+                planChecker
+            };
         }
 
         private void _Scheduler_Next(object? sender, ScheduledEventArgs e)
@@ -52,6 +64,13 @@ namespace Rwb.Luxopus
         public void Start()
         {
             _Logger.LogInformation("Luxopus is starting scheduler.");
+
+            foreach (Job j in _StartupTasks)
+            {
+                _Logger.LogInformation($"Running startup job {j.GetType().Name}.");
+                j.RunAsync(CancellationToken.None).Wait();
+            }
+
             _Scheduler.Start();
         }
 
@@ -60,5 +79,6 @@ namespace Rwb.Luxopus
             _Scheduler.Stop();
             _Logger.LogInformation("Luxopus has stopped scheduler.");
         }
+
     }
 }

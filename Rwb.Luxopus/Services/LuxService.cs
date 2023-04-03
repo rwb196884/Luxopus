@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
+using static NodaTime.TimeZones.ZoneEqualityComparer;
 
 namespace Rwb.Luxopus.Services
 {
@@ -191,8 +192,8 @@ namespace Rwb.Luxopus.Services
                 {
                     foreach (JsonProperty p in j.RootElement.EnumerateObject())
                     {
-                        if(p.Name == "valueFrame") { continue; }
-                        if(p.Name == "success") { continue; }
+                        if (p.Name == "valueFrame") { continue; }
+                        if (p.Name == "success") { continue; }
                         if (settings.ContainsKey(p.Name))
                         {
                         }
@@ -241,10 +242,12 @@ namespace Rwb.Luxopus.Services
 
         private DateTime GetDate(int hours, int minutes, DateTime relativeTo)
         {
-            DateTime t = DateTime.Parse($"{relativeTo.ToString("yyyy-MM-dd")}T{hours.ToString("00")}:{minutes.ToString("00")}:ss+");
+            DateTime t = DateTime.Parse($"{relativeTo.ToString("yyyy-MM-dd")}T{hours.ToString("00")}:{minutes.ToString("00")}:00Z");
             DateTimeZone ntz = DateTimeZoneProviders.Tzdb[Settings.TimeZone];
             Offset o = ntz.GetUtcOffset(Instant.FromDateTimeOffset(relativeTo));
-            return t;
+            DateTime u = t.AddTicks(-1 * o.Ticks);
+            DateTime v = DateTime.SpecifyKind(u, DateTimeKind.Utc);
+            return v;
         }
 
         public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDishargeToGrid(Dictionary<string, string> settings)
@@ -274,7 +277,7 @@ namespace Rwb.Luxopus.Services
 
         public async Task<int> GetBatteryLevelAsync()
         {
-            using(JsonDocument j = JsonDocument.Parse(await GetInverterRuntimeAsync()))
+            using (JsonDocument j = JsonDocument.Parse(await GetInverterRuntimeAsync()))
             {
                 return j.RootElement.EnumerateObject().Single(z => z.Name == "soc").Value.GetInt32();
             }
@@ -326,7 +329,8 @@ namespace Rwb.Luxopus.Services
 
         public async Task SetBatteryChargeRate(int batteryChargeRatePercent)
         {
-            await PostAsync(UrlToWrite, GetHoldParams("HOLD_CHARGE_POWER_PERCENT_CMD", batteryChargeRatePercent.ToString()));
+            int rate = batteryChargeRatePercent < 0 || batteryChargeRatePercent > 100 ? 90 : batteryChargeRatePercent;
+            await PostAsync(UrlToWrite, GetHoldParams("HOLD_CHARGE_POWER_PERCENT_CMD", rate.ToString()));
         }
 
         private Dictionary<string, string> GetHoldParams(string holdParam, string valueText)
@@ -374,10 +378,44 @@ namespace Rwb.Luxopus.Services
             return parameters;
         }
 
-        public async Task ResetAsync() {
+        public async Task ResetAsync()
+        {
             Dictionary<string, string> settings = await GetSettingsAsync();
-        }
+            (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = GetChargeFromGrid(settings);
+            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = GetDishargeToGrid(settings);
+            int battChargeRate = GetBatteryChargeRate(settings);
+            int battLevel = await GetBatteryLevelAsync();
 
+            DateTime t0 = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 0, 0, 0);
+            if (outEnabled)
+            {
+                await SetDishargeToGridAsync(t0, t0, -1);
+                Logger.LogWarning("Discharge to grid was turned off.");
+            }
+
+            if (inEnabled)
+            {
+                await SetChargeFromGridAsync(t0, t0, -1);
+                Logger.LogWarning("Charge from grid was turned off.");
+            }
+
+            if (battLevel > 96)
+            {
+                if (battChargeRate != 1)
+                {
+                    await SetBatteryChargeRate(1);
+                    Logger.LogWarning($"Battery charge rate was reset to 1% (level is {battLevel}) was {battChargeRate}.");
+                }
+            }
+            else
+            {
+                if (battChargeRate != 99)
+                {
+                    await SetBatteryChargeRate(99);
+                    Logger.LogWarning($"Battery charge rate was reset to 99% (level is {battLevel}) was {battChargeRate}.");
+                }
+            }
+        }
 
         protected virtual void Dispose(bool disposing)
         {

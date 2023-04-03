@@ -81,7 +81,7 @@ namespace Rwb.Luxopus.Services
 
         public void Add(string measurement, string fieldKey, object fieldValue)
         {
-            Add(measurement, new Dictionary<string, string>(), fieldKey, fieldValue, DateTime.Now);
+            Add(measurement, new Dictionary<string, string>(), fieldKey, fieldValue, DateTime.UtcNow);
         }
 
         public void Add(string measurement, string fieldKey, object fieldValue, DateTime time)

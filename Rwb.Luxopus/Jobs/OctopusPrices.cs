@@ -35,11 +35,11 @@ namespace Rwb.Luxopus.Jobs
             return a.Substring(0, a.Length - 2);
         }
 
-        private const string Tariffs = "E-1R-AGILE-FLEX-22-11-25-E,E-1R-AGILE-OUTGOING-19-05-13-E";
+        private const string ElectricityTariffs = "E-1R-AGILE-FLEX-22-11-25-E,E-1R-AGILE-OUTGOING-19-05-13-E";
 
         public override async Task RunAsync(CancellationToken cancellationToken)
         {
-            foreach(string t in ( await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Union(Tariffs.Split(',')).Distinct() )
+            foreach(string t in ( await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Union(ElectricityTariffs.Split(',')).Distinct() )
             {
                 Dictionary<string, string> tags = new Dictionary<string, string>()
                 {
@@ -61,7 +61,7 @@ namespace Rwb.Luxopus.Jobs
                 await _InfluxWrite.WriteAsync(lines);
             }
 
-            foreach (string t in (await _Octopus.GetGasTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Union(Tariffs.Split(',')).Distinct())
+            foreach (string t in (await _Octopus.GetGasTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Distinct())
             {
                 Dictionary<string, string> tags = new Dictionary<string, string>()
                 {

@@ -86,14 +86,12 @@ namespace Rwb.Luxopus.Jobs
 
 
         private readonly ILuxService _Lux;
-        private readonly ILuxopusPlanService _Plan;
         IEmailService _Email;
         ISmsService _Sms;
 
-        public PlanA(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger, influxQuery)
+        public PlanA(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger, influxQuery, plan)
         {
             _Lux = lux;
-            _Plan = plan;
             _Email = email;
             _Sms = sms;
         }
@@ -103,11 +101,22 @@ namespace Rwb.Luxopus.Jobs
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
             string j = JsonSerializer.Serialize(settings);
 
+            DateTime t0 = DateTime.UtcNow;
             //DateTime t0 = new DateTime(2023, 03, 31, 17, 00, 00);
-            DateTime t0 = new DateTime(2023, 04, 02, 17, 00, 00);
+            //DateTime t0 = new DateTime(2023, 04, 02, 17, 00, 00);
+
+            Plan? current = PlanService.Load(t0);
+            if(current != null)
+            {
+                return;
+                // TODO: create a new -- updated -- plan.
+            }
 
             // Get prices and set up plan.
-            List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(t0);
+            DateTime start = t0.StartOfHalfHour();
+            DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 18, 0, 0)).AddDays(1);
+
+            List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop);
 
             Plan plan = new Plan(prices);
 
@@ -118,7 +127,7 @@ namespace Rwb.Luxopus.Jobs
                 battMin = 30;
             }
 
-            if (plan.Plans.Morning().SellPrice().Max() > plan.Plans.Overnight().BuyPrice().Min() + 3M)
+            if (plan.Plans.Morning().SellPrice().DefaultIfEmpty(0).Max() > plan.Plans.Overnight().BuyPrice().DefaultIfEmpty(100).Min() + 3M)
             {
                 battMin = 30;
             }
@@ -144,7 +153,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Buy over night when price is -ve or lower than morning sell price.
-            decimal morningSellMax = plan.Plans.Morning().SellPrice().Max();
+            decimal morningSellMax = plan.Plans.Morning().SellPrice().DefaultIfEmpty(0).Max();
             foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 /* paid to buy*/ || z.Buy < morningSellMax / 1.2M))
             {
                 p.Action = new PeriodAction()
@@ -170,7 +179,7 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
-            _Plan.Save(plan);
+            PlanService.Save(plan);
             SendEmail(plan);
         }
 
@@ -199,9 +208,21 @@ namespace Rwb.Luxopus.Jobs
 
             if (emailSubjectPrefix.Length > 0)
             {
-                decimal eveningSellHigh = plan.Plans.Evening().Select(z => z.Sell).Max();
+                string buy = "";
+                if(plan.Plans.Evening().Any())
+                {
                 decimal overnightBuyMin = plan.Plans.Overnight().Select(z => z.Buy).Min();
-                _Sms.SendSms($"SOLAR! Sell {eveningSellHigh.ToString("00.0")} Buy {overnightBuyMin.ToString("00.0")}");
+                    buy = $"Buy {overnightBuyMin.ToString("00.0")} ";
+                }
+
+                string sell = "";
+                if(plan.Plans.Overnight().Any())
+                {
+                    decimal eveningSellHigh = plan.Plans.Evening().Select(z => z.Sell).Max();
+                    sell = $"Sell {eveningSellHigh.ToString("00.0")}";
+                }
+
+                _Sms.SendSms($"SOLAR! {buy}{sell}");
             }
         }
     }

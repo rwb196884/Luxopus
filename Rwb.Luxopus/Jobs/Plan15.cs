@@ -11,14 +11,13 @@ namespace Rwb.Luxopus.Jobs
 {
     /// <summary>
     /// <para>
-    /// Buy/sell strategy -- first attempt. Sell at the evening high but leave enough in the battery for use.
+    /// Plan for fixed export price -- 15p at the time of writing.
     /// </para>
-	/// <para>
-	/// Probably heavily biassed to the UK market with lots of hard-coded assumptions.
-	/// </para>
     /// </summary>
-    public class PlanB : Planner
+    public class Plan15 : Planner
     {
+        const decimal ExportPrice = 15M;
+
         /// <summary>
         /// Rate at which battery discharges to grid. TODO: estimate from historical data.
         /// Capacity 189 Ah * 55V ~ 10kWh so 1% is 100Wh
@@ -34,14 +33,13 @@ namespace Rwb.Luxopus.Jobs
         /// If 1 battery percent is 100Wh then that's 2.5 resp. 2 percent per hour.
         /// 15 hours over night shoule be about 30% batt.
         /// </summary>
-        const int BatteryMin = 50;
-
+        const int BatteryMin = 30;
 
         private readonly ILuxService _Lux;
         IEmailService _Email;
         ISmsService _Sms;
 
-        public PlanB(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger, influxQuery, plan)
+        public Plan15(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger, influxQuery, plan)
         {
             _Lux = lux;
             _Email = email;
@@ -57,79 +55,44 @@ namespace Rwb.Luxopus.Jobs
             DateTime start = t0.StartOfHalfHour();
             DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 18, 0, 0)).AddDays(1);
             List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop);
-
             Plan plan = new Plan(prices);
 
-            // How low can we go?
-            int battMin = BatteryMin;
-            if (plan.Plans.Any(z => z.Buy < 0))
-            {
-                battMin = 30;
-            }
-
-            if (plan.Plans.Morning().SellPrice().Max() > plan.Plans.Overnight().BuyPrice().Min() + 3M)
-            {
-                battMin = 30;
-            }
-
-            // Battery: current level.
-            int b = await InfluxQuery.GetBatteryLevelAsync();
-            if( b < 0) { b = 90; }
-
-            // Battery: level change per kWh.
-
-            // Set SELL in order to reach the required battery (low) level.
-            int periods = (b - battMin) / BatteryDrainPerHalfHour;
-
-            // TO DO: we might want to choose periods before the maximum.
-            foreach (HalfHourPlan p in plan.Plans.Take(12 /* don't use tomorrow's high if it's higher; have to sell today */).OrderByDescending(z => z.Sell).Take(periods + 1 /* Use batt limit to stop. */))
+            // When is it economical to buy?
+            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < ExportPrice * 0.8M))
             {
                 p.Action = new PeriodAction()
                 {
-                    ChargeFromGrid = 0,
-                    ExportGeneration = false,
-                    DischargeToGrid = battMin
-                };
-            }
-
-            // Buy over night when price is -ve or lower than morning sell price.
-            decimal morningSellMax = plan.Plans.Morning().SellPrice().Max();
-            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 /* paid to buy*/ || z.Buy < morningSellMax - 2M))
-            {
-                p.Action = new PeriodAction()
-                {
-                    ChargeFromGrid = 100,
+                    ChargeFromGrid = p.Buy < 0 ? 100 : 99,
                     ExportGeneration = false,
                     DischargeToGrid = 100
                 };
             }
-            decimal overnightBuyMean = plan.Plans.Where(z => z.Buy < 0 /* paid to buy*/ || z.Buy < morningSellMax - 2M).Select(z => z.Buy).DefaultIfEmpty(100M).Average();
 
-            // Morning sell.
-            foreach (HalfHourPlan p in plan.Plans.Morning().Where(z => z.Sell > overnightBuyMean * 1.2M))
+            // Empty the battery ready to buy.
+            foreach( HalfHourPlan p in plan.Plans.Where(z => (z?.Action.ChargeFromGrid ?? 0) > 0))
             {
-                if (overnightBuyMean < morningSellMax - 2M)
+                HalfHourPlan? pp = plan.GetPrevious(p);
+                if( pp == null || (pp?.Action.ChargeFromGrid ?? 0) > 0) { continue; }
+
+                if(pp.Action != null)
                 {
-                    p.Action = new PeriodAction()
+                    throw new NotImplementedException();
+                }
+
+                int battEstimate = 80; // Current level.
+                while(battEstimate > 20 && pp != null)
+                {
+                    pp.Action = new PeriodAction()
                     {
                         ChargeFromGrid = 0,
-                        ExportGeneration = false,
-                        DischargeToGrid = 50 // Enough space for the day's generation.
+                        ExportGeneration = true,
+                        DischargeToGrid = 20
                     };
+
+                    battEstimate = battEstimate = BatteryDrainPerHalfHour;
+                    //pp = plan.GetPrevious(pp);
                 }
             }
-
-            decimal daytimeSellMedian = plan.Plans.Daytime().Select(z => z.Sell).Median();
-            // if morning sell max > daytime sell median then empty the battery to store daytime generation.
-
-            // Daytime
-            // Should have made enough space in the battery to store in order to sell during the evening peak.
-            (decimal min, decimal lq, decimal median, decimal mean, decimal uq, decimal max) = await GetSolcastFactorsAsync();
-            decimal solcast = await GetSolcastTomorrowAsync(t0);
-
-            decimal forecast = solcast * mean;
-
-            // Battery not big enough to store generated, therefore have to sell at best available daytime price.
 
             PlanService.Save(plan);
             SendEmail(plan);
