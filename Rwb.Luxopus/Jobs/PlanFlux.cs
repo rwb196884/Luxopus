@@ -61,20 +61,25 @@ namespace Rwb.Luxopus.Jobs
              * Force charge 02:00 to 05:00 cut off at 30
              */
 
-            // Get prices and set up plan.
-            DateTime start = t0.StartOfHalfHour();
-            DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 18, 0, 0)).AddDays(1);
-            List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, "E-1R-FLUX-IMPORT-23-02-14-E", "E-1R-FLUX-EXPORT-23-02-14-E");
-            Plan plan = new Plan(prices);
+            // We don't need a plan!
 
-            // Empty the battery at the peak.
-            // Leave enough to get to 'flux'.
-            // Buy enough in 'flux' to get to daytime generation.
+            // TO DO:
+            // Get what we set it to yesterday.
+            // Get batt level at 2am.
+            // If batt was >10% then we can go a bit lower today.
 
+            // Discharge at peak. Keep enough to get to over night mininum
+            await _Lux.SetDishargeToGridAsync(
+                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 16, 0, 0),
+                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 19, 0, 0),
+                30
+                );
 
-
-            PlanService.Save(plan);
-            SendEmail(plan);
+            await _Lux.SetChargeFromGridAsync(
+                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 2, 0, 0),
+                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 5, 0, 0),
+                98
+                );
         }
 
         private void SendEmail(Plan plan)
