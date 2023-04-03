@@ -1,8 +1,7 @@
 ﻿using InfluxDB.Client.Core.Flux.Domain;
-using Rwb.Luxopus.Services;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualBasic;
 using NodaTime;
+using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,7 +34,7 @@ namespace Rwb.Luxopus.Jobs
             return a.Substring(0, a.Length - 2);
         }
 
-        private const string ElectricityTariffs = "E-1R-AGILE-FLEX-22-11-25-E,E-1R-AGILE-OUTGOING-19-05-13-E";
+        private const string ElectricityTariffs = "E-1R-AGILE-FLEX-22-11-25-E,E-1R-AGILE-OUTGOING-19-05-13-E,E-1R-FLUX-EXPORT-23-02-14-A";
 
         public override async Task RunAsync(CancellationToken cancellationToken)
         {
