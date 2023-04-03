@@ -16,9 +16,11 @@ namespace Rwb.Luxopus.Jobs
 
         public async Task RunAsync(CancellationToken cancellation)
         {
+            Logger.LogInformation($"Running {this.GetType().Name}.");
             try
             {
                 await WorkAsync(cancellation);
+                Logger.LogInformation($"Finished {this.GetType().Name} successfully.");
             }
             catch( Exception e)
             {
