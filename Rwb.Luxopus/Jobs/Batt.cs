@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Rwb.Luxopus.Jobs
 {
@@ -30,14 +31,30 @@ from(bucket: ""{_Influx.Bucket}"")
         .GetValues<int>()
         .Single();
 
-            if(battLevel > 97) { 
-                // TO TO: Get current charge rate.
-                await _Lux.SetBatteryChargeRate(5);
+            Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
+            int battChargeRate = _Lux.GetBatteryChargeRate(settings);
+
+            if(battLevel > 97) {
+                if (battChargeRate > 5)
+                {
+                    Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 5 becuase battery level is {battLevel}.");
+                    await _Lux.SetBatteryChargeRate(5);
+                }
             }
-            else if( battLevel < 30)
+            else if( battLevel < 25)
             {
-                await _Lux.SetBatteryChargeRate(90);
-                await _Lux.SetDishargeToGridAsync(DateTime.Now, DateTime.Now, 101); // Percent out of range disables discharge.
+                if (battChargeRate < 95)
+                {
+                    Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 96 becuase battery level is {battLevel}.");
+                    await _Lux.SetBatteryChargeRate(96);
+                }
+
+                (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) = _Lux.GetDishargeToGrid(settings);
+                if (enabled)
+                {
+                    Logger.LogWarning($"Changing force discharge fom enabled to disabled becuase battery level is {battLevel}.");
+                    await _Lux.SetDishargeToGridAsync(DateTime.Now, DateTime.Now, 101); // Percent out of range disables discharge.
+                }
             }
         }
     }

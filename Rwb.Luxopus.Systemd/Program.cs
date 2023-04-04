@@ -21,8 +21,9 @@ namespace Rwb.Luxopus.Systemd
                         cfg.AddJsonFile($"appsettings.{env}.json", true);
                     }
 
-                    cfg.AddJsonFile("/etc/luxopus.config", true);
+                    cfg.AddJsonFile("/etc/luxopus", true);
                 })
+                .AddLuxopus()
                 .ConfigureServices(services =>
                 {
                     services.AddHostedService<Worker>();

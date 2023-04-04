@@ -6,6 +6,12 @@ A more obvious name might have been `Octolux`; therefore I didn't choose it.
 
 LUXpower / Octopus control
 
+## Checkout from git
+
+```
+got clone https://github.com/rwb196884/Luxopus.git
+```
+
 ## Installation
 
 ## Configuration

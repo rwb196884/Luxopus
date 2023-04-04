@@ -22,8 +22,10 @@ namespace Rwb.Luxopus.Services
 
         public async Task WriteAsync(LineDataBuilder lineData)
         {
-            IWriteApiAsync w = Client.GetWriteApiAsync();
             string[] lines = lineData.GetLineData();
+            if (lines.Length == 0) { return; }
+
+            IWriteApiAsync w = Client.GetWriteApiAsync();
             int n = 100;
             if(lines.Length > 500)
             {

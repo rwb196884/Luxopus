@@ -17,6 +17,7 @@ namespace Rwb.Luxopus
 
         public Luxopus(ILogger<Luxopus> logger, IScheduler scheduler,
             LuxMonitor luxMonitor,
+            Batt batt,
             LuxDaily luxDaily,
             OctopusMeters octopusMeters,
             OctopusPrices octopusPrices,
@@ -33,6 +34,7 @@ namespace Rwb.Luxopus
             _Scheduler.Next += _Scheduler_Next;
 
             AddJob(luxMonitor, "*/8 * * * *"); // every 8 minutes.
+            AddJob(batt, "*/13 * * * *"); // every 8 minutes.
             AddJob(luxDaily, "51 23 * * *"); // at the end of every day
             AddJob(octopusMeters, "53 16 * * *"); // will get yesterday's meters.
             AddJob(octopusPrices, "34 16 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.

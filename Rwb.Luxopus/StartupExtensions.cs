@@ -5,7 +5,7 @@ using Rwb.Luxopus.Jobs;
 using Rwb.Luxopus.Services;
 using System;
 
-namespace Rwb.Luxopus.Console
+namespace Rwb.Luxopus
 {
     public static class StartupExtensions
     {

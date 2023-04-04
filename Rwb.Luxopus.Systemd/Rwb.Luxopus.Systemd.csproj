@@ -8,11 +8,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="luxopus.sh" />
     <None Remove="unit" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="unit">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="luxopus.sh">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
