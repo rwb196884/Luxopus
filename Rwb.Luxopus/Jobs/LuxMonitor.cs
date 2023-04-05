@@ -37,9 +37,9 @@ namespace Rwb.Luxopus.Jobs
                 lines.Add(Measurement, "export", r.Single(z => z.Name == "pToGrid").Value.GetInt32());
                 lines.Add(Measurement, "import", r.Single(z => z.Name == "pToUser").Value.GetInt32());
                 lines.Add(Measurement, "batt_level", r.Single(z => z.Name == "soc").Value.GetInt32());
-                lines.Add("battery", "level", r.Single(z => z.Name == "soc").Value.GetInt32()); // Old version.
+                //lines.Add("battery", "level", r.Single(z => z.Name == "soc").Value.GetInt32()); // Old version.
             }
-            await _Influx.WriteAsync(lines);
+           await _Influx.WriteAsync(lines);
         }
     }
 }

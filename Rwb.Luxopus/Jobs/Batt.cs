@@ -21,15 +21,7 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            (DateTime tBattLevel, int battLevel) = (await _Influx.QueryAsync(@$"
-from(bucket: ""{_Influx.Bucket}"")
-  |> range(start: -30m, stop: now())
-  |> filter(fn: (r) => (r[""_measurement""] == ""battery"" and r[""_field""] == ""level"") or (r[""_measurement""] == ""inverter"" and r[""_field""] == ""batt_level""))
-  |> last()
-"))
-        .First()
-        .GetValues<int>()
-        .Single();
+            int battLevel = await _Influx.GetBatteryLevelAsync();
 
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);

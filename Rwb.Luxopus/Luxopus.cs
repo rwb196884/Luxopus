@@ -46,9 +46,10 @@ namespace Rwb.Luxopus
             {
                 octopusMeters,
                 octopusPrices,
-                //solcast // severely rate lmited.
+                //solcast, // severely rate lmited.
                 planA,
-                planChecker
+                planChecker,
+                batt
             };
         }
 

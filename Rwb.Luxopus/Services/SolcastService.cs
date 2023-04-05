@@ -55,20 +55,54 @@ namespace Rwb.Luxopus.Services
 
         public async Task<string> GetForecasts()
         {
-            using (HttpClient httpClient = GetHttpClient())
+            for (int i = 0; i < 2; i++)
             {
-                HttpResponseMessage response = await httpClient.GetAsync($"/rooftop_sites/{Settings.SiteId}/forecasts?format=json");
-                response.EnsureSuccessStatusCode();
-                return await response.Content.ReadAsStringAsync();
+                try
+                {
+                    using (HttpClient httpClient = GetHttpClient())
+                    {
+                        HttpResponseMessage response = await httpClient.GetAsync($"/rooftop_sites/{Settings.SiteId}/forecasts?format=json");
+                        response.EnsureSuccessStatusCode();
+                        return await response.Content.ReadAsStringAsync();
+                    }
+                }
+                catch (Exception e)
+                {
+                    if (i < 1)
+                    {
+                        Logger.LogError(e, "Solcast.GetForecasts failed. Trying again...");
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
             }
         }
+
         public async Task<string> GetEstimatedActuals()
         {
-            using (HttpClient httpClient = GetHttpClient())
-            {
-                HttpResponseMessage response = await httpClient.GetAsync($"/rooftop_sites/{Settings.SiteId}/estimated_actuals?format=json");
-                response.EnsureSuccessStatusCode();
-                return await response.Content.ReadAsStringAsync();
+            for(int i=0; i<2; i++) {
+                try
+                {
+                    using (HttpClient httpClient = GetHttpClient())
+                    {
+                        HttpResponseMessage response = await httpClient.GetAsync($"/rooftop_sites/{Settings.SiteId}/estimated_actuals?format=json");
+                        response.EnsureSuccessStatusCode();
+                        return await response.Content.ReadAsStringAsync();
+                    }
+                }
+                catch (Exception e)
+                {
+                    if (i < 1)
+                    {
+                        Logger.LogError(e, "Solcast.GetForecasts failed. Trying again...");
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
             }
         }
 
