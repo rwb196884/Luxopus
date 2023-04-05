@@ -63,6 +63,10 @@ namespace Rwb.Luxopus.Jobs
 
             // We don't need a plan!
 
+            // 7PM: sell but keep enough to get to 2AM. Export generation.
+            // 2AM: fill the battery.
+            // 5AM: export generation.
+
             // TO DO:
             // Get what we set it to yesterday.
             // Get batt level at 2am.

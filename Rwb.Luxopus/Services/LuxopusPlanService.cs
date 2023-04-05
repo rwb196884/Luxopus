@@ -62,6 +62,11 @@ namespace Rwb.Luxopus.Services
             return Plans.OrderByDescending(z => z.Start).Where(z => z.Start < current.Start).Skip(1).Take(1).SingleOrDefault();
         }
 
+        public HalfHourPlan? GetNext(HalfHourPlan current)
+        {
+            return Plans.OrderBy(z => z.Start).Where(z => z.Start > current.Start).Take(1).SingleOrDefault();
+        }
+
         public override string ToString()
         {
             if(Plans.Count == 0) { return "Ce n'est pas un plan."; }

@@ -8,7 +8,6 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using static NodaTime.TimeZones.ZoneEqualityComparer;
 
 namespace Rwb.Luxopus.Services
 {
@@ -37,7 +36,6 @@ namespace Rwb.Luxopus.Services
         Task SetChargeFromGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
         Task SetDishargeToGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
         Task SetBatteryChargeRate(int batteryChargeRatePercent);
-        Task ResetAsync();
     }
 
     public class LuxService : Service<LuxSettings>, ILuxService, IDisposable
@@ -372,45 +370,6 @@ namespace Rwb.Luxopus.Services
             }
 
             return parameters;
-        }
-
-        public async Task ResetAsync()
-        {
-            Dictionary<string, string> settings = await GetSettingsAsync();
-            (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = GetChargeFromGrid(settings);
-            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = GetDishargeToGrid(settings);
-            int battChargeRate = GetBatteryChargeRate(settings);
-            int battLevel = await GetBatteryLevelAsync();
-
-            DateTime t0 = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 0, 0, 0);
-            if (outEnabled)
-            {
-                await SetDishargeToGridAsync(t0, t0, -1);
-                Logger.LogWarning("Discharge to grid was turned on.");
-            }
-
-            if (inEnabled)
-            {
-                await SetChargeFromGridAsync(t0, t0, -1);
-                Logger.LogWarning("Charge from grid was turned off.");
-            }
-
-            if (battLevel > 96)
-            {
-                if (battChargeRate != 1)
-                {
-                    await SetBatteryChargeRate(1);
-                    Logger.LogWarning($"Battery charge rate was reset to 1% (level is {battLevel}) was {battChargeRate}.");
-                }
-            }
-            else
-            {
-                if (battChargeRate != 99)
-                {
-                    await SetBatteryChargeRate(99);
-                    Logger.LogWarning($"Battery charge rate was reset to 99% (level is {battLevel}) was {battChargeRate}.");
-                }
-            }
         }
 
         protected virtual void Dispose(bool disposing)

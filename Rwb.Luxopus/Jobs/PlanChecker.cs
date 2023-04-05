@@ -36,7 +36,7 @@ namespace Rwb.Luxopus.Jobs
             IEnumerable<Plan> ps = _Plans.LoadAll(t0);
 
             Plan? plan = _Plans.Load(DateTime.UtcNow);
-            if(plan == null)
+            if (plan == null)
             {
                 Logger.LogError($"No current plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
                 return;
@@ -46,9 +46,8 @@ namespace Rwb.Luxopus.Jobs
 
             HalfHourPlan p = plan.Current;
 
-            if(p.Action == null)
+            if (p.Action == null)
             {
-                await _Lux.ResetAsync();
                 return;
             }
 
@@ -59,40 +58,74 @@ namespace Rwb.Luxopus.Jobs
             // If not then what can we do about it?
 
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
-            (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
-            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent)  = _Lux.GetDishargeToGrid(settings);
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
 
-            bool defaultCase = true;
-            if(p.Action.DischargeToGrid < 100 && (!outEnabled || outStart > p.Start || outStop < p.Start.AddMinutes(30) || outBatteryLimitPercent > p.Action.DischargeToGrid) )
+
+            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDishargeToGrid(settings);
+            if (p.Action.DischargeToGrid < 100)
             {
-                defaultCase = false;
-                //await _Lux.SetDishargeToGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.DischargeToGrid);
-                actions.AppendLine($"SetDishargeToGridAsync({p.Start.ToString("HH:mm")}, {p.Start.AddMinutes(30).ToString("HH:mm")} {p.Action.DischargeToGrid}) was {outEnabled} {outStart.ToString("HH:mm")} {outStop.ToString("HH:mm")} {outBatteryLimitPercent}%");
+                DateTime dischargeEnd = p.Start.AddMinutes(30);
+                HalfHourPlan? q = plan.GetNext(p);
+                while (q != null && (q.Action?.DischargeToGrid ?? 100) < 100)
+                {
+                    dischargeEnd = dischargeEnd.AddMinutes(30);
+                    q = plan.GetNext(q);
+                }
+
+                if (!outEnabled || outStart > p.Start || outStop < dischargeEnd || outBatteryLimitPercent != p.Action.DischargeToGrid)
+                {
+                    //await _Lux.SetDishargeToGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.DischargeToGrid);
+                    actions.AppendLine($"SetDishargeToGridAsync({p.Start.ToString("HH:mm")},{dischargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid}) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}%");
+                }
+            }
+            else if (outEnabled && (p.Start <= outStop || p.Start.AddMinutes(30) > outStart))
+            {
+                //await _Lux.SetDishargeToGridAsync(p.Start, p.Start, 100);
+                actions.AppendLine($"SetDishargeToGridAsync({p.Start.ToString("HH:mm")},{p.Start.ToString("HH:mm")}, 100) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}%");
             }
 
-            if ( p.Action.ChargeFromGrid > 0 && (!inEnabled || inStart > p.Start || inStop < p.Start.AddMinutes(30) || inBatteryLimitPercent < p.Action.ChargeFromGrid))
+            (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
+            if (p.Action.ChargeFromGrid > 0)
             {
-                defaultCase = false;
-                //await _Lux.SetChargeFromGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.ChargeFromGrid);
-                actions.AppendLine($"SetChargeFromGridAsync({p.Start.ToString("HH:mm")}, {p.Start.AddMinutes(30).ToString("HH:mm")} {p.Action.DischargeToGrid} was {inEnabled} {inStart.ToString("HH:mm")} {inStop.ToString("HH:mm")} {inBatteryLimitPercent}%");
+                DateTime chargeEnd = p.Start.AddMinutes(30);
+                HalfHourPlan? q = plan.GetNext(p);
+                while (q != null && (q.Action?.ChargeFromGrid ?? 0) > 0)
+                {
+                    chargeEnd = chargeEnd.AddMinutes(30);
+                    q = plan.GetNext(q);
+                }
+
+                if (!inEnabled || inStart > p.Start || inStop < chargeEnd || inBatteryLimitPercent != p.Action.ChargeFromGrid)
+                {
+                    //await _Lux.SetChargeFromGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.ChargeFromGrid);
+                    actions.AppendLine($"SetChargeFromGridAsync({p.Start.ToString("HH:mm")}, {chargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid}) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}%");
+                }
+            }
+            else if (inEnabled && (p.Start <= inStop || p.Start.AddMinutes(30) > inStop))
+            {
+                //await _Lux.SetChargeFromGridAsync(p.Start, p.Start.AddMinutes(30), 0);
+                actions.AppendLine($"SetChargeFromGridAsync({p.Start.ToString("HH:mm")}, {p.Start.ToString("HH:mm")}, 0) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}%");
             }
 
-            if ( p.Action.ExportGeneration && battChargeRate > 5)
+            if (p.Action.ExportGeneration && battChargeRate > 5)
             {
-                defaultCase = false;
                 //await _Lux.SetBatteryChargeRate(1);
                 actions.AppendLine($"SetBatteryChargeRate(1) was {battChargeRate}");
             }
-
-            if (defaultCase)
+            else if (!p.Action.ExportGeneration)
             {
-                await _Lux.ResetAsync();
-                actions.AppendLine($"ResetAsync");
+                int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
+                if (battLevel < 90 && battChargeRate < 90)
+                {
+                    // Charge the battery.
+                    //await _Lux.SetBatteryChargeRate(90);
+                    actions.AppendLine($"SetBatteryChargeRate(90) was {battChargeRate} (battery level is {battLevel})");
+                }
             }
 
+
             string message = actions.ToString();
-            if(!string.IsNullOrEmpty(message))
+            if (!string.IsNullOrEmpty(message))
             {
                 _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", message);
             }

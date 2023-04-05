@@ -100,12 +100,18 @@ namespace Rwb.Luxopus.Services
 
             Instant i = Instant.FromDateTimeUtc(time);
 
+            string cunt = "";
+            if(fieldValue.GetType() == typeof(byte) || fieldValue.GetType() == typeof(short) || fieldValue.GetType() == typeof(int) || fieldValue.GetType() == typeof(long))
+            {
+                cunt = "i";
+            }
+
             string tagString = "";
             if (tags.Count() > 0)
             {
                 tagString = "," + string.Join(",", tags.Select(z => $"{z.Key}={z.Value}"));
             }
-            _Lines.Add($"{measurement}{tagString} {fieldKey}={fieldValue} {i.ToUnixTimeSeconds()}");
+            _Lines.Add($"{measurement}{tagString} {fieldKey}={fieldValue}{cunt} {i.ToUnixTimeSeconds()}");
         }
 
         public string[] GetLineData()
