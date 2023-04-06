@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -386,6 +387,7 @@ namespace Rwb.Luxopus.Services
                 BaseAddress = new Uri(Settings.BaseAddress)
             };
             client.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.ASCII.GetBytes($"{Settings.ApiKey}:")));
+            client.DefaultRequestHeaders.Add("User-Agent", "cunt");
             return client;
         }
 
