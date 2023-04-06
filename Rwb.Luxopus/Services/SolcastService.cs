@@ -78,6 +78,7 @@ namespace Rwb.Luxopus.Services
                     }
                 }
             }
+            return null;
         }
 
         public async Task<string> GetEstimatedActuals()
@@ -104,6 +105,7 @@ namespace Rwb.Luxopus.Services
                     }
                 }
             }
+            return null;
         }
 
         private HttpClient GetHttpClient()

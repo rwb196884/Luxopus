@@ -72,16 +72,19 @@ namespace Rwb.Luxopus.Jobs
             // Get batt level at 2am.
             // If batt was >10% then we can go a bit lower today.
 
-            // Discharge at peak. Keep enough to get to over night mininum
+            // Discharge at peak. Keep enough to get to over night mininum.
+
+            // TODO: do we need to convert times to/from UTC?
+
             await _Lux.SetDishargeToGridAsync(
-                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 16, 0, 0),
-                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 19, 0, 0),
+                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 16, 05, 0),
+                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 18, 55, 0),
                 30
                 );
 
             await _Lux.SetChargeFromGridAsync(
-                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 2, 0, 0),
-                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 5, 0, 0),
+                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 2, 05, 0),
+                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 4, 55, 0),
                 98
                 );
         }

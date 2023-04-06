@@ -26,6 +26,7 @@ namespace Rwb.Luxopus
             // Solar elevation angle
             PlanChecker planChecker,
             PlanA planA
+            //PlanFlux planFlux
             )
         {
             _Logger = logger;
@@ -41,9 +42,11 @@ namespace Rwb.Luxopus
             AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
             AddJob(planChecker, "1,31 * * * *"); // At the start of every half hour.
             AddJob(planA, "34 16 * * *"); // Make plan after getting prices and before evening peak.
+            //AddJob(planFlux, "34 16 * * *"); // Make plan after getting prices and before evening peak.
 
             _StartupTasks = new List<Job>()
             {
+                luxMonitor,
                 octopusMeters,
                 octopusPrices,
                 //solcast, // severely rate lmited.
