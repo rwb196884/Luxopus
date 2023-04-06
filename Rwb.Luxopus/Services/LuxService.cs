@@ -22,6 +22,9 @@ namespace Rwb.Luxopus.Services
 
     public interface ILuxService
     {
+        DateTime ToUtc(DateTime localTime);
+        DateTime ToLocal(DateTime utcTime);
+
         Task<string> GetInverterRuntimeAsync();
         Task<string> GetInverterEnergyInfoAsync();
 
@@ -53,7 +56,7 @@ namespace Rwb.Luxopus.Services
         private readonly HttpClient _Client;
         private bool disposedValue;
 
-        private DateTime ToUtc(DateTime localTime)
+        public DateTime ToUtc(DateTime localTime)
         {
             DateTimeZone ntz = DateTimeZoneProviders.Tzdb[Settings.TimeZone];
             Offset o = ntz.GetUtcOffset(Instant.FromDateTimeOffset(localTime));
@@ -62,7 +65,7 @@ namespace Rwb.Luxopus.Services
             return v;
         }
 
-        private DateTime ToLocal(DateTime utcTime)
+        public DateTime ToLocal(DateTime utcTime)
         {
             DateTimeZone ntz = DateTimeZoneProviders.Tzdb[Settings.TimeZone];
             Offset o = ntz.GetUtcOffset(Instant.FromDateTimeOffset(utcTime));

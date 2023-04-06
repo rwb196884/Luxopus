@@ -46,6 +46,13 @@ namespace Rwb.Luxopus.Jobs
             _Sms = sms;
         }
 
+        private DateTime MakeUtcTime(int localHours, int localMinutes)
+        {
+            DateTime local = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, localHours, localMinutes, 0);
+            local = DateTime.SpecifyKind(local, DateTimeKind.Local);
+            return _Lux.ToUtc(local);
+        }
+
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             //DateTime t0 = new DateTime(2023, 03, 31, 17, 00, 00);
@@ -66,6 +73,7 @@ namespace Rwb.Luxopus.Jobs
             // 7PM: sell but keep enough to get to 2AM. Export generation.
             // 2AM: fill the battery.
             // 5AM: export generation.
+            // And just to really fuck things up: these are always local time.
 
             // TO DO:
             // Get what we set it to yesterday.
@@ -74,19 +82,9 @@ namespace Rwb.Luxopus.Jobs
 
             // Discharge at peak. Keep enough to get to over night mininum.
 
-            // TODO: do we need to convert times to/from UTC?
+            await _Lux.SetDishargeToGridAsync(MakeUtcTime(16, 06), MakeUtcTime(18, 55), 30);
 
-            await _Lux.SetDishargeToGridAsync(
-                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 16, 05, 0),
-                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 18, 55, 0),
-                30
-                );
-
-            await _Lux.SetChargeFromGridAsync(
-                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 2, 05, 0),
-                new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 4, 55, 0),
-                98
-                );
+            await _Lux.SetChargeFromGridAsync(MakeUtcTime(2, 05), MakeUtcTime(4, 55), 98);
         }
 
         private void SendEmail(Plan plan)
