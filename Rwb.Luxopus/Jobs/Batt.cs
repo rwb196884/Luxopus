@@ -13,10 +13,10 @@ namespace Rwb.Luxopus.Jobs
         private readonly ILuxService _Lux;
         private readonly IInfluxQueryService _Influx;
 
-        public Batt(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influx)  :base(logger)
+        public Batt(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influx) : base(logger)
         {
-            _Lux= lux;
-            _Influx= influx;
+            _Lux = lux;
+            _Influx = influx;
         }
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
@@ -26,19 +26,27 @@ namespace Rwb.Luxopus.Jobs
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
 
-            if(battLevel > 97) {
-                if (battChargeRate > 5)
-                {
-                    Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 5 becuase battery level is {battLevel}.");
-                    await _Lux.SetBatteryChargeRate(5);
-                }
+            if (battLevel > 97 && battChargeRate > 5)
+            {
+                Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 5 becuase battery level is {battLevel}.");
+                await _Lux.SetBatteryChargeRate(5);
             }
-            else if( battLevel < 25)
+            if (battLevel >= 99 && battChargeRate > 0)
+            {
+                Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 5 becuase battery level is {battLevel}.");
+                await _Lux.SetBatteryChargeRate(0);
+            }
+            if (battLevel < 85 && battChargeRate < 90)
+            {
+                Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 90 becuase battery level is {battLevel}.");
+                await _Lux.SetBatteryChargeRate(90);
+            }
+            else if (battLevel < 15)
             {
                 if (battChargeRate < 95)
                 {
                     Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 96 becuase battery level is {battLevel}.");
-                    await _Lux.SetBatteryChargeRate(96);
+                    await _Lux.SetBatteryChargeRate(95);
                 }
 
                 (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) = _Lux.GetDishargeToGrid(settings);
