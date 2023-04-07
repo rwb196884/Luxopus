@@ -1,14 +1,23 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using InfluxDB.Client.Api.Domain;
+using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Jobs
 {
+    enum FluxCase
+    {
+        Peak,
+        Daytime,
+        Low
+    }
+
     /// <summary>
     /// <para>
     /// Plan for 'flux' tariff https://octopus.energy/smart/flux/
@@ -16,6 +25,25 @@ namespace Rwb.Luxopus.Jobs
     /// </summary>
     public class PlanFlux : Planner
     {
+        private static FluxCase GetFluxCase(Plan plan, HalfHourPlan p)
+        {
+            List<decimal> ps = plan.Plans.Select(z => z.Sell).Distinct().OrderBy(z => z).ToList();
+            if(p.Sell == ps[0])
+            {
+                return FluxCase.Low;
+            }
+            else if( p.Sell == ps[1])
+            {
+                return FluxCase.Daytime;
+            }
+            else if( p.Sell == ps[2])
+            {
+                return FluxCase.Peak;
+            }
+
+            throw new NotImplementedException();
+        }
+
         const decimal ExportPrice = 15M;
 
         /// <summary>
@@ -71,31 +99,50 @@ namespace Rwb.Luxopus.Jobs
             Plan? current = PlanService.Load(t0);
             if (current != null)
             {
-                return;
-                // TODO: create a new -- updated -- plan.
+                if (current.Plans.Where(z => z.Start > t0).Count() > 4)
+                {
+                    return;
+                }
+                // else: create a new -- updated -- plan.
             }
 
-            DateTime start = t0.StartOfHalfHour();
-            DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 18, 0, 0)).AddDays(1);
+            DateTime start = t0.StartOfHalfHour().AddDays(-1);
+            DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 21, 0, 0)).AddDays(1);
             List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, "E-1R-FLUX-IMPORT-23-02-14-E", "E-1R-FLUX-EXPORT-23-02-14-E");
-            Plan plan = new Plan(prices);
 
-            HalfHourPlan pSell = plan.Plans.OrderByDescending(z => z.Sell).Take(1).SingleOrDefault();
-            if(pSell != null)
-            {
-                pSell.Action = new PeriodAction()
-                {
-                    DischargeToGrid = 20
-                };
-            }
+            // Find the current period: the last period that starts before t0.
+            ElectricityPrice priceNow = prices.Where(z => z.Start < t0).OrderByDescending(z => z.Start).FirstOrDefault();
+            Plan plan = new Plan(prices.Where(z => z.Start >= priceNow.Start));
 
-            HalfHourPlan pBuy = plan.Plans.OrderBy(z => z.Buy).Take(1).SingleOrDefault();
-            if (pSell != null)
+            foreach(HalfHourPlan p in plan.Plans)
             {
-                pSell.Action = new PeriodAction()
+                switch (GetFluxCase(plan, p))
                 {
-                    ChargeFromGrid = 99
-                };
+                    case FluxCase.Peak:
+                        p.Action = new PeriodAction()
+                        {
+                            ChargeFromGrid = 0,
+                            DischargeToGrid = 20,
+                            ExportGeneration = true
+                        };
+                        break;
+                    case FluxCase.Daytime:
+                        p.Action = new PeriodAction()
+                        {
+                            ChargeFromGrid = 0,
+                            DischargeToGrid = 100,
+                            ExportGeneration = false
+                        };
+                        break;
+                    case FluxCase.Low:
+                        p.Action = new PeriodAction()
+                        {
+                            ChargeFromGrid = 98,
+                            DischargeToGrid = 100,
+                            ExportGeneration = false
+                        };
+                        break;
+                }
             }
 
             PlanService.Save(plan);

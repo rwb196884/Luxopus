@@ -1,4 +1,5 @@
 ﻿using Rwb.Luxopus.Jobs;
+using Rwb.Luxopus.Jobs;
 using Rwb.Luxopus.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,8 +40,9 @@ namespace Rwb.Luxopus.Console
                     //m = scope.ServiceProvider.GetRequiredService<OctopusPrices>();
                     //m = scope.ServiceProvider.GetRequiredService<Solcast>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanA>();
-                    //m.RunAsync(CancellationToken.None).Wait();
-                    //return;
+                    m = scope.ServiceProvider.GetRequiredService<PlanFlux>();
+                    m.RunAsync(CancellationToken.None).Wait();
+                    return;
 
                     Luxopus l = scope.ServiceProvider.GetRequiredService<Luxopus>();
                     l.Start();
