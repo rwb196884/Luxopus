@@ -14,11 +14,13 @@ namespace Rwb.Luxopus.Jobs
 
         private readonly ILuxService _Lux;
         private readonly IInfluxWriterService _Influx;
+        private readonly IEmailService _Email;
 
-        public LuxDaily(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxWriterService influx)  :base(logger)
+        public LuxDaily(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxWriterService influx, IEmailService email)  :base(logger)
         {
             _Lux= lux;
             _Influx= influx;
+            _Email = email;
         }
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
@@ -36,6 +38,7 @@ namespace Rwb.Luxopus.Jobs
                 lines.Add(Measurement, "to_batt", r.Single(z => z.Name == "todayCharging").Value.GetInt32());
                 lines.Add(Measurement, "from_batt", r.Single(z => z.Name == "todayDischarging").Value.GetInt32());
             }
+            _Email.SendEmail("LUX daily", string.Join(Environment.NewLine, lines.GetLineData()));
             await _Influx.WriteAsync(lines);
         }
     }

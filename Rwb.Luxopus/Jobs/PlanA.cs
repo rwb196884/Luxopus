@@ -102,8 +102,6 @@ namespace Rwb.Luxopus.Jobs
             string j = JsonSerializer.Serialize(settings);
 
             DateTime t0 = DateTime.UtcNow;
-            //DateTime t0 = new DateTime(2023, 03, 31, 17, 00, 00);
-            //DateTime t0 = new DateTime(2023, 04, 02, 17, 00, 00);
 
             Plan? current = PlanService.Load(t0);
             if(current != null)
@@ -111,6 +109,8 @@ namespace Rwb.Luxopus.Jobs
                 return;
                 // TODO: create a new -- updated -- plan.
             }
+
+            // TODO: If this runs in the morning then it compares this morning's sell high to tomorrow morning's over night buy.
 
             // Get prices and set up plan.
             DateTime start = t0.StartOfHalfHour();

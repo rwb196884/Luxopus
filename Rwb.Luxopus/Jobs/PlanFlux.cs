@@ -55,20 +55,51 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            //DateTime t0 = new DateTime(2023, 03, 31, 17, 00, 00);
-            DateTime t0 = new DateTime(2023, 04, 02, 17, 00, 00);
-
             /*
-             * Flux    20p,  8p 2am to 5am
-             * Daytime 21p, 21p
-             * Peak    46p, 35p 4pm to 7pm
+             * Flux    B:20p, S:08p 2am to 5am
+             * Daytime B:33p, S:21p
+             * Peak    B:46p, S:34p 4pm to 7pm
              * 
              * Fixed LUX configuration:
              * Force discharge 16:30 to 17:00 cut off 30
-             * Force charge 02:00 to 05:00 cut off at 30
+             * Force charge 02:00 to 05:00 cut off at 99
              */
 
             // We don't need a plan!
+
+            DateTime t0 = DateTime.UtcNow;
+            Plan? current = PlanService.Load(t0);
+            if (current != null)
+            {
+                return;
+                // TODO: create a new -- updated -- plan.
+            }
+
+            DateTime start = t0.StartOfHalfHour();
+            DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 18, 0, 0)).AddDays(1);
+            List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, "E-1R-FLUX-IMPORT-23-02-14-E", "E-1R-FLUX-EXPORT-23-02-14-E");
+            Plan plan = new Plan(prices);
+
+            HalfHourPlan pSell = plan.Plans.OrderByDescending(z => z.Sell).Take(1).SingleOrDefault();
+            if(pSell != null)
+            {
+                pSell.Action = new PeriodAction()
+                {
+                    DischargeToGrid = 20
+                };
+            }
+
+            HalfHourPlan pBuy = plan.Plans.OrderBy(z => z.Buy).Take(1).SingleOrDefault();
+            if (pSell != null)
+            {
+                pSell.Action = new PeriodAction()
+                {
+                    ChargeFromGrid = 99
+                };
+            }
+
+            PlanService.Save(plan);
+            SendEmail(plan);
 
             // 7PM: sell but keep enough to get to 2AM. Export generation.
             // 2AM: fill the battery.
@@ -82,9 +113,9 @@ namespace Rwb.Luxopus.Jobs
 
             // Discharge at peak. Keep enough to get to over night mininum.
 
-            await _Lux.SetDishargeToGridAsync(MakeUtcTime(16, 06), MakeUtcTime(18, 55), 30);
-
-            await _Lux.SetChargeFromGridAsync(MakeUtcTime(2, 05), MakeUtcTime(4, 55), 98);
+            // TODO: UTC
+            //await _Lux.SetDishargeToGridAsync(MakeUtcTime(16, 06), MakeUtcTime(18, 55), 20);
+            //await _Lux.SetChargeFromGridAsync(MakeUtcTime(2, 05), MakeUtcTime(4, 55), 98);
         }
 
         private void SendEmail(Plan plan)

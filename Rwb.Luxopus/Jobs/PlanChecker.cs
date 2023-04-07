@@ -75,13 +75,13 @@ namespace Rwb.Luxopus.Jobs
                 if (!outEnabled || outStart > p.Start || outStop < dischargeEnd || outBatteryLimitPercent != p.Action.DischargeToGrid)
                 {
                     //await _Lux.SetDishargeToGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.DischargeToGrid);
-                    actions.AppendLine($"SetDishargeToGridAsync({p.Start.ToString("HH:mm")},{dischargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid}) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}%");
+                    actions.AppendLine($"SetDishargeToGridAsync({p.Start.ToString("HH:mm")},{dischargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid}) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}% Sell price is {p.Sell.ToString("00.0")}");
                 }
             }
             else if (outEnabled && (p.Start <= outStop || p.Start.AddMinutes(30) > outStart))
             {
                 //await _Lux.SetDishargeToGridAsync(p.Start, p.Start, 100);
-                actions.AppendLine($"SetDishargeToGridAsync({p.Start.ToString("HH:mm")},{p.Start.ToString("HH:mm")}, 100) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}%");
+                actions.AppendLine($"SetDishargeToGridAsync({p.Start.ToString("HH:mm")},{p.Start.ToString("HH:mm")}, 100) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}% Sell price is {p.Sell.ToString("00.0")}");
             }
 
             (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
@@ -98,19 +98,19 @@ namespace Rwb.Luxopus.Jobs
                 if (!inEnabled || inStart > p.Start || inStop < chargeEnd || inBatteryLimitPercent != p.Action.ChargeFromGrid)
                 {
                     //await _Lux.SetChargeFromGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.ChargeFromGrid);
-                    actions.AppendLine($"SetChargeFromGridAsync({p.Start.ToString("HH:mm")}, {chargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid}) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}%");
+                    actions.AppendLine($"SetChargeFromGridAsync({p.Start.ToString("HH:mm")}, {chargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid}) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}% Buy price is {p.Buy.ToString("00.0")}");
                 }
             }
             else if (inEnabled && (p.Start <= inStop || p.Start.AddMinutes(30) > inStop))
             {
                 //await _Lux.SetChargeFromGridAsync(p.Start, p.Start.AddMinutes(30), 0);
-                actions.AppendLine($"SetChargeFromGridAsync({p.Start.ToString("HH:mm")}, {p.Start.ToString("HH:mm")}, 0) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}%");
+                actions.AppendLine($"SetChargeFromGridAsync({p.Start.ToString("HH:mm")}, {p.Start.ToString("HH:mm")}, 0) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}%  Buy price is {p.Buy.ToString("00.0")}");
             }
 
             if (p.Action.ExportGeneration && battChargeRate > 5)
             {
                 //await _Lux.SetBatteryChargeRate(1);
-                actions.AppendLine($"SetBatteryChargeRate(1) was {battChargeRate}");
+                actions.AppendLine($"SetBatteryChargeRate(1) was {battChargeRate} (battery level is {battLevel})");
             }
             else if (!p.Action.ExportGeneration)
             {

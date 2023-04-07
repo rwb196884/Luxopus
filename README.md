@@ -9,7 +9,14 @@ LUXpower / Octopus control
 ## Checkout from git
 
 ```
-got clone https://github.com/rwb196884/Luxopus.git
+ssh-keygen -t ed25519 -C "rwb@rwb.me.uk"
+# save as /home/rwb/.ssh/id_github
+# Fuck knows what this bloody shit is
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_github
+cat ~/.ssh/id_github.pub
+# Paste it at 
+git clone https://github.com/rwb196884/Luxopus.git
 ```
 
 ## Installation
