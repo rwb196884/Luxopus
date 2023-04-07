@@ -1,10 +1,17 @@
 #!/bin/sh
 
-wd=$(dirname "$0")
+d=$(realpath "$0")
+wd=$(dirname "$d")
+echo "wd is $wd"
 
-if [ -f "${wd}/logs/luxopus.log" ]; then
-	oldLog=$(date +"${wd}/logs/luxopus.log."%Y%m%d%H%M)
-	mv "${wd}/logs/luxopus.log" "$oldLog"
+if [ ! -d "${wd}/log" ]; then
+	echo "Creating log directory at ${wd}/log"
+	mkdir "${wd}/log"
+fi
+
+if [ -f "${wd}/log/luxopus.log" ]; then
+	oldLog=$(date +"${wd}/log/luxopus.log."%Y%m%d%H%M)
+	mv "${wd}/log/luxopus.log" "$oldLog"
 fi
 
 # appsettings.json is searched for in the working directory, strangely.
