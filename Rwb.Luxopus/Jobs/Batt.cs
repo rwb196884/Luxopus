@@ -28,17 +28,17 @@ namespace Rwb.Luxopus.Jobs
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
 
-            if (battLevel > 97 && battChargeRate > 5)
+            if (battLevel >= 95 && battChargeRate > 5)
             {
                 Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 5 becuase battery level is {battLevel}.");
                 await _Lux.SetBatteryChargeRate(5);
                 _Email.SendEmail("Batt", $"Changing battery charge rate from {battChargeRate} to 5 becuase battery level is {battLevel}.");
             }
-            if (battLevel >= 99 && battChargeRate > 0)
+            if (battLevel >= 98 && battChargeRate > 0)
             {
-                Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 5 becuase battery level is {battLevel}.");
+                Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 0 becuase battery level is {battLevel}.");
                 await _Lux.SetBatteryChargeRate(0);
-                _Email.SendEmail("Batt", $"Changing battery charge rate from {battChargeRate} to 5 becuase battery level is {battLevel}.");
+                _Email.SendEmail("Batt", $"Changing battery charge rate from {battChargeRate} to 0 becuase battery level is {battLevel}.");
             }
             if (battLevel < 85 && battChargeRate < 90)
             {
@@ -50,9 +50,9 @@ namespace Rwb.Luxopus.Jobs
             {
                 if (battChargeRate < 95)
                 {
-                    Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 96 becuase battery level is {battLevel}.");
+                    Logger.LogWarning($"Changing battery charge rate from {battChargeRate} to 95 becuase battery level is {battLevel}.");
                     await _Lux.SetBatteryChargeRate(95);
-                    _Email.SendEmail("Batt", $"Changing battery charge rate from {battChargeRate} to 96 becuase battery level is {battLevel}.");
+                    _Email.SendEmail("Batt", $"Changing battery charge rate from {battChargeRate} to 95 becuase battery level is {battLevel}.");
                 }
 
                 (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) = _Lux.GetDishargeToGrid(settings);

@@ -10,11 +10,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		install-systemd-service.sh = install-systemd-service.sh
 		install-windows-service.bat = install-windows-service.bat
 		README.md = README.md
+		runConsole.sh = runConsole.sh
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rwb.Luxopus.Console", "Rwb.Luxopus.Console\Rwb.Luxopus.Console.csproj", "{58805567-928E-4680-9D76-B6F340C8A85B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rwb.Luxopus.Console", "Rwb.Luxopus.Console\Rwb.Luxopus.Console.csproj", "{58805567-928E-4680-9D76-B6F340C8A85B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rwb.Luxopus.Systemd", "Rwb.Luxopus.Systemd\Rwb.Luxopus.Systemd.csproj", "{A1876225-ACBE-40AB-BFAF-43F673278950}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rwb.Luxopus.Systemd", "Rwb.Luxopus.Systemd\Rwb.Luxopus.Systemd.csproj", "{A1876225-ACBE-40AB-BFAF-43F673278950}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

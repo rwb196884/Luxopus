@@ -110,7 +110,7 @@ namespace Rwb.Luxopus.Jobs
             if (p.Action.ExportGeneration && battChargeRate > 5)
             {
                 //await _Lux.SetBatteryChargeRate(1);
-                actions.AppendLine($"SetBatteryChargeRate(1) was {battChargeRate} (battery level is {battLevel})");
+                actions.AppendLine($"SetBatteryChargeRate(1) was {battChargeRate} but Action.ExportGeneration is true.");
             }
             else if (!p.Action.ExportGeneration)
             {
