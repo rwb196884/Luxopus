@@ -52,7 +52,8 @@ namespace Rwb.Luxopus
                     services.AddScoped<Batt>();
 
                     services.AddScoped<PlanChecker>();
-                    services.AddScoped<PlanA>();
+                    //services.AddScoped<PlanA>();
+                    services.AddScoped<PlanFlux>();
                 });
         }
     }
