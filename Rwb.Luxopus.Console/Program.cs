@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Jobs;
 using System;
+using System.Threading;
 
 namespace Rwb.Luxopus.Console
 {
@@ -35,12 +36,12 @@ namespace Rwb.Luxopus.Console
                     //m = scope.ServiceProvider.GetRequiredService<LuxDaily>();
                     //m = scope.ServiceProvider.GetRequiredService<OctopusMeters>();
                     //m = scope.ServiceProvider.GetRequiredService<OctopusPrices>();
-                    //m = scope.ServiceProvider.GetRequiredService<Solcast>();
+                    m = scope.ServiceProvider.GetRequiredService<Solcast>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanA>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanFlux>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanChecker>();
-                    //m.RunAsync(CancellationToken.None).Wait();
-                    //return;
+                    m.RunAsync(CancellationToken.None).Wait();
+                    return;
 
                     Luxopus l = scope.ServiceProvider.GetRequiredService<Luxopus>();
                     l.Start();

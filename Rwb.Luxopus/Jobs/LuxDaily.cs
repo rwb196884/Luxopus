@@ -8,6 +8,9 @@ using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Jobs
 {
+    /// <summary>
+    /// This needs to run at 11pm at inverter time.
+    /// </summary>
     public class LuxDaily : Job
     {
         private const string Measurement = "daily";
@@ -25,6 +28,15 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
+            DateTime t0 = DateTime.UtcNow;
+            DateTime tLux = _Lux.ToLocal(t0);
+            if( tLux.Hour != 23)
+            {
+                Logger.LogInformation($"LuxDaily: local hour is {tLux.Hour}.");
+                return;
+            }
+            Logger.LogInformation($"LuxDaily: local hour is {tLux.Hour}.");
+
             LineDataBuilder lines = new LineDataBuilder();
             string json = await _Lux.GetInverterEnergyInfoAsync();
             using (JsonDocument j = JsonDocument.Parse(json))
