@@ -49,7 +49,6 @@ namespace Rwb.Luxopus
                     services.AddScoped<OctopusMeters>();
                     services.AddScoped<OctopusPrices>();
                     services.AddScoped<Solcast>();
-                    services.AddScoped<Batt>();
 
                     services.AddScoped<PlanChecker>();
                     //services.AddScoped<PlanA>();
