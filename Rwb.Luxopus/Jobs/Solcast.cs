@@ -10,8 +10,6 @@ namespace Rwb.Luxopus.Jobs
 {
     public class Solcast : Job
     {
-        private const string Measurement = "daily";
-
         private readonly ISolcastService _Solcast;
         private readonly IInfluxWriterService _InfluxWrite;
 
@@ -32,7 +30,7 @@ namespace Rwb.Luxopus.Jobs
                     JsonElement.ObjectEnumerator p = z.EnumerateObject();
                     DateTime d = p.Single(z => z.Name == "period_end").GetDate().Value.ToUniversalTime();
                     decimal e = p.Single(z => z.Name == "pv_estimate").Value.GetDecimal();
-                    lines.Add("solcast", "actual", e, d);
+                    lines.Add("solcast", "forecast", e, d);
                 }
                 await _InfluxWrite.WriteAsync(lines);
             }
