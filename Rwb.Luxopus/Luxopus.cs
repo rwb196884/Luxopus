@@ -4,6 +4,7 @@ using NCrontab;
 using NCrontab.Scheduler;
 using System.Collections.Generic;
 using System.Threading;
+using System;
 
 namespace Rwb.Luxopus
 {
@@ -62,7 +63,8 @@ namespace Rwb.Luxopus
         private void AddJob(Job j, string cron)
         {
             _Jobs.Add(j);
-            _Scheduler.AddTask(CrontabSchedule.Parse(cron), j.RunAsync);
+            Guid id = _Scheduler.AddTask(CrontabSchedule.Parse(cron), j.RunAsync);
+            _Logger.LogInformation($"Job {j.GetType().Name} is {id}.");
         }
 
         public void Start()
