@@ -34,6 +34,7 @@ namespace Rwb.Luxopus.Console
                 using (IServiceScope scope = host.Services.CreateScope())
                 {
                     Job m = null;
+                    //m = scope.ServiceProvider.GetRequiredService<Batt>();
                     //m = scope.ServiceProvider.GetRequiredService<LuxMonitor>();
                     //m = scope.ServiceProvider.GetRequiredService<LuxDaily>();
                     //m = scope.ServiceProvider.GetRequiredService<OctopusMeters>();
@@ -41,8 +42,9 @@ namespace Rwb.Luxopus.Console
                     //m = scope.ServiceProvider.GetRequiredService<Solcast>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanA>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanFlux>();
-                    //m.RunAsync(CancellationToken.None).Wait();
-                    //return;
+                    m = scope.ServiceProvider.GetRequiredService<PlanChecker>();
+                    m.RunAsync(CancellationToken.None).Wait();
+                    return;
 
                     Luxopus l = scope.ServiceProvider.GetRequiredService<Luxopus>();
                     l.Start();

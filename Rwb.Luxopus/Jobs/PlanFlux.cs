@@ -1,10 +1,8 @@
-﻿using InfluxDB.Client.Api.Domain;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -44,25 +42,6 @@ namespace Rwb.Luxopus.Jobs
             throw new NotImplementedException();
         }
 
-        const decimal ExportPrice = 15M;
-
-        /// <summary>
-        /// Rate at which battery discharges to grid. TODO: estimate from historical data.
-        /// Capacity 189 Ah * 55V ~ 10kWh so 1% is 100Wh
-        /// Max charge ~ 4kW => 2.5 hours => 20% per half hour.
-        /// 3kW => 3.5 hours => 15% per half hour.
-        /// TODO: estimate from data.
-        /// </summary>
-        const int BatteryDrainPerHalfHour = 12;
-
-        /// <summary>
-        /// Normal battery minimum allowed level. TODO: estimate from historical data.
-        /// Power to house: day 9am--11pm: 250W, night 11pm--8am: 200W.
-        /// If 1 battery percent is 100Wh then that's 2.5 resp. 2 percent per hour.
-        /// 15 hours over night shoule be about 30% batt.
-        /// </summary>
-        const int BatteryMin = 30;
-
         private readonly ILuxService _Lux;
         IEmailService _Email;
         ISmsService _Sms;
@@ -74,12 +53,12 @@ namespace Rwb.Luxopus.Jobs
             _Sms = sms;
         }
 
-        private DateTime MakeUtcTime(int localHours, int localMinutes)
-        {
-            DateTime local = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, localHours, localMinutes, 0);
-            local = DateTime.SpecifyKind(local, DateTimeKind.Local);
-            return _Lux.ToUtc(local);
-        }
+        //private DateTime MakeUtcTime(int localHours, int localMinutes)
+        //{
+        //    DateTime local = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, localHours, localMinutes, 0);
+        //    local = DateTime.SpecifyKind(local, DateTimeKind.Local);
+        //    return _Lux.ToUtc(local);
+        //}
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
@@ -104,6 +83,8 @@ namespace Rwb.Luxopus.Jobs
                     return;
                 }
                 // else: create a new -- updated -- plan.
+                return;
+                // Can't overwrite an existing plan file.
             }
 
             DateTime start = t0.StartOfHalfHour().AddDays(-1);

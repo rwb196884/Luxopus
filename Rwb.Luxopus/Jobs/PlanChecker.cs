@@ -42,6 +42,9 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
 
+            DateTime tStart = plan.Current.Start;
+            DateTime tNext = plan.Next.Start;
+
             StringBuilder actions = new StringBuilder();
 
             HalfHourPlan p = plan.Current;
@@ -60,7 +63,7 @@ namespace Rwb.Luxopus.Jobs
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
 
-
+            // Discharge to grid.
             (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDishargeToGrid(settings);
             if (p.Action.DischargeToGrid < 100)
             {
@@ -74,20 +77,22 @@ namespace Rwb.Luxopus.Jobs
 
                 if (!outEnabled || outStart > p.Start || outStop < dischargeEnd || outBatteryLimitPercent != p.Action.DischargeToGrid)
                 {
-                    //await _Lux.SetDishargeToGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.DischargeToGrid);
-                    actions.AppendLine($"SetDishargeToGridAsync({p.Start.ToString("HH:mm")},{dischargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid}) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}% Sell price is {p.Sell.ToString("00.0")}");
+                    // TODO: estimate battery required to get to over night low.
+                    await _Lux.SetDishargeToGridAsync(tStart, tNext, p.Action.DischargeToGrid);
+                    actions.AppendLine($"SetDishargeToGridAsync({tStart.ToString("HH:mm")},{dischargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid} OVERRIDE 80) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}% Sell price is {p.Sell.ToString("00.0")}");
                 }
             }
-            else if (outEnabled && (p.Start <= outStop || p.Start.AddMinutes(30) > outStart))
+            else if (outEnabled && (tStart <= outStop || tNext > outStart))
             {
-                //await _Lux.SetDishargeToGridAsync(p.Start, p.Start, 100);
-                actions.AppendLine($"SetDishargeToGridAsync({p.Start.ToString("HH:mm")},{p.Start.ToString("HH:mm")}, 100) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}% Sell price is {p.Sell.ToString("00.0")}");
+                await _Lux.SetDishargeToGridAsync(tStart, tStart, 100);
+                actions.AppendLine($"SetDishargeToGridAsync({tStart.ToString("HH:mm")},{tStart.ToString("HH:mm")}, 100) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}% Sell price is {p.Sell.ToString("00.0")}");
             }
 
+            // Charge from grid.
             (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
             if (p.Action.ChargeFromGrid > 0)
             {
-                DateTime chargeEnd = p.Start.AddMinutes(30);
+                DateTime chargeEnd = tNext;
                 HalfHourPlan? q = plan.GetNext(p);
                 while (q != null && (q.Action?.ChargeFromGrid ?? 0) > 0)
                 {
@@ -95,34 +100,48 @@ namespace Rwb.Luxopus.Jobs
                     q = plan.GetNext(q);
                 }
 
-                if (!inEnabled || inStart > p.Start || inStop < chargeEnd || inBatteryLimitPercent != p.Action.ChargeFromGrid)
+                if (!inEnabled || inStart > tStart || inStop < chargeEnd || inBatteryLimitPercent != p.Action.ChargeFromGrid)
                 {
                     //await _Lux.SetChargeFromGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.ChargeFromGrid);
-                    actions.AppendLine($"SetChargeFromGridAsync({p.Start.ToString("HH:mm")}, {chargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid}) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}% Buy price is {p.Buy.ToString("00.0")}");
+                    actions.AppendLine($"DISABLED SetChargeFromGridAsync({tStart.ToString("HH:mm")}, {chargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid}) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}% Buy price is {p.Buy.ToString("00.0")}");
                 }
             }
-            else if (inEnabled && (p.Start <= inStop || p.Start.AddMinutes(30) > inStop))
+            else if (inEnabled && (tStart <= inStop || tNext > inStop))
             {
                 //await _Lux.SetChargeFromGridAsync(p.Start, p.Start.AddMinutes(30), 0);
-                actions.AppendLine($"SetChargeFromGridAsync({p.Start.ToString("HH:mm")}, {p.Start.ToString("HH:mm")}, 0) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}%  Buy price is {p.Buy.ToString("00.0")}");
+                actions.AppendLine($"DISABLED SetChargeFromGridAsync({tStart.ToString("HH:mm")}, {tStart.ToString("HH:mm")}, 0) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}%  Buy price is {p.Buy.ToString("00.0")}");
             }
 
-            if (p.Action.ExportGeneration && battChargeRate > 5)
+            // Batt.
+            int requiredBattChargeRate = 90; // Correct for charge from grid.
+            string why = "charge from grid";
+            if(!inEnabled)
             {
-                //await _Lux.SetBatteryChargeRate(1);
-                actions.AppendLine($"SetBatteryChargeRate(1) was {battChargeRate} but Action.ExportGeneration is true.");
-            }
-            else if (!p.Action.ExportGeneration)
-            {
-                int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
-                if (battLevel < 90 && battChargeRate < 90)
+                if (p.Action.ExportGeneration)
                 {
-                    // Charge the battery.
-                    //await _Lux.SetBatteryChargeRate(90);
-                    actions.AppendLine($"SetBatteryChargeRate(90) was {battChargeRate} (battery level is {battLevel})");
+                    requiredBattChargeRate = 0;
+                    why = "export generation";
+                }
+                else
+                {
+                    int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
+                    if (battLevel > 95)
+                    {
+                        requiredBattChargeRate = 0;
+                        why = "battery is full";
+                    }
+                    else
+                    {
+                        why = "batttery has space";
+                    }
                 }
             }
 
+            if( requiredBattChargeRate != battChargeRate)
+            {
+                await _Lux.SetBatteryChargeRate(requiredBattChargeRate);
+                actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
+            }
 
             string message = actions.ToString();
             if (!string.IsNullOrEmpty(message))
