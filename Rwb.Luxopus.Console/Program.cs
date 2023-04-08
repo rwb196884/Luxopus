@@ -1,13 +1,9 @@
-﻿using Rwb.Luxopus.Jobs;
-using Rwb.Luxopus.Jobs;
-using Rwb.Luxopus.Services;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Rwb.Luxopus.Jobs;
 using System;
-using System.Threading;
-using System.IO;
 
 namespace Rwb.Luxopus.Console
 {
