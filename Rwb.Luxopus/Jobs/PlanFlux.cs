@@ -25,7 +25,7 @@ namespace Rwb.Luxopus.Jobs
     {
         private static FluxCase GetFluxCase(Plan plan, HalfHourPlan p)
         {
-            //List<decimal> ps = plan.Plans.Select(z => z.Sell).Distinct().OrderBy(z => z).ToList();
+            //List<decimal> ps = plan.Plans.Select(z => z.Sell).Distinct().OrderBy(z => z).ToList(); // May not witness all cases.
             //if(p.Sell == ps[0])
             //{
             //    return FluxCase.Low;
@@ -39,13 +39,13 @@ namespace Rwb.Luxopus.Jobs
             //    return FluxCase.Peak;
             //}
 
-            if(p.Start.Hour < 4)
+            if(p.Start.Hour < 4) // 2AM is 2 or 3AM UTC.
             {
                 return FluxCase.Low;
             }
             else if( p.Start.Hour >= 15 && p.Start.Hour <= 17)
             {
-                return FluxCase.Peak;
+                return FluxCase.Peak; // 4PM is 3 or 4PM UTC.
             }
             return FluxCase.Daytime;
 
