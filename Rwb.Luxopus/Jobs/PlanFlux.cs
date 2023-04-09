@@ -88,6 +88,7 @@ namespace Rwb.Luxopus.Jobs
                 return;
                 // Can't overwrite an existing plan file.
             }
+            Logger.LogInformation($"Creating new plan.");
 
             DateTime start = t0.StartOfHalfHour().AddDays(-1);
             DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 21, 0, 0)).AddDays(1);
