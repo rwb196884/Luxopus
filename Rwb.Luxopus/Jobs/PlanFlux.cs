@@ -25,19 +25,29 @@ namespace Rwb.Luxopus.Jobs
     {
         private static FluxCase GetFluxCase(Plan plan, HalfHourPlan p)
         {
-            List<decimal> ps = plan.Plans.Select(z => z.Sell).Distinct().OrderBy(z => z).ToList();
-            if(p.Sell == ps[0])
+            //List<decimal> ps = plan.Plans.Select(z => z.Sell).Distinct().OrderBy(z => z).ToList();
+            //if(p.Sell == ps[0])
+            //{
+            //    return FluxCase.Low;
+            //}
+            //else if( p.Sell == ps[1])
+            //{
+            //    return FluxCase.Daytime;
+            //}
+            //else if( p.Sell == ps[2])
+            //{
+            //    return FluxCase.Peak;
+            //}
+
+            if(p.Start.Hour < 4)
             {
                 return FluxCase.Low;
             }
-            else if( p.Sell == ps[1])
-            {
-                return FluxCase.Daytime;
-            }
-            else if( p.Sell == ps[2])
+            else if( p.Start.Hour >= 15 && p.Start.Hour <= 18)
             {
                 return FluxCase.Peak;
             }
+            return FluxCase.Daytime;
 
             throw new NotImplementedException();
         }

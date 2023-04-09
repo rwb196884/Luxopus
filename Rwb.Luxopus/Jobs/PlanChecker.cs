@@ -116,7 +116,7 @@ namespace Rwb.Luxopus.Jobs
                         chargeEnd =  q?.Start ?? chargeEnd.AddMinutes(30);
                     }
 
-                    if (!inEnabled || inStart > tStart || inStop < chargeEnd || inBatteryLimitPercent != p.Action.ChargeFromGrid)
+                    if (!inEnabled && ( inStart > tStart || inStop < chargeEnd || inBatteryLimitPercent != p.Action.ChargeFromGrid))
                     {
                         //await _Lux.SetChargeFromGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.ChargeFromGrid);
                         actions.AppendLine($"DISABLED SetChargeFromGridAsync({tStart.ToString("HH:mm")}, {chargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid}) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}% Buy price is {p.Buy.ToString("00.0")}");
