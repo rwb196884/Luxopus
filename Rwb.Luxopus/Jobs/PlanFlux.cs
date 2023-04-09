@@ -80,9 +80,11 @@ namespace Rwb.Luxopus.Jobs
             {
                 if (current.Plans.Where(z => z.Start > t0).Count() > 4)
                 {
+                    Logger.LogInformation($"No need to create new plan: current plan has {current.Plans.Where(z => z.Start > t0).Count()} future periods.");
                     return;
                 }
                 // else: create a new -- updated -- plan.
+                Logger.LogInformation($"No need to create new plan: there is a current plan.");
                 return;
                 // Can't overwrite an existing plan file.
             }
