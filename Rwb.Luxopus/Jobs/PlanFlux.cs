@@ -43,7 +43,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 return FluxCase.Low;
             }
-            else if( p.Start.Hour >= 15 && p.Start.Hour <= 18)
+            else if( p.Start.Hour >= 15 && p.Start.Hour <= 17)
             {
                 return FluxCase.Peak;
             }
