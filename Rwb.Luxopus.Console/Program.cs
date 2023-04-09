@@ -42,9 +42,9 @@ namespace Rwb.Luxopus.Console
                     //m = scope.ServiceProvider.GetRequiredService<Solcast>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanA>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanFlux>();
-                    //m = scope.ServiceProvider.GetRequiredService<PlanChecker>();
-                    //m.RunAsync(CancellationToken.None).Wait();
-                    //return;
+                    m = scope.ServiceProvider.GetRequiredService<PlanChecker>();
+                    m.RunAsync(CancellationToken.None).Wait();
+                    return;
 
                     Luxopus l = scope.ServiceProvider.GetRequiredService<Luxopus>();
                     l.Start();

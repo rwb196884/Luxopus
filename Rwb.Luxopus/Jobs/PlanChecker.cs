@@ -56,6 +56,11 @@ namespace Rwb.Luxopus.Jobs
             // If not then what can we do about it?
 
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
+            if( settings == null)
+            {
+                Logger.LogWarning("Could not read LUX settings; abandoning checks.");
+                return;
+            }
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
 
             // Discharge to grid.
@@ -83,7 +88,7 @@ namespace Rwb.Luxopus.Jobs
                     if (!outEnabled || outStart > p.Start || outStop < dischargeEnd || outBatteryLimitPercent != p.Action.DischargeToGrid)
                     {
                         // TODO: estimate battery required to get to over night low.
-                        await _Lux.SetDishargeToGridAsync(tStart, tNext, p.Action.DischargeToGrid);
+                        await _Lux.SetDishargeToGridAsync(tStart, tNext, 80);// p.Action.DischargeToGrid);
                         actions.AppendLine($"SetDishargeToGridAsync({tStart.ToString("HH:mm")},{dischargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid} OVERRIDE 80) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}% Sell price is {p.Sell.ToString("00.0")}");
                     }
                 }
