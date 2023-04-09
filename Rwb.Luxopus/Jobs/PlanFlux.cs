@@ -25,19 +25,29 @@ namespace Rwb.Luxopus.Jobs
     {
         private static FluxCase GetFluxCase(Plan plan, HalfHourPlan p)
         {
-            List<decimal> ps = plan.Plans.Select(z => z.Sell).Distinct().OrderBy(z => z).ToList();
-            if(p.Sell == ps[0])
+            //List<decimal> ps = plan.Plans.Select(z => z.Sell).Distinct().OrderBy(z => z).ToList();
+            //if(p.Sell == ps[0])
+            //{
+            //    return FluxCase.Low;
+            //}
+            //else if( p.Sell == ps[1])
+            //{
+            //    return FluxCase.Daytime;
+            //}
+            //else if( p.Sell == ps[2])
+            //{
+            //    return FluxCase.Peak;
+            //}
+
+            if(p.Start.Hour < 4)
             {
                 return FluxCase.Low;
             }
-            else if( p.Sell == ps[1])
-            {
-                return FluxCase.Daytime;
-            }
-            else if( p.Sell == ps[2])
+            else if( p.Start.Hour >= 15 && p.Start.Hour <= 17)
             {
                 return FluxCase.Peak;
             }
+            return FluxCase.Daytime;
 
             throw new NotImplementedException();
         }
@@ -80,12 +90,15 @@ namespace Rwb.Luxopus.Jobs
             {
                 if (current.Plans.Where(z => z.Start > t0).Count() > 4)
                 {
+                    Logger.LogInformation($"No need to create new plan: current plan has {current.Plans.Where(z => z.Start > t0).Count()} future periods.");
                     return;
                 }
                 // else: create a new -- updated -- plan.
+                Logger.LogInformation($"No need to create new plan: there is a current plan.");
                 return;
                 // Can't overwrite an existing plan file.
             }
+            Logger.LogInformation($"Creating new plan.");
 
             DateTime start = t0.StartOfHalfHour().AddDays(-1);
             DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 21, 0, 0)).AddDays(1);
