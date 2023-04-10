@@ -157,7 +157,7 @@ namespace Rwb.Luxopus.Jobs
 
             if (requiredBattChargeRate != battChargeRate)
             {
-                await _Lux.SetBatteryChargeRate(requiredBattChargeRate);
+                await _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
                 actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
             }
 
