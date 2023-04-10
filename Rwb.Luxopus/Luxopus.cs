@@ -26,6 +26,7 @@ namespace Rwb.Luxopus
             // Solar elevation angle
             PlanChecker planChecker,
             //PlanA planA
+            PlanZero planZero,
             PlanFlux planFlux
             )
         {
@@ -39,9 +40,10 @@ namespace Rwb.Luxopus
             AddJob(octopusMeters, "53 16 * * *"); // will get yesterday's meters.
             AddJob(octopusPrices, "34 16 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
             AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
-            AddJob(planChecker, "1,31 * * * *"); // At the start of every half hour.
+            //AddJob(planChecker, "1,31 * * * *"); // At the start of every half hour.
             //AddJob(planA, "34 16 * * *"); // Make plan after getting prices and before evening peak.
-            AddJob(planFlux, "34 16 * * *"); // Make plan after getting prices and before evening peak.
+            AddJob(planZero, "38 16 * * *"); // Make plan after getting prices and before evening peak.
+            AddJob(planFlux, "38 16 * * *"); // Make plan after getting prices and before evening peak.
 
             _StartupTasks = new List<Job>()
             {
@@ -50,8 +52,9 @@ namespace Rwb.Luxopus
                 octopusPrices,
                 //solcast, // severely rate lmited.
                 //planA,
-                planFlux,
-                planChecker
+                planZero,
+                //planFlux
+                //planChecker
             };
         }
 

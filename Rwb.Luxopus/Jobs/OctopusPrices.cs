@@ -5,6 +5,7 @@ using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -17,12 +18,16 @@ namespace Rwb.Luxopus.Jobs
         private readonly IOctopusService _Octopus;
         private readonly IInfluxQueryService _InfluxQuery;
         private readonly IInfluxWriterService _InfluxWrite;
+        private readonly IEmailService _Email;
+        private readonly ISmsService _Sms;
 
-        public OctopusPrices(ILogger<LuxMonitor> logger, IOctopusService octopus, IInfluxQueryService influxQuery, IInfluxWriterService influxWrite)  :base(logger)
+        public OctopusPrices(ILogger<LuxMonitor> logger, IOctopusService octopus, IInfluxQueryService influxQuery, IInfluxWriterService influxWrite, IEmailService email, ISmsService sms)  :base(logger)
         {
             _Octopus = octopus;
             _InfluxQuery = influxQuery;
             _InfluxWrite = influxWrite;
+            _Email = email;
+            _Sms = sms;
         }
 
         private static string GetProductOfTariff(string tariffCode)
@@ -38,6 +43,8 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
+            Dictionary<string, List<Price>> negativePrices = new Dictionary<string, List<Price>>();
+
             foreach (string t in ( await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Union(ElectricityTariffs.Split(',')).Distinct() )
             {
                 Dictionary<string, string> tags = new Dictionary<string, string>()
@@ -58,6 +65,27 @@ namespace Rwb.Luxopus.Jobs
                 }
                 Logger.LogInformation($"Got {prices.Count()} prices for tariff {t} from {from.ToString("dd MMM HH:mm")} to {to.ToString("dd MMM HH:mm")}.");
                 await _InfluxWrite.WriteAsync(lines);
+                if(prices.Any(z => z.Pence < 0))
+                {
+                    negativePrices.Add(t, prices.Where(z => z.Pence < 0).ToList());
+                }
+            }
+
+            if (negativePrices.Any())
+            {
+                StringBuilder email = new StringBuilder();
+                foreach(string t in negativePrices.Keys)
+                {
+                    email.AppendLine(t);
+                    foreach(Price p in negativePrices[t].OrderBy(z => z.ValidFrom))
+                    {
+                        email.AppendLine($"{p.ValidFrom:HH:mm zzz} {p.Pence:0.00}");
+                    }
+                    email.AppendLine();
+                }
+
+                _Email.SendEmail("Negative electricity prices", email.ToString());
+                _Sms.SendSms($"Negative electicity prices!");
             }
 
             foreach (string t in (await _Octopus.GetGasTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Distinct())

@@ -25,7 +25,7 @@ namespace Rwb.Luxopus.Jobs
     {
         private static FluxCase GetFluxCase(Plan plan, HalfHourPlan p)
         {
-            //List<decimal> ps = plan.Plans.Select(z => z.Sell).Distinct().OrderBy(z => z).ToList(); // May not witness all cases.
+            //List<decimal> ps = plan.Plans.Select(z => z.Sell).Distinct().OrderBy(z => z).ToList();
             //if(p.Sell == ps[0])
             //{
             //    return FluxCase.Low;
@@ -39,13 +39,13 @@ namespace Rwb.Luxopus.Jobs
             //    return FluxCase.Peak;
             //}
 
-            if(p.Start.Hour < 4) // 2AM is 2 or 3AM UTC.
+            if(p.Start.Hour < 4)
             {
                 return FluxCase.Low;
             }
             else if( p.Start.Hour >= 15 && p.Start.Hour <= 17)
             {
-                return FluxCase.Peak; // 4PM is 3 or 4PM UTC.
+                return FluxCase.Peak;
             }
             return FluxCase.Daytime;
 
@@ -54,13 +54,11 @@ namespace Rwb.Luxopus.Jobs
 
         private readonly ILuxService _Lux;
         IEmailService _Email;
-        ISmsService _Sms;
 
-        public PlanFlux(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger, influxQuery, plan)
+        public PlanFlux(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email) : base(logger, influxQuery, plan)
         {
             _Lux = lux;
             _Email = email;
-            _Sms = sms;
         }
 
         //private DateTime MakeUtcTime(int localHours, int localMinutes)
@@ -117,7 +115,8 @@ namespace Rwb.Luxopus.Jobs
                         {
                             ChargeFromGrid = 0,
                             DischargeToGrid = 20,
-                            ExportGeneration = true
+                            BatteryChargeRate = 0,
+                        BatteryDischargeRate = 100,
                         };
                         break;
                     case FluxCase.Daytime:
@@ -125,7 +124,8 @@ namespace Rwb.Luxopus.Jobs
                         {
                             ChargeFromGrid = 0,
                             DischargeToGrid = 100,
-                            ExportGeneration = false
+                            BatteryChargeRate = 100,
+                            BatteryDischargeRate = 100,
                         };
                         break;
                     case FluxCase.Low:
@@ -133,13 +133,14 @@ namespace Rwb.Luxopus.Jobs
                         {
                             ChargeFromGrid = 98,
                             DischargeToGrid = 100,
-                            ExportGeneration = false
+                            BatteryChargeRate = 100,
+                            BatteryDischargeRate = 0,
                         };
                         break;
                 }
             }
 
-            PlanService.Save(plan);
+            //PlanService.Save(plan);
             SendEmail(plan);
 
             // 7PM: sell but keep enough to get to 2AM. Export generation.
@@ -167,27 +168,7 @@ namespace Rwb.Luxopus.Jobs
                 message.AppendLine(p.ToString());
             }
 
-            string emailSubjectPrefix = "";
-            if (plan.Plans.Any(z => (z.Action?.DischargeToGrid ?? 101) <= 100))
-            {
-                emailSubjectPrefix += "E";
-            }
-
-            if (plan.Plans.Any(z => (z.Action?.ChargeFromGrid ?? 0) > 0) )
-            {
-                emailSubjectPrefix += "I";
-            }
-
-            string s = message.ToString();
-
-            _Email.SendEmail(emailSubjectPrefix + "Solar strategy " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString());
-
-            if (emailSubjectPrefix.Length > 0)
-            {
-                decimal eveningSellHigh = plan.Plans.Evening().Select(z => z.Sell).Max();
-                decimal overnightBuyMin = plan.Plans.Overnight().Select(z => z.Buy).Min();
-                _Sms.SendSms($"SOLAR! Sell {eveningSellHigh.ToString("00.0")} Buy {overnightBuyMin.ToString("00.0")}");
-            }
+            _Email.SendEmail("Solar strategy (flux) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString());
         }
     }
 }

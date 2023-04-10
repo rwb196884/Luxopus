@@ -20,10 +20,7 @@ namespace Rwb.Luxopus.Console
                 {
                     cfg.ClearProviders();
                     cfg.AddConfiguration(context.Configuration.GetSection("Logging"));
-                    cfg.AddConsole(configure =>
-                    {
-                        configure.TimestampFormat = "dd MMM HH:mm";
-                    });
+                    cfg.AddConsole();
                 })
                 .AddAppsettingsWithAspNetCoreEnvironment()
                 .AddLuxopus()
@@ -40,11 +37,12 @@ namespace Rwb.Luxopus.Console
                     //m = scope.ServiceProvider.GetRequiredService<OctopusMeters>();
                     //m = scope.ServiceProvider.GetRequiredService<OctopusPrices>();
                     //m = scope.ServiceProvider.GetRequiredService<Solcast>();
+                    m = scope.ServiceProvider.GetRequiredService<PlanZero>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanA>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanFlux>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanChecker>();
-                    //m.RunAsync(CancellationToken.None).Wait();
-                    //return;
+                    m.RunAsync(CancellationToken.None).Wait();
+                    return;
 
                     Luxopus l = scope.ServiceProvider.GetRequiredService<Luxopus>();
                     l.Start();

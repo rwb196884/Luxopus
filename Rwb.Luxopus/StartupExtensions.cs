@@ -51,6 +51,7 @@ namespace Rwb.Luxopus
                     services.AddScoped<Solcast>();
 
                     services.AddScoped<PlanChecker>();
+                    services.AddScoped<PlanZero>();
                     //services.AddScoped<PlanA>();
                     services.AddScoped<PlanFlux>();
                 });

@@ -54,7 +54,8 @@ namespace Rwb.Luxopus.Jobs
         /// <summary>
         /// If true then export generation to grid in preference to storing.
         /// </summary>
-        public bool ExportGeneration { get; set; }
+        public int BatteryChargeRate { get; set; }
+        public int BatteryDischargeRate { get; set; }
 
         /// <summary>
         /// Battery limit for discharge. Use 100 to disable discharge to grid.
@@ -63,35 +64,7 @@ namespace Rwb.Luxopus.Jobs
 
         public override string ToString()
         {
-            string a = "a:";
-
-            if (ChargeFromGrid > 0)
-            {
-                a += "(grid to batt)";
-            }
-            else
-            {
-                a += "(batt no charge from grid)";
-            }
-
-            if (ExportGeneration)
-            {
-                a += "(solar to grid not batt)";
-            }
-            else
-            {
-                a += "(solar to batt not grid)";
-            }
-
-            if (DischargeToGrid < 100)
-            {
-                a += $"(batt over {DischargeToGrid} to grid)";
-            }
-            else
-            {
-                a += "(batt no discharge to grid)";
-            }
-            return a;
+            return $"ChargeFromGrid to {ChargeFromGrid} | DischargeToGrid to {DischargeToGrid} | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryDischargeRate}";
         }
     }
 

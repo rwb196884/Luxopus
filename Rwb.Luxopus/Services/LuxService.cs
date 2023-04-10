@@ -35,10 +35,12 @@ namespace Rwb.Luxopus.Services
         (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetChargeFromGrid(Dictionary<string, string> settings);
         (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDishargeToGrid(Dictionary<string, string> settings);
         int GetBatteryChargeRate(Dictionary<string, string> settings);
+        int GetBatteryDischargeRate(Dictionary<string, string> settings);
 
         Task SetChargeFromGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
         Task SetDishargeToGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
-        Task SetBatteryChargeRate(int batteryChargeRatePercent);
+        Task SetBatteryChargeRateAsync(int batteryChargeRatePercent);
+        Task SetBatteryDishargeRateAsync(int batteryDishargeRatePercent);
     }
 
     public class LuxService : Service<LuxSettings>, ILuxService, IDisposable
@@ -69,7 +71,7 @@ namespace Rwb.Luxopus.Services
         {
             DateTimeZone ntz = DateTimeZoneProviders.Tzdb[Settings.TimeZone];
             Offset o = ntz.GetUtcOffset(Instant.FromDateTimeOffset(utcTime));
-            DateTime u = utcTime.AddTicks(o.Ticks);
+            DateTime u = utcTime.AddTicks( o.Ticks);
             DateTime v = DateTime.SpecifyKind(u, DateTimeKind.Local);
             return v;
         }
@@ -122,8 +124,7 @@ namespace Rwb.Luxopus.Services
         private async Task<HttpResponseMessage> PostAsync(string path, IEnumerable<KeyValuePair<string, string>> formData)
         {
             FormUrlEncodedContent content = new FormUrlEncodedContent(formData);
-            var response = await _Client.PostAsync(path, content);
-            return response;
+            return await _Client.PostAsync(path, content);
         }
 
         private async Task LoginAsync()
@@ -184,8 +185,6 @@ namespace Rwb.Luxopus.Services
             }
         }
 
-        private static readonly string[] _Stupid = { "valueFrame", "success", "msg", "msgCode" };
-
         public async Task<Dictionary<string, string>> GetSettingsAsync()
         {
             Dictionary<string, string> settings = new Dictionary<string, string>();
@@ -214,19 +213,10 @@ namespace Rwb.Luxopus.Services
                 {
                     foreach (JsonProperty p in j.RootElement.EnumerateObject())
                     {
-                        if (p.Name == "msg" && p.Value.GetString() == "DEVICE_OFFLINE")
+                        if (p.Name == "valueFrame") { continue; }
+                        if (p.Name == "success") { continue; }
+                        if (settings.ContainsKey(p.Name))
                         {
-                            return null;
-                        }
-                        if (_Stupid.Contains(p.Name))
-                        {
-                            Logger.LogWarning($"Ignoring setting {p.Name}.");
-                            continue;
-                        }
-                        else if (settings.ContainsKey(p.Name))
-                        {
-                            Logger.LogWarning($"Dupliate setting {p.Name}.");
-                            continue;
                         }
                         switch (p.Value.ValueKind)
                         {
@@ -301,6 +291,10 @@ namespace Rwb.Luxopus.Services
             return int.Parse(settings["HOLD_CHARGE_POWER_PERCENT_CMD"]);
         }
 
+        public int GetBatteryDischargeRate(Dictionary<string, string> settings)
+        {
+            return int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"]);
+        }
 
         public async Task<int> GetBatteryLevelAsync()
         {
@@ -317,10 +311,10 @@ namespace Rwb.Luxopus.Services
             DateTime localStart = ToLocal(start);
             DateTime localStop = ToLocal(stop);
 
+            await PostAsync(UrlToWrite, GetEnableParams("FUNC_AC_CHARGE", enable));
             await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_AC_CHARGE_START_TIME", localStart));
             await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_AC_CHARGE_END_TIME", localStop));
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_SOC_LIMIT", batteryLimitPercent.ToString()));
-            await PostAsync(UrlToWrite, GetFuncEnableParams("FUNC_AC_CHARGE", enable));
         }
 
         public async Task SetDishargeToGridAsync(DateTime start, DateTime stop, int batteryLimitPercent)
@@ -330,16 +324,22 @@ namespace Rwb.Luxopus.Services
             DateTime localStart = ToLocal(start);
             DateTime localStop = ToLocal(stop);
 
+            await PostAsync(UrlToWrite, GetEnableParams("FUNC_FORCED_DISCHG_EN", enable));
             await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_START_TIME", localStart));
             await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_END_TIME", localStop));
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_SOC_LIMIT", batteryLimitPercent.ToString()));
-            await PostAsync(UrlToWrite, GetFuncEnableParams("FUNC_FORCED_DISCHG_EN", enable));
         }
 
-        public async Task SetBatteryChargeRate(int batteryChargeRatePercent)
+        public async Task SetBatteryChargeRateAsync(int batteryChargeRatePercent)
         {
             int rate = batteryChargeRatePercent < 0 || batteryChargeRatePercent > 100 ? 90 : batteryChargeRatePercent;
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_CHARGE_POWER_PERCENT_CMD", rate.ToString()));
+        }
+
+        public async Task SetBatteryDishargeRateAsync(int batteryDishargeRatePercent)
+        {
+            int rate = batteryDishargeRatePercent < 0 || batteryDishargeRatePercent > 100 ? 90 : batteryDishargeRatePercent;
+            await PostAsync(UrlToWrite, GetHoldParams("HOLD_DISCHG_POWER_PERCENT_CMD", rate.ToString()));
         }
 
         private Dictionary<string, string> GetHoldParams(string holdParam, string valueText)
@@ -350,11 +350,11 @@ namespace Rwb.Luxopus.Services
                 { "valueText", valueText}
             });
         }
-        private Dictionary<string, string> GetFuncEnableParams(string holdParam, bool enable)
+        private Dictionary<string, string> GetEnableParams(string holdParam, bool enable)
         {
             return GetParams(new Dictionary<string, string>()
             {
-                { "funcParam", holdParam},
+                { "holdParam", holdParam},
                 { "enable", enable ? "true" : "false"}
             });
         }
@@ -363,9 +363,9 @@ namespace Rwb.Luxopus.Services
         {
             return GetParams(new Dictionary<string, string>()
             {
-                { "timeParam", timeParam},
-                { "hour", t.ToString("HH")},
-                { "minute", t.ToString("mm")}
+                { "holdParam", timeParam},
+                { "hour", t.ToString("mm")},
+                { "minute", t.ToString("HH")}
             });
         }
 

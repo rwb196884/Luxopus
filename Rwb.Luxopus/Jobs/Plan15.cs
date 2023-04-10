@@ -63,7 +63,8 @@ namespace Rwb.Luxopus.Jobs
                 p.Action = new PeriodAction()
                 {
                     ChargeFromGrid = p.Buy < 0 ? 100 : 99,
-                    ExportGeneration = false,
+                    BatteryChargeRate = 100,
+                    BatteryDischargeRate = 0,
                     DischargeToGrid = 100
                 };
             }
@@ -85,7 +86,8 @@ namespace Rwb.Luxopus.Jobs
                     pp.Action = new PeriodAction()
                     {
                         ChargeFromGrid = 0,
-                        ExportGeneration = true,
+                        BatteryChargeRate = 100,
+                        BatteryDischargeRate = 100,
                         DischargeToGrid = 20
                     };
 

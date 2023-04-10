@@ -44,7 +44,7 @@ namespace Rwb.Luxopus.Services
         {
             get
             {
-                return Plans.OrderByDescending(z => z.Start).Where(z => z.Start < DateTime.UtcNow).Skip(1).Take(1).SingleOrDefault();
+                return Plans.OrderByDescending(z => z.Start).Where(z => z.Start < DateTime.UtcNow).Take(1).SingleOrDefault();
             }
         }
 
@@ -59,7 +59,7 @@ namespace Rwb.Luxopus.Services
 
         public HalfHourPlan? GetPrevious(HalfHourPlan current)
         {
-            return Plans.OrderByDescending(z => z.Start).Where(z => z.Start < current.Start).Skip(1).Take(1).SingleOrDefault();
+            return Plans.OrderByDescending(z => z.Start).Where(z => z.Start < current.Start).Take(1).SingleOrDefault();
         }
 
         public HalfHourPlan? GetNext(HalfHourPlan current)
