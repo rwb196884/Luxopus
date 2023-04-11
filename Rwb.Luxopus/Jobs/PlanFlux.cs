@@ -52,12 +52,10 @@ namespace Rwb.Luxopus.Jobs
             throw new NotImplementedException();
         }
 
-        private readonly ILuxService _Lux;
         IEmailService _Email;
 
-        public PlanFlux(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email) : base(logger, influxQuery, plan)
+        public PlanFlux(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email) : base(logger, influxQuery, plan)
         {
-            _Lux = lux;
             _Email = email;
         }
 
@@ -82,12 +80,12 @@ namespace Rwb.Luxopus.Jobs
 
             DateTime t0 = DateTime.UtcNow;
             Plan? current = PlanService.Load(t0);
-            if (current != null && current.Current == current.Plans.First())
-            {
-                Logger.LogInformation($"Current plan is new; not creating new plan.");
-                return;
-            }
-            Logger.LogInformation($"Creating new plan.");
+            //if (current != null && current.Current == current.Plans.First())
+            //{
+            //    Logger.LogInformation($"Current plan is new; not creating new plan.");
+            //    return;
+            //}
+            //Logger.LogInformation($"Creating new plan.");
 
             DateTime start = t0.StartOfHalfHour().AddDays(-1);
             DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 21, 0, 0)).AddDays(1);
@@ -110,7 +108,7 @@ namespace Rwb.Luxopus.Jobs
                         p.Action = new PeriodAction()
                         {
                             ChargeFromGrid = 0,
-                            DischargeToGrid = 20,
+                            DischargeToGrid = 20, // Higher in the winter.
                             //BatteryChargeRate = 0,
                             //BatteryGridDischargeRate = 100,
                         };
@@ -150,10 +148,6 @@ namespace Rwb.Luxopus.Jobs
             // If batt was >10% then we can go a bit lower today.
 
             // Discharge at peak. Keep enough to get to over night mininum.
-
-            // TODO: UTC
-            //await _Lux.SetDischargeToGridAsync(MakeUtcTime(16, 06), MakeUtcTime(18, 55), 20);
-            //await _Lux.SetChargeFromGridAsync(MakeUtcTime(2, 05), MakeUtcTime(4, 55), 98);
         }
 
         private void SendEmail(Plan plan)

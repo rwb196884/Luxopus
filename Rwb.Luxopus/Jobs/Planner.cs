@@ -84,7 +84,7 @@ namespace Rwb.Luxopus.Jobs
         {
             string chargeFromGrid = ChargeFromGrid > 0 ? $"charge to {ChargeFromGrid}" : "no charge";
             string dischargeTo = DischargeToGrid < 100 ? $"discharge to {DischargeToGrid}" : "no discharge";
-            return $" Charge to {chargeFromGrid} | Discharge to {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
+            return $"{chargeFromGrid} | {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
         }
     }
 

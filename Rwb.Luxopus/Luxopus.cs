@@ -44,11 +44,11 @@ namespace Rwb.Luxopus
             // Make plan after getting prices and before evening peak.
             //AddJob(planA, "34 16 * * *"); 
             AddJob(planZero, "38 16 * * *");
-            AddJob(planFlux, "38 16 * * *"); 
+            AddJob(planFlux, "38 16 * * *"); // Has been hacked to let planZero take priority.
 
             _StartupTasks = new List<Job>()
             {
-                //luxMonitor,
+                luxMonitor,
                 //octopusMeters,
                 //octopusPrices,
                 ////solcast, // severely rate lmited.
