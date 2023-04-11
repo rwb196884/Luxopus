@@ -48,6 +48,10 @@ namespace Rwb.Luxopus.Jobs
             {
                 Logger.LogError($"No current plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
             }
+            if (plan?.Next == null)
+            {
+                Logger.LogError($"No next plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
+            }
 
             DateTime tStart = p?.Start ?? DateTime.UtcNow;
             DateTime tNext = plan?.Next?.Start ?? tStart.AddMinutes(30);
@@ -65,7 +69,7 @@ namespace Rwb.Luxopus.Jobs
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
             int battDischargeRate = _Lux.GetBatteryDischargeRate(settings);
 
-            if(battDischargeRate != (p.Action?.BatteryDischargeRate ?? 100))
+            if(battDischargeRate != (p?.Action?.BatteryDischargeRate ?? 100))
             {
                 await _Lux.SetBatteryDishargeRateAsync(p.Action?.BatteryDischargeRate ?? 100);
                 actions.AppendLine($"SetBatteryDishargeRate({p.Action?.BatteryDischargeRate ?? 100}) was {battDischargeRate}.");
@@ -73,77 +77,114 @@ namespace Rwb.Luxopus.Jobs
 
             // Discharge to grid.
             (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDishargeToGrid(settings);
+            bool outEnabledWanted = outEnabled;
+            DateTime outStartWanted = outStart;
+            DateTime outStopWanted = outStop;
+            int outBatteryLimitPercentWanted = outBatteryLimitPercent;
+
             if (p == null || p.Action == null)
             {
-                if (outEnabled)
+                outEnabledWanted = false;
+            }
+            else if(p.Action.DischargeToGrid < 100)
+            {
+                outEnabledWanted = true;
+                outBatteryLimitPercentWanted = p.Action.DischargeToGrid;
+                if ( outStart > p.Start)
                 {
-                    await _Lux.SetDishargeToGridAsync(tStart, tNext, 100);
-                    actions.AppendLine($"SetDishargeToGridAsync({tStart.ToString("HH:mm")},{tNext.ToString("HH:mm")}, 100) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}% No plan.");
+                    outStartWanted = p.Start;
+                }
+
+                // Find the end.
+                HalfHourPlan? q = p;
+                outStopWanted = p.Start.AddMinutes(30);
+                while(q != null && (q?.Action?.DischargeToGrid ?? 100) < 100)
+                {
+                    q = plan?.GetNext(p);
+                    outStopWanted = q?.Start ?? outStopWanted.AddMinutes(30);
                 }
             }
-            else
-            {
-                if (p.Action.DischargeToGrid < 100)
-                {
-                    DateTime dischargeEnd = tNext;
-                    HalfHourPlan? q = plan.GetNext(p);
-                    while (q != null && (q.Action?.DischargeToGrid ?? 100) < 100)
-                    {
-                        q = plan.GetNext(q);
-                        dischargeEnd = q?.Start ?? dischargeEnd.AddMinutes(30);
-                    }
 
-                    if (!outEnabled || outStart > p.Start || outStop < dischargeEnd || outBatteryLimitPercent != p.Action.DischargeToGrid)
-                    {
-                        // TODO: estimate battery required to get to over night low.
-                        await _Lux.SetDishargeToGridAsync(tStart, tNext, p.Action.DischargeToGrid);
-                        actions.AppendLine($"SetDishargeToGridAsync({tStart.ToString("HH:mm")},{dischargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid} OVERRIDE 80) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}% Sell price is {p.Sell.ToString("00.0")}");
-                    }
-                }
-                else if (outEnabled && tStart <= outStop && tNext > outStart)
-                {
-                    await _Lux.SetDishargeToGridAsync(tStart, tStart, 100);
-                    actions.AppendLine($"SetDishargeToGridAsync({tStart.ToString("HH:mm")},{tStart.ToString("HH:mm")}, 100) was {outEnabled} {outStart.ToString("HH:mm")}, {outStop.ToString("HH:mm")}, {outBatteryLimitPercent}% Sell price is {p.Sell.ToString("00.0")}");
-                }
+            if(outEnabled && !outEnabledWanted)
+            {
+                await _Lux.SetDishargeToGridLevelAsync(100);
+                actions.AppendLine($"SetDishargeToGridLevelAsync(100) to disable was {outBatteryLimitPercent} (enabled: {outEnabled}).");
+            }
+
+            if (outStart > outStartWanted )
+            {
+                await _Lux.SetDishargeToGridStartAsync(outStartWanted);
+                actions.AppendLine($"SetDishargeToGridStartAsync({outStartWanted.ToString("HH:mm")}) was {outStart.ToString("HH:mm")}.");
+            }
+
+            if ( outStop < outStopWanted)
+            {
+                await _Lux.SetDishargeToGridStopAsync(outStopWanted);
+                actions.AppendLine($"SetDishargeToGridStopAsync({outStopWanted.ToString("HH:mm")}0) was {outStop.ToString("HH:mm")}.");
+            }
+
+            if (outEnabledWanted && outBatteryLimitPercentWanted < 100 && outBatteryLimitPercent != outBatteryLimitPercentWanted)
+            {
+                await _Lux.SetDishargeToGridLevelAsync(outBatteryLimitPercentWanted);
+                actions.AppendLine($"SetDishargeToGridLevelAsync({outBatteryLimitPercentWanted}) was {outBatteryLimitPercent} (enabled: {outEnabledWanted}).");
             }
 
             // Charge from grid.
             (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
+            bool inEnabledWanted = inEnabled;
+            DateTime inStartWanted = inStart;
+            DateTime inStopWanted = inStop;
+            int inBatteryLimitPercentWanted = inBatteryLimitPercent;
             if (p == null || p.Action == null)
             {
-                if (inEnabled)
-                {
-                    await _Lux.SetChargeFromGridAsync(tStart, tNext, 0);
-                    actions.AppendLine($"SetChargeFromGridAsync({tStart.ToString("HH:mm")}, {tNext.ToString("HH:mm")}, 0) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}% No plan");
-                }
+                inEnabledWanted = false;
             }
-            else
+            else if( p.Action.ChargeFromGrid > 0)
             {
-                if (p.Action.ChargeFromGrid > 0)
+                inEnabledWanted = true;
+                inBatteryLimitPercentWanted = p.Action.ChargeFromGrid;
+                if (inStart > p.Start)
                 {
-                    DateTime chargeEnd = tNext;
-                    HalfHourPlan? q = plan.GetNext(p);
-                    while (q != null && (q.Action?.ChargeFromGrid ?? 0) > 0)
-                    {
-                        q = plan.GetNext(q);
-                        chargeEnd =  q?.Start ?? chargeEnd.AddMinutes(30);
-                    }
-
-                    if (!inEnabled && ( inStart > tStart || inStop < chargeEnd || inBatteryLimitPercent != p.Action.ChargeFromGrid))
-                    {
-                        //await _Lux.SetChargeFromGridAsync(p.Start, p.Start.AddMinutes(30), p.Action.ChargeFromGrid);
-                        actions.AppendLine($"DISABLED SetChargeFromGridAsync({tStart.ToString("HH:mm")}, {chargeEnd.ToString("HH:mm")}, {p.Action.DischargeToGrid}) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}% Buy price is {p.Buy.ToString("00.0")}");
-                    }
+                    inStartWanted = p.Start;
                 }
-                else if (inEnabled && (tStart <= inStop || tNext > inStop))
+
+                // Find the end.
+                HalfHourPlan? q = p;
+                inStopWanted = p.Start.AddMinutes(30);
+                while (q != null && (q?.Action?.ChargeFromGrid ?? 0) > 0)
                 {
-                    //await _Lux.SetChargeFromGridAsync(tStart, tNext.AddMinutes(30), 0);
-                    actions.AppendLine($"SetChargeFromGridAsync({tStart.ToString("HH:mm")}, {tNext.ToString("HH:mm")}, 0) was {inEnabled} {inStart.ToString("HH:mm")}, {inStop.ToString("HH:mm")}, {inBatteryLimitPercent}%  Buy price is {p.Buy.ToString("00.0")}");
+                    q = plan?.GetNext(p);
+                    inStopWanted = q?.Start ?? inStopWanted.AddMinutes(30);
                 }
             }
+
+            if (inEnabled && !inEnabledWanted)
+            {
+                await _Lux.SetChargeFromGridLevelAsync(0);
+                actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}).");
+            }
+
+            if (inStart > inStartWanted)
+            {
+                await _Lux.SetChargeFromGridStartAsync(inStartWanted);
+                actions.AppendLine($"SetChargeFromGridStartAsync({inStartWanted.ToString("HH:mm")}) was {inStart.ToString("HH:mm")}.");
+            }
+
+            if (inStop < inStopWanted)
+            {
+                await _Lux.SetChargeFromGridStopAsync(inStopWanted);
+                actions.AppendLine($"SetChargeFromGridStopAsync({inStopWanted.ToString("HH:mm")}0) was {inStop.ToString("HH:mm")}.");
+            }
+
+            if (inEnabledWanted && inBatteryLimitPercentWanted > 0 && inBatteryLimitPercent != inBatteryLimitPercentWanted)
+            {
+                await _Lux.SetChargeFromGridLevelAsync(inBatteryLimitPercentWanted);
+                actions.AppendLine($"SetChargeFromGridLevelAsync({inBatteryLimitPercentWanted}) was {inBatteryLimitPercent} (enabled: {inEnabledWanted}).");
+            }
+
 
             // Batt.
-            int requiredBattChargeRate = 90; // Correct for charge from grid.
+            int requiredBattChargeRate = 95; // Correct for charge from grid.
             string why = "charge from grid";
             if(!inEnabled)
             {
@@ -173,10 +214,15 @@ namespace Rwb.Luxopus.Jobs
                 actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
             }
 
-            string message = actions.ToString();
-            if (!string.IsNullOrEmpty(message))
+            if (actions.Length > 0)
             {
-                _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", message);
+                actions.AppendLine();
+                HalfHourPlan? pp = plan?.Current;
+                while(pp != null)
+                {
+                    actions.AppendLine(pp.ToString());
+                }
+                _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
             }
         }
     }

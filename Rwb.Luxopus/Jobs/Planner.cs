@@ -52,9 +52,13 @@ namespace Rwb.Luxopus.Jobs
         public int ChargeFromGrid { get; set; }
 
         /// <summary>
-        /// If true then export generation to grid in preference to storing.
+        /// If above zero then export generation to grid in preference to storing.
         /// </summary>
         public int BatteryChargeRate { get; set; }
+
+        /// <summary>
+        /// If above zero then power the house from the grid rather than from the battery.
+        /// </summary>
         public int BatteryDischargeRate { get; set; }
 
         /// <summary>

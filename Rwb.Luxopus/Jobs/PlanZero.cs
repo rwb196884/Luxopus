@@ -40,8 +40,9 @@ namespace Rwb.Luxopus.Jobs
             DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 18, 0, 0)).AddDays(1);
 
             List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, "E-1R-AGILE-FLEX-22-11-25-E", "E-1R-AGILE-OUTGOING-19-05-13-E");
-
             Plan plan = new Plan(prices);
+
+            // Buy when the price is negative.
             foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0))
             {
                 p.Action = new PeriodAction()
@@ -52,6 +53,10 @@ namespace Rwb.Luxopus.Jobs
                     DischargeToGrid = 100
                 };
             }
+
+            // Make room in the battery.
+            int battMin = 90 - 15 * (plan?.Plans?.Where(z => z.Buy < 0)?.Count() ?? 0);
+            battMin = battMin < 20 ? 20 : battMin;
 
             foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 && (plan.GetPrevious(z)?.Buy ?? -1) > 0))
             {
@@ -71,7 +76,7 @@ namespace Rwb.Luxopus.Jobs
                         ChargeFromGrid = 0,
                         BatteryChargeRate = 100,
                         BatteryDischargeRate = 100,
-                        DischargeToGrid = 15 + 4 * (i - 1)
+                        DischargeToGrid = battMin + 12 * (i - 1)
                     };
                     q = plan.GetPrevious(q);
                 }

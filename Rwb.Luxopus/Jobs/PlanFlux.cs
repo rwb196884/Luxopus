@@ -124,7 +124,7 @@ namespace Rwb.Luxopus.Jobs
                         {
                             ChargeFromGrid = 0,
                             DischargeToGrid = 100,
-                            BatteryChargeRate = 100,
+                            BatteryChargeRate = 75,
                             BatteryDischargeRate = 100,
                         };
                         break;

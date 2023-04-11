@@ -37,8 +37,14 @@ namespace Rwb.Luxopus.Services
         int GetBatteryChargeRate(Dictionary<string, string> settings);
         int GetBatteryDischargeRate(Dictionary<string, string> settings);
 
-        Task SetChargeFromGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
-        Task SetDishargeToGridAsync(DateTime start, DateTime stop, int batteryLimitPercent);
+        Task SetChargeFromGridStartAsync(DateTime start);
+        Task SetChargeFromGridStopAsync(DateTime stop);
+        Task SetChargeFromGridLevelAsync(int batteryLimitPercent);
+
+        Task SetDishargeToGridStartAsync(DateTime start);
+        Task SetDishargeToGridStopAsync(DateTime stop);
+        Task SetDishargeToGridLevelAsync(int batteryLimitPercent);
+
         Task SetBatteryChargeRateAsync(int batteryChargeRatePercent);
         Task SetBatteryDishargeRateAsync(int batteryDishargeRatePercent);
     }
@@ -304,30 +310,45 @@ namespace Rwb.Luxopus.Services
             }
         }
 
-        public async Task SetChargeFromGridAsync(DateTime start, DateTime stop, int batteryLimitPercent)
+        public async Task SetChargeFromGridStartAsync(DateTime start)
         {
-            bool enable = start != stop && batteryLimitPercent >= 0 && batteryLimitPercent <= 100;
-
             DateTime localStart = ToLocal(start);
-            DateTime localStop = ToLocal(stop);
-
-            await PostAsync(UrlToWrite, GetEnableParams("FUNC_AC_CHARGE", enable));
             await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_AC_CHARGE_START_TIME", localStart));
+        }
+
+        public async Task SetChargeFromGridStopAsync(DateTime stop)
+        {
+            DateTime localStop = ToLocal(stop);
             await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_AC_CHARGE_END_TIME", localStop));
+        }
+
+        public async Task SetChargeFromGridLevelAsync(int batteryLimitPercent)
+        {
+            bool enable = batteryLimitPercent > 0 && batteryLimitPercent <= 100;
+            await PostAsync(UrlToWrite, GetEnableParams("FUNC_AC_CHARGE", enable));
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_SOC_LIMIT", batteryLimitPercent.ToString()));
         }
 
-        public async Task SetDishargeToGridAsync(DateTime start, DateTime stop, int batteryLimitPercent)
+        public async Task SetDishargeToGridStartAsync(DateTime start)
         {
-            bool enable = start != stop && batteryLimitPercent >= 0 && batteryLimitPercent <= 100;
-
             DateTime localStart = ToLocal(start);
-            DateTime localStop = ToLocal(stop);
-
-            await PostAsync(UrlToWrite, GetEnableParams("FUNC_FORCED_DISCHG_EN", enable));
             await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_START_TIME", localStart));
+        }
+
+        public async Task SetDishargeToGridStopAsync(DateTime stop)
+        {
+            DateTime localStop = ToLocal(stop);
             await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_END_TIME", localStop));
-            await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_SOC_LIMIT", batteryLimitPercent.ToString()));
+        }
+
+        public async Task SetDishargeToGridLevelAsync(int batteryLimitPercent)
+        {
+            bool enable = batteryLimitPercent > 0 && batteryLimitPercent < 100;
+            await PostAsync(UrlToWrite, GetEnableParams("FUNC_FORCED_DISCHG_EN", enable));
+            if (enable)
+            {
+                await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_SOC_LIMIT", batteryLimitPercent.ToString()));
+            }
         }
 
         public async Task SetBatteryChargeRateAsync(int batteryChargeRatePercent)
