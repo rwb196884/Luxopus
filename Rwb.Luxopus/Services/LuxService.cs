@@ -33,7 +33,7 @@ namespace Rwb.Luxopus.Services
         Task<Dictionary<string, string>> GetSettingsAsync();
 
         (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetChargeFromGrid(Dictionary<string, string> settings);
-        (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDishargeToGrid(Dictionary<string, string> settings);
+        (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDischargeToGrid(Dictionary<string, string> settings);
         int GetBatteryChargeRate(Dictionary<string, string> settings);
         int GetBatteryDischargeRate(Dictionary<string, string> settings);
 
@@ -41,12 +41,12 @@ namespace Rwb.Luxopus.Services
         Task SetChargeFromGridStopAsync(DateTime stop);
         Task SetChargeFromGridLevelAsync(int batteryLimitPercent);
 
-        Task SetDishargeToGridStartAsync(DateTime start);
-        Task SetDishargeToGridStopAsync(DateTime stop);
-        Task SetDishargeToGridLevelAsync(int batteryLimitPercent);
+        Task SetDischargeToGridStartAsync(DateTime start);
+        Task SetDischargeToGridStopAsync(DateTime stop);
+        Task SetDischargeToGridLevelAsync(int batteryLimitPercent);
 
         Task SetBatteryChargeRateAsync(int batteryChargeRatePercent);
-        Task SetBatteryDishargeRateAsync(int batteryDishargeRatePercent);
+        Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent);
     }
 
     public class LuxService : Service<LuxSettings>, ILuxService, IDisposable
@@ -273,7 +273,7 @@ namespace Rwb.Luxopus.Services
             return ToUtc(t);
         }
 
-        public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDishargeToGrid(Dictionary<string, string> settings)
+        public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDischargeToGrid(Dictionary<string, string> settings)
         {
             bool enabled = settings["FUNC_FORCED_DISCHG_EN"] == "TRUE";
             int startH = int.Parse(settings["HOLD_FORCED_DISCHARGE_START_HOUR"]);
@@ -329,19 +329,19 @@ namespace Rwb.Luxopus.Services
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_SOC_LIMIT", batteryLimitPercent.ToString()));
         }
 
-        public async Task SetDishargeToGridStartAsync(DateTime start)
+        public async Task SetDischargeToGridStartAsync(DateTime start)
         {
             DateTime localStart = ToLocal(start);
             await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_START_TIME", localStart));
         }
 
-        public async Task SetDishargeToGridStopAsync(DateTime stop)
+        public async Task SetDischargeToGridStopAsync(DateTime stop)
         {
             DateTime localStop = ToLocal(stop);
             await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_END_TIME", localStop));
         }
 
-        public async Task SetDishargeToGridLevelAsync(int batteryLimitPercent)
+        public async Task SetDischargeToGridLevelAsync(int batteryLimitPercent)
         {
             bool enable = batteryLimitPercent > 0 && batteryLimitPercent < 100;
             await PostAsync(UrlToWrite, GetEnableParams("FUNC_FORCED_DISCHG_EN", enable));
@@ -357,9 +357,9 @@ namespace Rwb.Luxopus.Services
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_CHARGE_POWER_PERCENT_CMD", rate.ToString()));
         }
 
-        public async Task SetBatteryDishargeRateAsync(int batteryDishargeRatePercent)
+        public async Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent)
         {
-            int rate = batteryDishargeRatePercent < 0 || batteryDishargeRatePercent > 100 ? 90 : batteryDishargeRatePercent;
+            int rate = batteryDischargeRatePercent < 0 || batteryDischargeRatePercent > 100 ? 90 : batteryDischargeRatePercent;
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_DISCHG_POWER_PERCENT_CMD", rate.ToString()));
         }
 

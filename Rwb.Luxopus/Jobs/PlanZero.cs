@@ -26,8 +26,8 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            //DateTime t0 = DateTime.UtcNow;
-            DateTime t0 = new DateTime(2023, 4, 10, 22, 0, 0);
+            DateTime t0 = DateTime.UtcNow;
+            //DateTime t0 = new DateTime(2023, 4, 10, 22, 0, 0);
             Plan? current = PlanService.Load(t0);
             if (current != null)
             {

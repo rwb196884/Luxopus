@@ -1,10 +1,10 @@
-﻿using Rwb.Luxopus.Services;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Rwb.Luxopus.Services;
 using System;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Jobs
 {
@@ -44,7 +44,7 @@ namespace Rwb.Luxopus.Jobs
 
             HalfHourPlan? p = plan?.Current;
 
-            if(p == null)
+            if (p == null)
             {
                 Logger.LogError($"No current plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
             }
@@ -69,14 +69,8 @@ namespace Rwb.Luxopus.Jobs
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
             int battDischargeRate = _Lux.GetBatteryDischargeRate(settings);
 
-            if(battDischargeRate != (p?.Action?.BatteryDischargeRate ?? 100))
-            {
-                await _Lux.SetBatteryDishargeRateAsync(p.Action?.BatteryDischargeRate ?? 100);
-                actions.AppendLine($"SetBatteryDishargeRate({p.Action?.BatteryDischargeRate ?? 100}) was {battDischargeRate}.");
-            }
-
             // Discharge to grid.
-            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDishargeToGrid(settings);
+            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDischargeToGrid(settings);
             bool outEnabledWanted = outEnabled;
             DateTime outStartWanted = outStart;
             DateTime outStopWanted = outStop;
@@ -86,11 +80,11 @@ namespace Rwb.Luxopus.Jobs
             {
                 outEnabledWanted = false;
             }
-            else if(p.Action.DischargeToGrid < 100)
+            else if (p.Action.DischargeToGrid < 100)
             {
                 outEnabledWanted = true;
                 outBatteryLimitPercentWanted = p.Action.DischargeToGrid;
-                if ( outStart > p.Start)
+                if (outStart > p.Start)
                 {
                     outStartWanted = p.Start;
                 }
@@ -98,35 +92,48 @@ namespace Rwb.Luxopus.Jobs
                 // Find the end.
                 HalfHourPlan? q = p;
                 outStopWanted = p.Start.AddMinutes(30);
-                while(q != null && (q?.Action?.DischargeToGrid ?? 100) < 100)
+                while (q != null && (q?.Action?.DischargeToGrid ?? 100) < 100)
                 {
                     q = plan?.GetNext(p);
                     outStopWanted = q?.Start ?? outStopWanted.AddMinutes(30);
                 }
             }
-
-            if(outEnabled && !outEnabledWanted)
+            else if (p.Action.DischargeToGrid == 100)
             {
-                await _Lux.SetDishargeToGridLevelAsync(100);
-                actions.AppendLine($"SetDishargeToGridLevelAsync(100) to disable was {outBatteryLimitPercent} (enabled: {outEnabled}).");
+                outEnabledWanted = false;
+            }
+            else
+            {
+                throw new NotImplementedException();
             }
 
-            if (outStart > outStartWanted )
+            if (!outEnabledWanted)
             {
-                await _Lux.SetDishargeToGridStartAsync(outStartWanted);
-                actions.AppendLine($"SetDishargeToGridStartAsync({outStartWanted.ToString("HH:mm")}) was {outStart.ToString("HH:mm")}.");
+                if (outEnabled)
+                {
+                    await _Lux.SetDischargeToGridLevelAsync(100);
+                    actions.AppendLine($"SetDischargeToGridLevelAsync(100) to disable was {outBatteryLimitPercent} (enabled: {outEnabled}).");
+                }
             }
-
-            if ( outStop < outStopWanted)
+            else
             {
-                await _Lux.SetDishargeToGridStopAsync(outStopWanted);
-                actions.AppendLine($"SetDishargeToGridStopAsync({outStopWanted.ToString("HH:mm")}0) was {outStop.ToString("HH:mm")}.");
-            }
+                if (outStart > outStartWanted)
+                {
+                    await _Lux.SetDischargeToGridStartAsync(outStartWanted);
+                    actions.AppendLine($"SetDischargeToGridStartAsync({outStartWanted.ToString("HH:mm")}) was {outStart.ToString("HH:mm")}.");
+                }
 
-            if (outEnabledWanted && outBatteryLimitPercentWanted < 100 && outBatteryLimitPercent != outBatteryLimitPercentWanted)
-            {
-                await _Lux.SetDishargeToGridLevelAsync(outBatteryLimitPercentWanted);
-                actions.AppendLine($"SetDishargeToGridLevelAsync({outBatteryLimitPercentWanted}) was {outBatteryLimitPercent} (enabled: {outEnabledWanted}).");
+                if (outStop < outStopWanted)
+                {
+                    await _Lux.SetDischargeToGridStopAsync(outStopWanted);
+                    actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("HH:mm")}0) was {outStop.ToString("HH:mm")}.");
+                }
+
+                if (outBatteryLimitPercentWanted < 100 && outBatteryLimitPercent != outBatteryLimitPercentWanted)
+                {
+                    await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
+                    actions.AppendLine($"SetDischargeToGridLevelAsync({outBatteryLimitPercentWanted}) was {outBatteryLimitPercent} (enabled: {outEnabledWanted}).");
+                }
             }
 
             // Charge from grid.
@@ -139,7 +146,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 inEnabledWanted = false;
             }
-            else if( p.Action.ChargeFromGrid > 0)
+            else if (p.Action.ChargeFromGrid > 0)
             {
                 inEnabledWanted = true;
                 inBatteryLimitPercentWanted = p.Action.ChargeFromGrid;
@@ -157,36 +164,49 @@ namespace Rwb.Luxopus.Jobs
                     inStopWanted = q?.Start ?? inStopWanted.AddMinutes(30);
                 }
             }
-
-            if (inEnabled && !inEnabledWanted)
+            else if (p.Action.ChargeFromGrid == 0)
             {
-                await _Lux.SetChargeFromGridLevelAsync(0);
-                actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}).");
+                inEnabledWanted = false;
+            }
+            else
+            {
+                throw new NotImplementedException();
             }
 
-            if (inStart > inStartWanted)
+            if (!inEnabledWanted)
             {
-                await _Lux.SetChargeFromGridStartAsync(inStartWanted);
-                actions.AppendLine($"SetChargeFromGridStartAsync({inStartWanted.ToString("HH:mm")}) was {inStart.ToString("HH:mm")}.");
+                if (inEnabled)
+                {
+                    await _Lux.SetChargeFromGridLevelAsync(0);
+                    actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}).");
+                }
+            }
+            else
+            {
+                if (inStart > inStartWanted)
+                {
+                    await _Lux.SetChargeFromGridStartAsync(inStartWanted);
+                    actions.AppendLine($"SetChargeFromGridStartAsync({inStartWanted.ToString("HH:mm")}) was {inStart.ToString("HH:mm")}.");
+                }
+
+                if (inStop < inStopWanted)
+                {
+                    await _Lux.SetChargeFromGridStopAsync(inStopWanted);
+                    actions.AppendLine($"SetChargeFromGridStopAsync({inStopWanted.ToString("HH:mm")}0) was {inStop.ToString("HH:mm")}.");
+                }
+
+                if (inBatteryLimitPercentWanted > 0 && inBatteryLimitPercent != inBatteryLimitPercentWanted)
+                {
+                    await _Lux.SetChargeFromGridLevelAsync(inBatteryLimitPercentWanted);
+                    actions.AppendLine($"SetChargeFromGridLevelAsync({inBatteryLimitPercentWanted}) was {inBatteryLimitPercent} (enabled: {inEnabledWanted}).");
+                }
             }
 
-            if (inStop < inStopWanted)
-            {
-                await _Lux.SetChargeFromGridStopAsync(inStopWanted);
-                actions.AppendLine($"SetChargeFromGridStopAsync({inStopWanted.ToString("HH:mm")}0) was {inStop.ToString("HH:mm")}.");
-            }
 
-            if (inEnabledWanted && inBatteryLimitPercentWanted > 0 && inBatteryLimitPercent != inBatteryLimitPercentWanted)
-            {
-                await _Lux.SetChargeFromGridLevelAsync(inBatteryLimitPercentWanted);
-                actions.AppendLine($"SetChargeFromGridLevelAsync({inBatteryLimitPercentWanted}) was {inBatteryLimitPercent} (enabled: {inEnabledWanted}).");
-            }
-
-
-            // Batt.
+            // Batt charge.
             int requiredBattChargeRate = 95; // Correct for charge from grid.
             string why = "charge from grid";
-            if(!inEnabled)
+            if (!inEnabled)
             {
                 if ((p?.Action?.BatteryChargeRate ?? 100) < 100)
                 {
@@ -208,17 +228,25 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
-            if( requiredBattChargeRate != battChargeRate)
+            if (requiredBattChargeRate != battChargeRate)
             {
                 await _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
                 actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
             }
 
+            // Batt discharge.
+            if (battDischargeRate != (p?.Action?.BatteryDischargeRate ?? 97))
+            {
+                await _Lux.SetBatteryDischargeRateAsync(p.Action?.BatteryDischargeRate ?? 97);
+                actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryDischargeRate ?? 97}) was {battDischargeRate}.");
+            }
+
+            // Report any changes.
             if (actions.Length > 0)
             {
                 actions.AppendLine();
                 HalfHourPlan? pp = plan?.Current;
-                while(pp != null)
+                while (pp != null)
                 {
                     actions.AppendLine(pp.ToString());
                 }

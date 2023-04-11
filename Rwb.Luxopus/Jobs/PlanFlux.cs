@@ -103,7 +103,12 @@ namespace Rwb.Luxopus.Jobs
             List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, "E-1R-FLUX-IMPORT-23-02-14-E", "E-1R-FLUX-EXPORT-23-02-14-E");
 
             // Find the current period: the last period that starts before t0.
-            ElectricityPrice priceNow = prices.Where(z => z.Start < t0).OrderByDescending(z => z.Start).FirstOrDefault();
+            ElectricityPrice? priceNow = prices.Where(z => z.Start < t0).OrderByDescending(z => z.Start).FirstOrDefault();
+            if(priceNow == null)
+            {
+                Logger.LogError("No current price.");
+                return;
+            }
             Plan plan = new Plan(prices.Where(z => z.Start >= priceNow.Start));
 
             foreach(HalfHourPlan p in plan.Plans)
@@ -156,7 +161,7 @@ namespace Rwb.Luxopus.Jobs
             // Discharge at peak. Keep enough to get to over night mininum.
 
             // TODO: UTC
-            //await _Lux.SetDishargeToGridAsync(MakeUtcTime(16, 06), MakeUtcTime(18, 55), 20);
+            //await _Lux.SetDischargeToGridAsync(MakeUtcTime(16, 06), MakeUtcTime(18, 55), 20);
             //await _Lux.SetChargeFromGridAsync(MakeUtcTime(2, 05), MakeUtcTime(4, 55), 98);
         }
 
