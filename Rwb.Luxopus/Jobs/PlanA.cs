@@ -147,8 +147,8 @@ namespace Rwb.Luxopus.Jobs
                 p.Action = new PeriodAction()
                 {
                     ChargeFromGrid = 0,
-                    BatteryChargeRate = 100,
-                    BatteryGridDischargeRate = 100,
+                    //BatteryChargeRate = 100,
+                    //BatteryGridDischargeRate = 100,
                     DischargeToGrid = battMin
                 };
             }
@@ -160,8 +160,8 @@ namespace Rwb.Luxopus.Jobs
                 p.Action = new PeriodAction()
                 {
                     ChargeFromGrid = 100,
-                    BatteryChargeRate = 100,
-                    BatteryGridDischargeRate = 0,
+                    //BatteryChargeRate = 100,
+                    //BatteryGridDischargeRate = 0,
                     DischargeToGrid = 100
                 };
             }
@@ -175,8 +175,8 @@ namespace Rwb.Luxopus.Jobs
                     p.Action = new PeriodAction()
                     {
                         ChargeFromGrid = 0,
-                        BatteryChargeRate = 100,
-                        BatteryGridDischargeRate = 100,
+                        //BatteryChargeRate = 100,
+                        //BatteryGridDischargeRate = 100,
                         DischargeToGrid = 50 // Enough space for the day's generation.
                     };
                 }

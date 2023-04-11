@@ -71,7 +71,7 @@ namespace Rwb.Luxopus.Jobs
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             /*
-             * Flux    B:20p, S:08p 2am to 5am
+             * Flux    B:20p, S:08p 2am to 5am local time.
              * Daytime B:33p, S:21p
              * Peak    B:46p, S:34p 4pm to 7pm
              * 
@@ -80,21 +80,12 @@ namespace Rwb.Luxopus.Jobs
              * Force charge 02:00 to 05:00 cut off at 99
              */
 
-            // We don't need a plan!
-
             DateTime t0 = DateTime.UtcNow;
             Plan? current = PlanService.Load(t0);
-            if (current != null)
+            if (current != null && current.Current == current.Plans.First())
             {
-                if (current.Plans.Where(z => z.Start > t0).Count() > 4)
-                {
-                    Logger.LogInformation($"No need to create new plan: current plan has {current.Plans.Where(z => z.Start > t0).Count()} future periods.");
-                    return;
-                }
-                // else: create a new -- updated -- plan.
-                Logger.LogInformation($"No need to create new plan: there is a current plan.");
+                Logger.LogInformation($"Current plan is new; not creating new plan.");
                 return;
-                // Can't overwrite an existing plan file.
             }
             Logger.LogInformation($"Creating new plan.");
 
@@ -120,8 +111,8 @@ namespace Rwb.Luxopus.Jobs
                         {
                             ChargeFromGrid = 0,
                             DischargeToGrid = 20,
-                            BatteryChargeRate = 0,
-                        BatteryGridDischargeRate = 100,
+                            //BatteryChargeRate = 0,
+                            //BatteryGridDischargeRate = 100,
                         };
                         break;
                     case FluxCase.Daytime:
@@ -129,8 +120,8 @@ namespace Rwb.Luxopus.Jobs
                         {
                             ChargeFromGrid = 0,
                             DischargeToGrid = 100,
-                            BatteryChargeRate = 75,
-                            BatteryGridDischargeRate = 100,
+                            //BatteryChargeRate = 75,
+                            //BatteryGridDischargeRate = 100,
                         };
                         break;
                     case FluxCase.Low:
@@ -138,8 +129,8 @@ namespace Rwb.Luxopus.Jobs
                         {
                             ChargeFromGrid = 98,
                             DischargeToGrid = 100,
-                            BatteryChargeRate = 100,
-                            BatteryGridDischargeRate = 0,
+                            //BatteryChargeRate = 100,
+                            //BatteryGridDischargeRate = 0,
                         };
                         break;
                 }

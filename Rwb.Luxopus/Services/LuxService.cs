@@ -35,8 +35,8 @@ namespace Rwb.Luxopus.Services
         (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetChargeFromGrid(Dictionary<string, string> settings);
         (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDischargeToGrid(Dictionary<string, string> settings);
         int GetBatteryChargeRate(Dictionary<string, string> settings);
-        int GetBatteryDischargeRate(Dictionary<string, string> settings);
-        int GetBatteryGridDischargeRate(Dictionary<string, string> settings);
+        //int GetBatteryDischargeRate(Dictionary<string, string> settings);
+        //int GetBatteryGridDischargeRate(Dictionary<string, string> settings);
 
         Task SetChargeFromGridStartAsync(DateTime start);
         Task SetChargeFromGridStopAsync(DateTime stop);
@@ -47,8 +47,8 @@ namespace Rwb.Luxopus.Services
         Task SetDischargeToGridLevelAsync(int batteryLimitPercent);
 
         Task SetBatteryChargeRateAsync(int batteryChargeRatePercent);
-        Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent);
-        Task SetBatteryGridDischargeRateAsync(int batteryDischargeRatePercent);
+        //Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent);
+        //Task SetBatteryGridDischargeRateAsync(int batteryDischargeRatePercent);
     }
 
     public class LuxService : Service<LuxSettings>, ILuxService, IDisposable
@@ -304,7 +304,7 @@ namespace Rwb.Luxopus.Services
             //return int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"]);
             return int.Parse(settings["HOLD_FORCED_DISCHG_POWER_CMD"]);
         }
-        public int GetBatterdDischargeRate(Dictionary<string, string> settings)
+        public int GetBatteryDischargeRate(Dictionary<string, string> settings)
         {
             return int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"]);
         }

@@ -30,6 +30,7 @@ namespace Rwb.Luxopus.Jobs
             Plan? current = PlanService.Load(t0);
             if (current != null && current.Current == current.Plans.First())
             {
+                Logger.LogInformation($"Current plan is new; not creating new plan.");
                 return;
             }
 
@@ -46,8 +47,8 @@ namespace Rwb.Luxopus.Jobs
                 p.Action = new PeriodAction()
                 {
                     ChargeFromGrid = 100, // This might be too much if there is a sequence with a highh (small negative) price first so we want to wait while later.
-                    BatteryChargeRate = 100,
-                    BatteryGridDischargeRate = 0,
+                    //BatteryChargeRate = 100,
+                    //BatteryGridDischargeRate = 0,
                     DischargeToGrid = 100
                 };
             }
@@ -58,8 +59,8 @@ namespace Rwb.Luxopus.Jobs
                 p.Action = new PeriodAction()
                 {
                     ChargeFromGrid = 0,
-                    BatteryChargeRate = 0, // Send any generation straight out.
-                    BatteryGridDischargeRate = 33 + (p.Sell > 15 ? 33 : 0),
+                    //BatteryChargeRate = 0, // Send any generation straight out.
+                    //BatteryGridDischargeRate = 33 + (p.Sell > 15 ? 33 : 0),
                     DischargeToGrid = 75
                 };
             }
@@ -84,8 +85,8 @@ namespace Rwb.Luxopus.Jobs
                     q.Action = new PeriodAction()
                     {
                         ChargeFromGrid = 0,
-                        BatteryChargeRate = 100,
-                        BatteryGridDischargeRate = 95,
+                        //BatteryChargeRate = 100,
+                        //BatteryGridDischargeRate = 95,
                         DischargeToGrid = battMin + 12 * (i - 1)
                     };
                     q = plan.GetPrevious(q);

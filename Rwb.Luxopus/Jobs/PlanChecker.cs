@@ -95,7 +95,7 @@ namespace Rwb.Luxopus.Jobs
 
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
-            int battDischargeRate = _Lux.GetBatteryGridDischargeRate(settings);
+            //int battGridDischargeRate = _Lux.GetBatteryGridDischargeRate(settings);
 
             // Discharge to grid.
             (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDischargeToGrid(settings);
@@ -230,29 +230,27 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
-
             // Batt charge.
-            int requiredBattChargeRate = 95; // Correct for charge from grid.
-            string why = "charge from grid";
-            if (!inEnabled)
+            int requiredBattChargeRate = 97; // Correct for charge from grid.
+            string why = "default";
+            if(inEnabled)
             {
-                if ((p?.Action?.BatteryChargeRate ?? 100) < 100)
+                requiredBattChargeRate = 97;
+                why = "charge from grid";
+            }
+            else
+            {
+                // Charging from solar.
+                // Therefore don't over-do it.
+                int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
+                if (battLevel > 95)
                 {
-                    requiredBattChargeRate = p?.Action?.BatteryChargeRate ?? 100;
-                    why = "export generation";
+                    requiredBattChargeRate = 0;
+                    why = "battery is full";
                 }
                 else
                 {
-                    int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
-                    if (battLevel > 95)
-                    {
-                        requiredBattChargeRate = 0;
-                        why = "battery is full";
-                    }
-                    else
-                    {
-                        why = "batttery has space";
-                    }
+                    why = "batttery has space";
                 }
             }
 
@@ -263,11 +261,11 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Batt discharge.
-            if (battDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
-            {
-                await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
-                actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battDischargeRate}.");
-            }
+            //if (battGridDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
+            //{
+            //    await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
+            //    actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battGridDischargeRate}.");
+            //}
 
             // Report any changes.
             if (actions.Length > 0)
