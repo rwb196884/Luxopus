@@ -26,3 +26,6 @@ storage.ide
 App.config
 
 appsettings.*.json
+
+[Pp]lans/
+log/
