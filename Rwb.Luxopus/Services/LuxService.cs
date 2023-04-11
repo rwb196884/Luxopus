@@ -361,8 +361,8 @@ namespace Rwb.Luxopus.Services
         {
             int rate = batteryDischargeRatePercent < 0 || batteryDischargeRatePercent > 100 ? 90 : batteryDischargeRatePercent;
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_DISCHG_POWER_PERCENT_CMD", rate.ToString()));
-        }
-
+        } // Not to be confused with HOLD_FORCED_DISCHG_POWER_CMD which is for forced discharge.
+  
         private Dictionary<string, string> GetHoldParams(string holdParam, string valueText)
         {
             return GetParams(new Dictionary<string, string>()

@@ -29,6 +29,31 @@ namespace Rwb.Luxopus.Jobs
             _Email = email;
         }
 
+        protected static int PercentPerHour(int batteryAmpHours, int batteryVoltage, int watts)
+        {
+            int battWattHours = batteryAmpHours * batteryVoltage;
+            decimal hours = Convert.ToDecimal(battWattHours) / Convert.ToDecimal(watts);
+            return Convert.ToInt32(Math.Ceiling(100M / hours));
+        }
+        protected static int PercentPerHour(int watts)
+        {
+            return PercentPerHour(_BatteryCapacityAmpHours, _BatteryVoltage, watts);
+        }
+
+        protected static int MaxPercentPerHalfHour {  get { return PercentPerHour(_BatteryCapacityAmpHours, _BatteryVoltage, _BatteryMaxPowerWatts) / 2; } }
+
+        private const int _MedianHousePowerWatts = 240;
+        private const int _BatteryCapacityAmpHours = 189;
+        private const int _BatteryVoltage = 55;
+        private const int _BatteryMaxPowerWatts = 3000;
+        
+        protected static int PercentRequiredFromUntil(DateTime from, DateTime until)
+        {
+            decimal hours = Convert.ToDecimal(until.Subtract(from).TotalHours);
+            decimal percentPerHour = PercentPerHour(_MedianHousePowerWatts);
+            return Convert.ToInt32(Math.Ceiling(hours * percentPerHour));
+        }
+
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             //DateTime t0 = new DateTime(2023, 03, 31, 18, 00, 00);
@@ -244,11 +269,15 @@ namespace Rwb.Luxopus.Jobs
             // Report any changes.
             if (actions.Length > 0)
             {
-                actions.AppendLine();
-                HalfHourPlan? pp = plan?.Current;
-                while (pp != null)
+                if (plan != null)
                 {
-                    actions.AppendLine(pp.ToString());
+                    actions.AppendLine();
+                    HalfHourPlan? pp = plan.Current;
+                    while (pp != null)
+                    {
+                        actions.AppendLine(pp.ToString());
+                        pp = plan.GetNext(pp);
+                    }
                 }
                 _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
             }

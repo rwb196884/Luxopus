@@ -54,6 +54,19 @@ namespace Rwb.Luxopus.Jobs
                 };
             }
 
+            // Export a little at peak time to show willing.
+            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Start.Hour >= 16 && z.Start.Hour < 19))
+            {
+                p.Action = new PeriodAction()
+                {
+                    ChargeFromGrid = 0,
+                    BatteryChargeRate = 100,
+                    BatteryDischargeRate = 50,
+                    DischargeToGrid = 75
+                };
+            }
+
+
             // Make room in the battery.
             int battMin = 90 - 15 * (plan?.Plans?.Where(z => z.Buy < 0)?.Count() ?? 0);
             battMin = battMin < 20 ? 20 : battMin;

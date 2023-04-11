@@ -66,6 +66,14 @@ namespace Rwb.Luxopus.Jobs
         /// </summary>
         public int DischargeToGrid { get; set; }
 
+        public PeriodAction()
+        {
+            ChargeFromGrid = 0;
+            BatteryChargeRate = 97;
+            BatteryDischargeRate = 97;
+            DischargeToGrid = 100;
+        }
+
         public override string ToString()
         {
             string chargeFromGrid = ChargeFromGrid > 0 ? $"charge to {ChargeFromGrid}" : "no charge";
