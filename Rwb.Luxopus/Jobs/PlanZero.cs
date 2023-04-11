@@ -3,7 +3,6 @@ using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,10 +28,9 @@ namespace Rwb.Luxopus.Jobs
             DateTime t0 = DateTime.UtcNow;
             //DateTime t0 = new DateTime(2023, 4, 10, 22, 0, 0);
             Plan? current = PlanService.Load(t0);
-            if (current != null)
+            if (current != null && current.Current == current.Plans.First())
             {
                 return;
-                // TODO: create a new -- updated -- plan.
             }
 
             // Get prices and set up plan.
@@ -49,7 +47,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     ChargeFromGrid = 100, // This might be too much if there is a sequence with a highh (small negative) price first so we want to wait while later.
                     BatteryChargeRate = 100,
-                    BatteryDischargeRate = 0,
+                    BatteryGridDischargeRate = 0,
                     DischargeToGrid = 100
                 };
             }
@@ -60,12 +58,11 @@ namespace Rwb.Luxopus.Jobs
                 p.Action = new PeriodAction()
                 {
                     ChargeFromGrid = 0,
-                    BatteryChargeRate = 100,
-                    BatteryDischargeRate = 50,
+                    BatteryChargeRate = 0, // Send any generation straight out.
+                    BatteryGridDischargeRate = 33 + (p.Sell > 15 ? 33 : 0),
                     DischargeToGrid = 75
                 };
             }
-
 
             // Make room in the battery.
             int battMin = 90 - 15 * (plan?.Plans?.Where(z => z.Buy < 0)?.Count() ?? 0);
@@ -88,7 +85,7 @@ namespace Rwb.Luxopus.Jobs
                     {
                         ChargeFromGrid = 0,
                         BatteryChargeRate = 100,
-                        BatteryDischargeRate = 100,
+                        BatteryGridDischargeRate = 95,
                         DischargeToGrid = battMin + 12 * (i - 1)
                     };
                     q = plan.GetPrevious(q);

@@ -148,7 +148,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     ChargeFromGrid = 0,
                     BatteryChargeRate = 100,
-                    BatteryDischargeRate = 100,
+                    BatteryGridDischargeRate = 100,
                     DischargeToGrid = battMin
                 };
             }
@@ -161,7 +161,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     ChargeFromGrid = 100,
                     BatteryChargeRate = 100,
-                    BatteryDischargeRate = 0,
+                    BatteryGridDischargeRate = 0,
                     DischargeToGrid = 100
                 };
             }
@@ -176,7 +176,7 @@ namespace Rwb.Luxopus.Jobs
                     {
                         ChargeFromGrid = 0,
                         BatteryChargeRate = 100,
-                        BatteryDischargeRate = 100,
+                        BatteryGridDischargeRate = 100,
                         DischargeToGrid = 50 // Enough space for the day's generation.
                     };
                 }

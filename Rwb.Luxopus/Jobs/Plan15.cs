@@ -64,7 +64,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     ChargeFromGrid = p.Buy < 0 ? 100 : 99,
                     BatteryChargeRate = 100,
-                    BatteryDischargeRate = 0,
+                    BatteryGridDischargeRate = 0,
                     DischargeToGrid = 100
                 };
             }
@@ -87,7 +87,7 @@ namespace Rwb.Luxopus.Jobs
                     {
                         ChargeFromGrid = 0,
                         BatteryChargeRate = 100,
-                        BatteryDischargeRate = 100,
+                        BatteryGridDischargeRate = 100,
                         DischargeToGrid = 20
                     };
 

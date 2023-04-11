@@ -57,9 +57,14 @@ namespace Rwb.Luxopus.Jobs
         public int BatteryChargeRate { get; set; }
 
         /// <summary>
-        /// If above zero then power the house from the grid rather than from the battery.
+        /// Rate at which the battery should be discharged for use. Set to zero to force house to use grid.
         /// </summary>
-        public int BatteryDischargeRate { get; set; }
+        public int BatterydDischargeRate { get; set; }
+
+        /// <summary>
+        /// Rate at which the battery should be discharged to the grid. 
+        /// </summary>
+        public int BatteryGridDischargeRate { get; set; }
 
         /// <summary>
         /// Battery limit for discharge. Use 100 to disable discharge to grid.
@@ -70,7 +75,8 @@ namespace Rwb.Luxopus.Jobs
         {
             ChargeFromGrid = 0;
             BatteryChargeRate = 97;
-            BatteryDischargeRate = 97;
+            BatterydDischargeRate = 97;
+            BatteryGridDischargeRate = 97;
             DischargeToGrid = 100;
         }
 
@@ -78,7 +84,7 @@ namespace Rwb.Luxopus.Jobs
         {
             string chargeFromGrid = ChargeFromGrid > 0 ? $"charge to {ChargeFromGrid}" : "no charge";
             string dischargeTo = DischargeToGrid < 100 ? $"discharge to {DischargeToGrid}" : "no discharge";
-            return $"{chargeFromGrid} | {dischargeTo} | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryDischargeRate}";
+            return $"{chargeFromGrid} | {dischargeTo} | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
         }
     }
 

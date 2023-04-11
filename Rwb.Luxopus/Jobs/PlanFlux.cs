@@ -121,7 +121,7 @@ namespace Rwb.Luxopus.Jobs
                             ChargeFromGrid = 0,
                             DischargeToGrid = 20,
                             BatteryChargeRate = 0,
-                        BatteryDischargeRate = 100,
+                        BatteryGridDischargeRate = 100,
                         };
                         break;
                     case FluxCase.Daytime:
@@ -130,7 +130,7 @@ namespace Rwb.Luxopus.Jobs
                             ChargeFromGrid = 0,
                             DischargeToGrid = 100,
                             BatteryChargeRate = 75,
-                            BatteryDischargeRate = 100,
+                            BatteryGridDischargeRate = 100,
                         };
                         break;
                     case FluxCase.Low:
@@ -139,7 +139,7 @@ namespace Rwb.Luxopus.Jobs
                             ChargeFromGrid = 98,
                             DischargeToGrid = 100,
                             BatteryChargeRate = 100,
-                            BatteryDischargeRate = 0,
+                            BatteryGridDischargeRate = 0,
                         };
                         break;
                 }

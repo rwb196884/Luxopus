@@ -72,6 +72,10 @@ namespace Rwb.Luxopus.Jobs
             if (p == null)
             {
                 Logger.LogError($"No current plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
+                p = new HalfHourPlan()
+                {
+                    Action = new PeriodAction() // Use the default values.
+                };
             }
             if (plan?.Next == null)
             {
@@ -83,7 +87,6 @@ namespace Rwb.Luxopus.Jobs
 
             StringBuilder actions = new StringBuilder();
 
-
             // Check that it's doing what it's supposed to be doing.
             // update settings and log warning in case of discrepancy.
 
@@ -92,7 +95,7 @@ namespace Rwb.Luxopus.Jobs
 
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
-            int battDischargeRate = _Lux.GetBatteryDischargeRate(settings);
+            int battDischargeRate = _Lux.GetBatteryGridDischargeRate(settings);
 
             // Discharge to grid.
             (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDischargeToGrid(settings);
@@ -119,7 +122,7 @@ namespace Rwb.Luxopus.Jobs
                 outStopWanted = p.Start.AddMinutes(30);
                 while (q != null && (q?.Action?.DischargeToGrid ?? 100) < 100)
                 {
-                    q = plan?.GetNext(p);
+                    q = plan?.GetNext(q);
                     outStopWanted = q?.Start ?? outStopWanted.AddMinutes(30);
                 }
             }
@@ -185,7 +188,7 @@ namespace Rwb.Luxopus.Jobs
                 inStopWanted = p.Start.AddMinutes(30);
                 while (q != null && (q?.Action?.ChargeFromGrid ?? 0) > 0)
                 {
-                    q = plan?.GetNext(p);
+                    q = plan?.GetNext(q);
                     inStopWanted = q?.Start ?? inStopWanted.AddMinutes(30);
                 }
             }
@@ -260,10 +263,10 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Batt discharge.
-            if (battDischargeRate != (p?.Action?.BatteryDischargeRate ?? 97))
+            if (battDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
             {
-                await _Lux.SetBatteryDischargeRateAsync(p.Action?.BatteryDischargeRate ?? 97);
-                actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryDischargeRate ?? 97}) was {battDischargeRate}.");
+                await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
+                actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battDischargeRate}.");
             }
 
             // Report any changes.

@@ -36,6 +36,7 @@ namespace Rwb.Luxopus.Services
         (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDischargeToGrid(Dictionary<string, string> settings);
         int GetBatteryChargeRate(Dictionary<string, string> settings);
         int GetBatteryDischargeRate(Dictionary<string, string> settings);
+        int GetBatteryGridDischargeRate(Dictionary<string, string> settings);
 
         Task SetChargeFromGridStartAsync(DateTime start);
         Task SetChargeFromGridStopAsync(DateTime stop);
@@ -47,6 +48,7 @@ namespace Rwb.Luxopus.Services
 
         Task SetBatteryChargeRateAsync(int batteryChargeRatePercent);
         Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent);
+        Task SetBatteryGridDischargeRateAsync(int batteryDischargeRatePercent);
     }
 
     public class LuxService : Service<LuxSettings>, ILuxService, IDisposable
@@ -297,7 +299,12 @@ namespace Rwb.Luxopus.Services
             return int.Parse(settings["HOLD_CHARGE_POWER_PERCENT_CMD"]);
         }
 
-        public int GetBatteryDischargeRate(Dictionary<string, string> settings)
+        public int GetBatteryGridDischargeRate(Dictionary<string, string> settings)
+        {
+            //return int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"]);
+            return int.Parse(settings["HOLD_FORCED_DISCHG_POWER_CMD"]);
+        }
+        public int GetBatterdDischargeRate(Dictionary<string, string> settings)
         {
             return int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"]);
         }
@@ -361,8 +368,13 @@ namespace Rwb.Luxopus.Services
         {
             int rate = batteryDischargeRatePercent < 0 || batteryDischargeRatePercent > 100 ? 90 : batteryDischargeRatePercent;
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_DISCHG_POWER_PERCENT_CMD", rate.ToString()));
-        } // Not to be confused with HOLD_FORCED_DISCHG_POWER_CMD which is for forced discharge.
-  
+        }
+        public async Task SetBatteryGridDischargeRateAsync(int batteryDischargeRatePercent)
+        {
+            int rate = batteryDischargeRatePercent < 0 || batteryDischargeRatePercent > 100 ? 90 : batteryDischargeRatePercent;
+            await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_POWER_CMD", rate.ToString())); // !
+        }
+
         private Dictionary<string, string> GetHoldParams(string holdParam, string valueText)
         {
             return GetParams(new Dictionary<string, string>()
