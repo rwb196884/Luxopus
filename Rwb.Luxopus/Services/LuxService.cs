@@ -226,6 +226,7 @@ namespace Rwb.Luxopus.Services
                 {
                     foreach (JsonProperty p in j.RootElement.EnumerateObject())
                     {
+                        if((new string[] { "valueFrame", "success" }).Contains(p.Name){ continue; }
                         if (settings.ContainsKey(p.Name))
                         {
                             string existingValue = settings[p.Name];
