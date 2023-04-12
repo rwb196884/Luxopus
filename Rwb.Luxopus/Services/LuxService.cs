@@ -226,28 +226,31 @@ namespace Rwb.Luxopus.Services
                 {
                     foreach (JsonProperty p in j.RootElement.EnumerateObject())
                     {
-                        if (p.Name == "valueFrame") { continue; }
-                        if (p.Name == "success") { continue; }
                         if (settings.ContainsKey(p.Name))
                         {
+                            string existingValue = settings[p.Name];
+                            Logger.LogWarning($"Duplicate setting '{p.Name}'. Values: '{existingValue}', '{p.Value.ToString()}'.");
                         }
-                        switch (p.Value.ValueKind)
+                        else
                         {
-                            case JsonValueKind.String:
-                                settings.Add(p.Name, p.Value.GetString());
-                                break;
-                            case JsonValueKind.Number:
-                                settings.Add(p.Name, p.Value.GetInt32().ToString());
-                                break;
-                            case JsonValueKind.True:
-                            case JsonValueKind.False:
-                                settings.Add(p.Name, p.Value.GetBoolean().ToString());
-                                break;
-                            case JsonValueKind.Null:
-                            case JsonValueKind.Undefined:
-                                break;
-                            default:
-                                throw new NotImplementedException($"JsonValueKind {p.Value.ValueKind}");
+                            switch (p.Value.ValueKind)
+                            {
+                                case JsonValueKind.String:
+                                    settings.Add(p.Name, p.Value.GetString());
+                                    break;
+                                case JsonValueKind.Number:
+                                    settings.Add(p.Name, p.Value.GetInt32().ToString());
+                                    break;
+                                case JsonValueKind.True:
+                                case JsonValueKind.False:
+                                    settings.Add(p.Name, p.Value.GetBoolean().ToString());
+                                    break;
+                                case JsonValueKind.Null:
+                                case JsonValueKind.Undefined:
+                                    break;
+                                default:
+                                    throw new NotImplementedException($"JsonValueKind {p.Value.ValueKind}");
+                            }
                         }
                     }
                 }
