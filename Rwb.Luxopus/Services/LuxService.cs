@@ -57,6 +57,7 @@ namespace Rwb.Luxopus.Services
         private const string GetInverterEnergyInfoPath = "/WManage/api/inverter/getInverterEnergyInfo";
         const string UrlToWrite = "/WManage/web/maintain/remoteSet/write";
         const string UrlToWriteTime = "/WManage/web/maintain/remoteSet/writeTime";
+        const string UrlToWriteFunction = "/WManage/web/maintain/remoteSet/functionControl";
 
         private string _InverterRuntimeCache;
         private DateTime _InverterRuntimeCacheDate;
@@ -132,7 +133,9 @@ namespace Rwb.Luxopus.Services
         private async Task<HttpResponseMessage> PostAsync(string path, IEnumerable<KeyValuePair<string, string>> formData)
         {
             FormUrlEncodedContent content = new FormUrlEncodedContent(formData);
-            return await _Client.PostAsync(path, content);
+            HttpResponseMessage r = await _Client.PostAsync(path, content);
+            r.EnsureSuccessStatusCode();
+            return r;
         }
 
         private async Task LoginAsync()
@@ -142,7 +145,6 @@ namespace Rwb.Luxopus.Services
                     {"account", Settings.Username },
                     { "password", Settings.Password }
             });
-            result.EnsureSuccessStatusCode();
         }
 
         public async Task<string> GetInverterRuntimeAsync()
@@ -332,7 +334,7 @@ namespace Rwb.Luxopus.Services
         public async Task SetChargeFromGridLevelAsync(int batteryLimitPercent)
         {
             bool enable = batteryLimitPercent > 0 && batteryLimitPercent <= 100;
-            await PostAsync(UrlToWrite, GetEnableParams("FUNC_AC_CHARGE", enable));
+            await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_AC_CHARGE", enable));
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_SOC_LIMIT", batteryLimitPercent.ToString()));
         }
 
@@ -351,10 +353,10 @@ namespace Rwb.Luxopus.Services
         public async Task SetDischargeToGridLevelAsync(int batteryLimitPercent)
         {
             bool enable = batteryLimitPercent > 0 && batteryLimitPercent < 100;
-            await PostAsync(UrlToWrite, GetEnableParams("FUNC_FORCED_DISCHG_EN", enable));
+            await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_FORCED_DISCHG_EN", enable));
             if (enable)
             {
-                await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_SOC_LIMIT", batteryLimitPercent.ToString()));
+                r = await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_SOC_LIMIT", batteryLimitPercent.ToString()));
             }
         }
 
@@ -383,11 +385,11 @@ namespace Rwb.Luxopus.Services
                 { "valueText", valueText}
             });
         }
-        private Dictionary<string, string> GetEnableParams(string holdParam, bool enable)
+        private Dictionary<string, string> GetFuncParams(string funcParam, bool enable)
         {
             return GetParams(new Dictionary<string, string>()
             {
-                { "holdParam", holdParam},
+                { "functionParam", funcParam},
                 { "enable", enable ? "true" : "false"}
             });
         }
