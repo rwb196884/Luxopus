@@ -113,6 +113,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             _Email.SendEmail(emailSubjectPrefix + "Solar strategy (plan zero) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString());
+            Logger.LogInformation("PlanZero creted new plan: " + Environment.NewLine + message.ToString());
         }
     }
 }

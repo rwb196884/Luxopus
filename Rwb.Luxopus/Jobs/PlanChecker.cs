@@ -281,6 +281,7 @@ namespace Rwb.Luxopus.Jobs
                     }
                 }
                 _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
+                Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
             }
         }
     }

@@ -159,6 +159,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             _Email.SendEmail("Solar strategy (flux) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString());
+            Logger.LogInformation("PlanFlux creted new plan: " + Environment.NewLine + message.ToString());
         }
     }
 }
