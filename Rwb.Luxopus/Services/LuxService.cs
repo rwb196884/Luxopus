@@ -356,7 +356,7 @@ namespace Rwb.Luxopus.Services
             await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_FORCED_DISCHG_EN", enable));
             if (enable)
             {
-                r = await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_SOC_LIMIT", batteryLimitPercent.ToString()));
+                await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_SOC_LIMIT", batteryLimitPercent.ToString()));
             }
         }
 
