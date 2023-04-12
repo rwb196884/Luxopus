@@ -54,7 +54,10 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Export a little at peak time to show willing.
-            HalfHourPlan? maxSell = plan.Plans.OrderByDescending(z => z.Sell).First();
+            HalfHourPlan? maxSell = plan.Plans
+                .Where(z => z.Start < t0.AddHours(22) /* Don't get distracted by tomorrow. */)
+                .OrderByDescending(z => z.Sell)
+                .First();
             foreach (HalfHourPlan p in plan.Plans.Where(z => z.Start >= maxSell.Start && z.Sell > 15M))
             {
                 p.Action = new PeriodAction()
