@@ -80,7 +80,7 @@ namespace Rwb.Luxopus.Services
         {
             DateTimeZone ntz = DateTimeZoneProviders.Tzdb[Settings.TimeZone];
             Offset o = ntz.GetUtcOffset(Instant.FromDateTimeOffset(utcTime));
-            DateTime u = utcTime.AddTicks( o.Ticks);
+            DateTime u = utcTime.AddTicks(o.Ticks);
             DateTime v = DateTime.SpecifyKind(u, DateTimeKind.Local);
             return v;
         }
@@ -133,7 +133,19 @@ namespace Rwb.Luxopus.Services
         private async Task<HttpResponseMessage> PostAsync(string path, IEnumerable<KeyValuePair<string, string>> formData)
         {
             FormUrlEncodedContent content = new FormUrlEncodedContent(formData);
-            HttpResponseMessage r = await _Client.PostAsync(path, content);
+            HttpResponseMessage r = null;
+            while (true)
+            {
+                r = await _Client.PostAsync(path, content);
+                if (r.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    await LoginAsync();
+                }
+                else
+                {
+                    break;
+                }
+            }
             r.EnsureSuccessStatusCode();
             return r;
         }
@@ -154,24 +166,15 @@ namespace Rwb.Luxopus.Services
                 return _InverterRuntimeCache;
             }
 
-            while (true)
-            {
-                HttpResponseMessage r = await PostAsync(GetInverterRuntimePath, new Dictionary<string, string>()
+            HttpResponseMessage r = await PostAsync(GetInverterRuntimePath, new Dictionary<string, string>()
                 {
                     { "serialNum", Settings.Station },
                 });
-
-                if (r.StatusCode == HttpStatusCode.Unauthorized)
-                {
-                    await LoginAsync();
-                }
-                else
-                {
-                    string inverterRuntime = await r.Content.ReadAsStringAsync();
-                    _InverterRuntimeCache = inverterRuntime;
-                    _InverterRuntimeCacheDate = DateTime.UtcNow;
-                    return inverterRuntime;
-                }
+            {
+                string inverterRuntime = await r.Content.ReadAsStringAsync();
+                _InverterRuntimeCache = inverterRuntime;
+                _InverterRuntimeCacheDate = DateTime.UtcNow;
+                return inverterRuntime;
             }
         }
 
