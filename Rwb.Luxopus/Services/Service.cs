@@ -105,6 +105,12 @@ namespace Rwb.Luxopus.Services
         {
             Settings = settings.Value;
             Logger = logger;
+
+            if(!ValidateSettings())
+            {
+                Logger.LogError($"Invalid settings: {typeof(T).Name}");
+                throw new Exception($"Invalid settings: {typeof(T).Name}");
+            }
         }
 
         public abstract bool ValidateSettings();

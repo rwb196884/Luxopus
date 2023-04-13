@@ -48,8 +48,8 @@ namespace Rwb.Luxopus.Services
 
         public override bool ValidateSettings()
         {
-            if (Settings.Latitude < 0
-                || Settings.Latitude > 360
+            if (Settings.Latitude < -90
+                || Settings.Latitude > 90
                 || Settings.Longitude < -180
                 || Settings.Longitude > 180
                 )
