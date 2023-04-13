@@ -2,6 +2,7 @@
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -77,13 +78,9 @@ namespace Rwb.Luxopus.Jobs
                     Action = new PeriodAction() // Use the default values.
                 };
             }
-            if (plan?.Next == null)
-            {
-                Logger.LogError($"No next plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
-            }
 
-            DateTime tStart = p?.Start ?? DateTime.UtcNow;
-            DateTime tNext = plan?.Next?.Start ?? tStart.AddMinutes(30);
+            // Look 8 hours ahead.
+            IEnumerable<HalfHourPlan> run = plan?.Plans.Where(z => z.Start >= p.Start && z.Start < p.Start.AddHours(8)) ?? new List<HalfHourPlan>() { p};
 
             StringBuilder actions = new StringBuilder();
 
@@ -104,35 +101,20 @@ namespace Rwb.Luxopus.Jobs
             DateTime outStopWanted = outStop;
             int outBatteryLimitPercentWanted = outBatteryLimitPercent;
 
-            if (p == null || p.Action == null)
+            outEnabledWanted = run.Any(z => (z.Action?.DischargeToGrid ?? 100) < 100);
+            if (plan != null && outEnabledWanted)
             {
-                outEnabledWanted = false;
-            }
-            else if (p.Action.DischargeToGrid < 100)
-            {
-                outEnabledWanted = true;
-                outBatteryLimitPercentWanted = p.Action.DischargeToGrid;
-                if (outStart > p.Start)
-                {
-                    outStartWanted = p.Start;
-                }
+                HalfHourPlan runFirst = run.OrderBy(z => z.Start).First(z => (z.Action?.DischargeToGrid ?? 100) < 100);
+                outStartWanted = runFirst.Start;
+                outBatteryLimitPercentWanted = runFirst.Action!.DischargeToGrid;
+                HalfHourPlan runLast = run.OrderBy(z => z.Start).Last(z => (z.Action?.DischargeToGrid ?? 100) < 100);
+                outStopWanted = (plan.GetNext(runLast)?.Start ?? runLast.Start.AddMinutes(30));
 
-                // Find the end.
-                HalfHourPlan? q = p;
-                outStopWanted = p.Start.AddMinutes(30);
-                while (q != null && (q?.Action?.DischargeToGrid ?? 100) < 100)
+                // If we're discharging now and started already then no change is needed.
+                if( (p.Action?.DischargeToGrid ?? 100) < 100 && outStart < outStartWanted)
                 {
-                    q = plan?.GetNext(q);
-                    outStopWanted = q?.Start ?? outStopWanted.AddMinutes(30);
+                    outStartWanted = outStart;
                 }
-            }
-            else if (p.Action.DischargeToGrid == 100)
-            {
-                outEnabledWanted = false;
-            }
-            else
-            {
-                throw new NotImplementedException();
             }
 
             if (!outEnabledWanted)
@@ -145,13 +127,13 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                if (outStart > outStartWanted)
+                if (outStart != outStartWanted)
                 {
                     await _Lux.SetDischargeToGridStartAsync(outStartWanted);
                     actions.AppendLine($"SetDischargeToGridStartAsync({outStartWanted.ToString("HH:mm")}) was {outStart.ToString("HH:mm")}.");
                 }
 
-                if (outStop < outStopWanted)
+                if (outStop != outStopWanted)
                 {
                     await _Lux.SetDischargeToGridStopAsync(outStopWanted);
                     actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("HH:mm")}0) was {outStop.ToString("HH:mm")}.");
@@ -170,35 +152,21 @@ namespace Rwb.Luxopus.Jobs
             DateTime inStartWanted = inStart;
             DateTime inStopWanted = inStop;
             int inBatteryLimitPercentWanted = inBatteryLimitPercent;
-            if (p == null || p.Action == null)
-            {
-                inEnabledWanted = false;
-            }
-            else if (p.Action.ChargeFromGrid > 0)
-            {
-                inEnabledWanted = true;
-                inBatteryLimitPercentWanted = p.Action.ChargeFromGrid;
-                if (inStart > p.Start)
-                {
-                    inStartWanted = p.Start;
-                }
 
-                // Find the end.
-                HalfHourPlan? q = p;
-                inStopWanted = p.Start.AddMinutes(30);
-                while (q != null && (q?.Action?.ChargeFromGrid ?? 0) > 0)
+            inEnabledWanted = run.Any(z => (z.Action?.ChargeFromGrid ?? 0) > 0);
+            if (plan != null && inEnabledWanted)
+            {
+                HalfHourPlan runFirst = run.OrderBy(z => z.Start).First(z => (z.Action?.ChargeFromGrid ?? 0) > 0);
+                inStartWanted = runFirst.Start;
+                inBatteryLimitPercentWanted = runFirst.Action!.ChargeFromGrid;
+                HalfHourPlan runLast = run.OrderBy(z => z.Start).Last(z => (z.Action?.ChargeFromGrid ?? 0) > 0);
+                inStopWanted = (plan.GetNext(runLast)?.Start ?? runLast.Start.AddMinutes(30));
+
+                // If we're charging now and started already then no change is needed.
+                if ((p.Action?.ChargeFromGrid ?? 0) > 0 && outStart < outStartWanted)
                 {
-                    q = plan?.GetNext(q);
-                    inStopWanted = q?.Start ?? inStopWanted.AddMinutes(30);
+                    inStartWanted = inStart;
                 }
-            }
-            else if (p.Action.ChargeFromGrid == 0)
-            {
-                inEnabledWanted = false;
-            }
-            else
-            {
-                throw new NotImplementedException();
             }
 
             if (!inEnabledWanted)
@@ -211,13 +179,13 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                if (inStart > inStartWanted)
+                if (inStart != inStartWanted)
                 {
                     await _Lux.SetChargeFromGridStartAsync(inStartWanted);
                     actions.AppendLine($"SetChargeFromGridStartAsync({inStartWanted.ToString("HH:mm")}) was {inStart.ToString("HH:mm")}.");
                 }
 
-                if (inStop < inStopWanted)
+                if (inStop != inStopWanted)
                 {
                     await _Lux.SetChargeFromGridStopAsync(inStopWanted);
                     actions.AppendLine($"SetChargeFromGridStopAsync({inStopWanted.ToString("HH:mm")}0) was {inStop.ToString("HH:mm")}.");
