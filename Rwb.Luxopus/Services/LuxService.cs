@@ -405,9 +405,9 @@ namespace Rwb.Luxopus.Services
         {
             return GetParams(new Dictionary<string, string>()
             {
-                { "holdParam", timeParam},
-                { "hour", t.ToString("mm")},
-                { "minute", t.ToString("HH")}
+                { "timeParam", timeParam},
+                { "hour", t.ToString("HH")},
+                { "minute", t.ToString("mm")}
             });
         }
 
