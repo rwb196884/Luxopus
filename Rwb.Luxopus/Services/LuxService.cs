@@ -280,7 +280,8 @@ namespace Rwb.Luxopus.Services
 
         private DateTime GetDate(int hours, int minutes, DateTime relativeTo)
         {
-            DateTime t = DateTime.Parse($"{relativeTo.ToString("yyyy-MM-dd")}T{hours.ToString("00")}:{minutes.ToString("00")}:00Z");
+            DateTime t = DateTime.Parse($"{relativeTo.ToString("yyyy-MM-dd")}T{hours.ToString("00")}:{minutes.ToString("00")}:00");
+            t = DateTime.SpecifyKind(t, DateTimeKind.Local);
             return ToUtc(t);
         }
 
