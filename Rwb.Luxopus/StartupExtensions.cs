@@ -39,6 +39,7 @@ namespace Rwb.Luxopus
                     services.Register<ILuxService, LuxService, LuxSettings>(context);
                     services.Register<IOctopusService, OctopusService, OctopusSettings>(context);
                     services.Register<ISolcastService, SolcastService, SolcastSettings>(context);
+                    services.Register<ISunService, SunService, SunSettings>(context);
 
                     // Main thingy.
                     services.AddScoped<Luxopus>();
@@ -49,6 +50,8 @@ namespace Rwb.Luxopus
                     services.AddScoped<OctopusMeters>();
                     services.AddScoped<OctopusPrices>();
                     services.AddScoped<Solcast>();
+                    services.AddScoped<SolarPosition>();
+                    services.AddScoped<Sunrise>();
 
                     services.AddScoped<PlanChecker>();
                     services.AddScoped<PlanZero>();

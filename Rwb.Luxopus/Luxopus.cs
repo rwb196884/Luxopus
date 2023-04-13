@@ -1,10 +1,10 @@
-﻿using Rwb.Luxopus.Jobs;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using NCrontab;
 using NCrontab.Scheduler;
+using Rwb.Luxopus.Jobs;
+using System;
 using System.Collections.Generic;
 using System.Threading;
-using System;
 
 namespace Rwb.Luxopus
 {
@@ -22,6 +22,8 @@ namespace Rwb.Luxopus
             OctopusMeters octopusMeters,
             OctopusPrices octopusPrices,
             Solcast solcast,
+            SolarPosition sunPosition,
+            Sunrise sunrise,
             // Openweathermap
             // Solar elevation angle
             PlanChecker planChecker,
@@ -40,6 +42,8 @@ namespace Rwb.Luxopus
             AddJob(octopusMeters, "53 16 * * *"); // will get yesterday's meters.
             AddJob(octopusPrices, "34 16 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
             AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
+            AddJob(sunPosition, "8 * * * *"); // Every 8 minutes.
+            AddJob(sunrise, "0 10 * * *"); // Every day.
             AddJob(planChecker, "1,31 * * * *"); // At the start of every half hour.
             // Make plan after getting prices and before evening peak.
             //AddJob(planA, "34 16 * * *"); 
@@ -48,14 +52,16 @@ namespace Rwb.Luxopus
 
             _StartupTasks = new List<Job>()
             {
-                luxMonitor,
+                //luxMonitor,
                 //octopusMeters,
                 //octopusPrices,
                 ////solcast, // severely rate lmited.
                 ////planA,
-                planZero,
-                planFlux,
-                planChecker
+                //planZero,
+                //planFlux,
+                //planChecker
+                sunrise,
+                sunPosition
             };
         }
 

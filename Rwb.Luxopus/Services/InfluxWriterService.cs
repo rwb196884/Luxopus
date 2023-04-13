@@ -32,6 +32,7 @@ namespace Rwb.Luxopus.Services
                 n = 50;
             }
             // Do in batches because of shitty timeout.
+            Logger.LogInformation($"Writing {lines.Length} lines in {lines.Length / n + 1} batches.");
             for (int i = 0; i <= lines.Length / n; i++)
             {
                 while (true)
