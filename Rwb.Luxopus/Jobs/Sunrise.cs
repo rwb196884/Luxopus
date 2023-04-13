@@ -28,25 +28,29 @@ namespace Rwb.Luxopus.Jobs
             LineDataBuilder lines = new LineDataBuilder();
             while( t.Date < DateTime.UtcNow.Date.AddDays(2))
             {
-                DateTime? s = null;
-                s = _Sun.GetSunrise(t);
-                if (s.HasValue)
+                DateTime? tr = _Sun.GetSunrise(t);
+                if (tr.HasValue)
                 {
-                    lines.Add("sun", "risen", 1, s.Value);
+                    lines.Add("sun", "risen", 1, tr.Value);
                 }
                 else
                 {
                     Logger.LogWarning($"No sunrise for {t.ToString("dd MMM yy")}");
                 }
 
-                s = _Sun.GetSunset(t);
-                if (s.HasValue)
+                DateTime? ts = _Sun.GetSunset(t);
+                if (ts.HasValue)
                 {
-                    lines.Add("sun", "risen", 0, s.Value);
+                    lines.Add("sun", "risen", 0, ts.Value);
                 }
                 else
                 {
                     Logger.LogWarning($"No sunset for {t.ToString("dd MMM yy")}");
+                }
+
+                if(tr.HasValue && ts.HasValue)
+                {
+                    lines.Add("sun", "daylen", Convert.ToInt32(Math.Floor((ts.Value - tr.Value).TotalSeconds)), ts.Value.Date);
                 }
 
                 t = t.AddDays(1);
