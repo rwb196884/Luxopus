@@ -280,7 +280,8 @@ namespace Rwb.Luxopus.Services
 
         private DateTime GetDate(int hours, int minutes, DateTime relativeTo)
         {
-            DateTime t = DateTime.Parse($"{relativeTo.ToString("yyyy-MM-dd")}T{hours.ToString("00")}:{minutes.ToString("00")}:00Z");
+            DateTime t = DateTime.Parse($"{relativeTo.ToString("yyyy-MM-dd")}T{hours.ToString("00")}:{minutes.ToString("00")}:00");
+            DateTime.SpecifyKind(t, DateTimeKind.Local);
             return ToUtc(t);
         }
 
@@ -294,6 +295,7 @@ namespace Rwb.Luxopus.Services
             int lim = int.Parse(settings["HOLD_FORCED_DISCHG_SOC_LIMIT"]);
 
             DateTime t = DateTime.Parse(settings["inverterRuntimeDeviceTime"]);
+            DateTime.SpecifyKind(t, DateTimeKind.Local);
 
             return (
                 enabled,

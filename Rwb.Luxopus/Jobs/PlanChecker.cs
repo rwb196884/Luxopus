@@ -114,7 +114,7 @@ namespace Rwb.Luxopus.Jobs
                 // so in the first period in that gap the plan checker will set up for the next run.
 
                 // If we're discharging now and started already then no change is needed.
-                if ( (p.Action?.DischargeToGrid ?? 100) < 100 && outStart > outStartWanted)
+                if ( (p.Action?.DischargeToGrid ?? 100) < 100 && outStart < outStartWanted)
                 {
                     outStartWanted = outStart;
                 }
