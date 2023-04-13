@@ -52,14 +52,14 @@ namespace Rwb.Luxopus
 
             _StartupTasks = new List<Job>()
             {
-                //luxMonitor,
+                luxMonitor,
                 //octopusMeters,
                 //octopusPrices,
                 ////solcast, // severely rate lmited.
                 ////planA,
-                //planZero,
-                //planFlux,
-                //planChecker
+                planZero,
+                planFlux,
+                planChecker
                 sunrise,
                 sunPosition
             };
