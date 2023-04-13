@@ -4,7 +4,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Jobs;
 using System;
-using System.Threading;
 
 namespace Rwb.Luxopus.Console
 {
@@ -22,7 +21,7 @@ namespace Rwb.Luxopus.Console
                     cfg.AddConfiguration(context.Configuration.GetSection("Logging"));
                     cfg.AddConsole(configure =>
                     {
-                        configure.TimestampFormat = "dd MMM HH:mm";
+                        configure.TimestampFormat = "dd MMM HH:mm ";
                     });
                 })
                 .AddAppsettingsWithAspNetCoreEnvironment()
