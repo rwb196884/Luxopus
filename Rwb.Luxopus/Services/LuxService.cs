@@ -294,6 +294,7 @@ namespace Rwb.Luxopus.Services
             int lim = int.Parse(settings["HOLD_FORCED_DISCHG_SOC_LIMIT"]);
 
             DateTime t = DateTime.Parse(settings["inverterRuntimeDeviceTime"]);
+            t = DateTime.SpecifyKind(t, DateTimeKind.Local);
 
             return (
                 enabled,

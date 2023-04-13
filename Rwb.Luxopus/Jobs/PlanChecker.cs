@@ -114,8 +114,9 @@ namespace Rwb.Luxopus.Jobs
                 // so in the first period in that gap the plan checker will set up for the next run.
 
                 // If we're discharging now and started already then no change is needed.
-                if ( (p.Action?.DischargeToGrid ?? 100) < 100 && outStart > outStartWanted)
+                if ( (p.Action?.DischargeToGrid ?? 100) < 100 && outStart <= p.Start && outStartWanted <= p.Start)
                 {
+                    // No need to change it.
                     outStartWanted = outStart;
                 }
             }
@@ -167,8 +168,9 @@ namespace Rwb.Luxopus.Jobs
                 inStopWanted = (next?.Start ?? run.Last().Start.AddMinutes(30));
 
                 // If we're charging now and started already then no change is needed.
-                if ((p.Action?.ChargeFromGrid ?? 0) > 0 && inStart > inStartWanted)
+                if ((p.Action?.ChargeFromGrid ?? 0) > 0 && inStart <= p.Start && inStartWanted <= p.Start)
                 {
+                    // No need to change it.
                     inStartWanted = inStart;
                 }
             }
