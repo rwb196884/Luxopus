@@ -26,8 +26,9 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            DateTime t0 = DateTime.UtcNow;
+            //DateTime t0 = DateTime.UtcNow;
             //DateTime t0 = new DateTime(2023, 4, 10, 22, 0, 0);
+            DateTime t0 = new DateTime(2023, 4, 13, 15, 0, 0);
             Plan? current = PlanService.Load(t0);
             if (current != null && current.Current == current.Plans.First())
             {
@@ -89,31 +90,42 @@ namespace Rwb.Luxopus.Jobs
             PlanService.Save(plan);
             SendEmail(plan);
         }
-        
+
+        // TODO: estimate these parameters from historical data. Or move to settings.
+        private const int _BattMin = 65;
+        private const int _BattDischargePerHalfHour = 12; // Currently set tp 66% discharge rate.
+
         private void ConfigurePeriod(IEnumerable<HalfHourPlan> period)
         {
-            HalfHourPlan? maxSell = period
-                .OrderByDescending(z => z.Sell)
-                .First();
-            IEnumerable<HalfHourPlan> sellable = period.Where(z => z.Sell > 15M);
-            foreach (HalfHourPlan p in sellable.OrderByDescending(z => z.Sell))
+            // Discharge what we can in the most profitable periods.
+            // Assume initial battery is 100.
+            int periodsToDischarge = (100 - _BattMin) / _BattDischargePerHalfHour; // integer division...
+            int batt = 100;
+            foreach (HalfHourPlan p in period.OrderByDescending(z => z.Sell).Take(periodsToDischarge /* There may be fewer. */).OrderBy(z => z.Start))
             {
-                int battMin = 70;
-                if ( p.Start < maxSell.Start)
+                batt -= _BattDischargePerHalfHour;
+                p.Action = new PeriodAction()
                 {
-                    battMin += 15 * (sellable.Where(z => z.Start >= p.Start && z.Start < maxSell.Start).Count());
-                }
-                if (battMin < 100)
-                {
-                    p.Action = new PeriodAction()
-                    {
-                        ChargeFromGrid = 0,
-                        //BatteryChargeRate = 0, // Send any generation straight out.
-                        //BatteryGridDischargeRate = 33 + (p.Sell > 15 ? 33 : 0),
-                        DischargeToGrid = battMin
-                    };
-                }
+                    ChargeFromGrid = 0,
+                    //BatteryChargeRate = 0, // Send any generation straight out.
+                    //BatteryGridDischargeRate = 33 + (p.Sell > 15 ? 33 : 0),
+                    DischargeToGrid = batt
+                };
             }
+
+            // ... so whatever is left will fit into one remainder period.
+            HalfHourPlan? remainder = period.OrderByDescending(z => z.Sell).Take(periodsToDischarge).Take(1).FirstOrDefault();
+            if(remainder != null)
+            {
+                remainder.Action = new PeriodAction()
+                {
+                    ChargeFromGrid = 0,
+                    //BatteryChargeRate = 0, // Send any generation straight out.
+                    //BatteryGridDischargeRate = 33 + (p.Sell > 15 ? 33 : 0),
+                    DischargeToGrid = _BattMin
+                };
+            }
+
         }
 
         private void SendEmail(Plan plan)
