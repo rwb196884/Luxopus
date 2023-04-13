@@ -74,12 +74,24 @@ namespace Rwb.Luxopus.Services
             return $"{plans.First().Start.ToString("dd MMM HH:mm")} to {plans.Last().Start.ToString("dd MMM HH:mm")}";
         }
 
+        /// <summary>
+        /// Find the next contiguous run of periods in which the condition is true.
+        /// </summary>
+        /// <param name="start"></param>
+        /// <param name="condition"></param>
+        /// <returns></returns>
         public (IEnumerable<HalfHourPlan>, HalfHourPlan?) GetNextRun(HalfHourPlan start, Func<HalfHourPlan, bool> condition)
         {
             List<HalfHourPlan> run = new List<HalfHourPlan>();
-            HalfHourPlan p = start;
+            HalfHourPlan? p = start;
+            // Move to the start of the next run;
+            while(p != null && !condition(p))
+            {
+                p = GetNext(p);
+            }
             while (p != null && condition(p))
             {
+                run.Add(p);
                 p = GetNext(p);
             }
             return (run, p);
