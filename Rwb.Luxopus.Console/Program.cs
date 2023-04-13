@@ -20,7 +20,10 @@ namespace Rwb.Luxopus.Console
                 {
                     cfg.ClearProviders();
                     cfg.AddConfiguration(context.Configuration.GetSection("Logging"));
-                    cfg.AddConsole();
+                    cfg.AddConsole(configure =>
+                    {
+                        configure.TimestampFormat = "dd MMM HH:mm";
+                    });
                 })
                 .AddAppsettingsWithAspNetCoreEnvironment()
                 .AddLuxopus()
