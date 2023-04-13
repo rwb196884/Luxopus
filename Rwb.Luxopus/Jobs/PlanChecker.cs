@@ -40,13 +40,13 @@ namespace Rwb.Luxopus.Jobs
             return PercentPerHour(_BatteryCapacityAmpHours, _BatteryVoltage, watts);
         }
 
-        protected static int MaxPercentPerHalfHour {  get { return PercentPerHour(_BatteryCapacityAmpHours, _BatteryVoltage, _BatteryMaxPowerWatts) / 2; } }
+        protected static int MaxPercentPerHalfHour { get { return PercentPerHour(_BatteryCapacityAmpHours, _BatteryVoltage, _BatteryMaxPowerWatts) / 2; } }
 
         private const int _MedianHousePowerWatts = 240;
         private const int _BatteryCapacityAmpHours = 189;
         private const int _BatteryVoltage = 55;
         private const int _BatteryMaxPowerWatts = 3000;
-        
+
         protected static int PercentRequiredFromUntil(DateTime from, DateTime until)
         {
             decimal hours = Convert.ToDecimal(until.Subtract(from).TotalHours);
@@ -223,7 +223,7 @@ namespace Rwb.Luxopus.Jobs
                     actions.AppendLine($"SetChargeFromGridStopAsync({inStopWanted.ToString("HH:mm")}0) was {inStop.ToString("HH:mm")}.");
                 }
 
-                if (!inEnabled || ( inBatteryLimitPercentWanted > 0 && inBatteryLimitPercent != inBatteryLimitPercentWanted))
+                if (!inEnabled || (inBatteryLimitPercentWanted > 0 && inBatteryLimitPercent != inBatteryLimitPercentWanted))
                 {
                     await _Lux.SetChargeFromGridLevelAsync(inBatteryLimitPercentWanted);
                     actions.AppendLine($"SetChargeFromGridLevelAsync({inBatteryLimitPercentWanted}) was {inBatteryLimitPercent} (enabled: {inEnabledWanted} was {inEnabled}).");
@@ -233,7 +233,7 @@ namespace Rwb.Luxopus.Jobs
             // Batt charge.
             int requiredBattChargeRate = 97; // Correct for charge from grid.
             string why = "default";
-            if(inEnabled)
+            if (inEnabled)
             {
                 requiredBattChargeRate = 97;
                 why = "charge from grid";
@@ -250,7 +250,15 @@ namespace Rwb.Luxopus.Jobs
                 }
                 else
                 {
-                    why = "batttery has space";
+                    if (DateTime.Now.Hour < 14)
+                    {
+                        requiredBattChargeRate = 33;
+                        why = "batttery has space but it's only the morning";
+                    }
+                    else
+                    {
+                        why = "batttery has space but it's the afternoon";
+                    }
                 }
             }
 
