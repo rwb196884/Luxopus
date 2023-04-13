@@ -108,7 +108,8 @@ namespace Rwb.Luxopus.Jobs
                         p.Action = new PeriodAction()
                         {
                             ChargeFromGrid = 0,
-                            DischargeToGrid = 20, // Higher in the winter.
+                            DischargeToGrid = 5, // We can buy back cheaper before the low. On-grid cut-off is 5.
+                            // TODO: get prices to check that ^^ is true.
                             //BatteryChargeRate = 0,
                             //BatteryGridDischargeRate = 100,
                         };

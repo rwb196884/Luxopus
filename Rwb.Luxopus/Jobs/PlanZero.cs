@@ -60,7 +60,7 @@ namespace Rwb.Luxopus.Jobs
             ConfigurePeriod(plan.Plans.Where(z => z.Start.Date == t0.AddDays(1).Date));
 
             // Make room in the battery.
-            int battMin = 90 - 15 * (plan?.Plans?.Where(z => z.Buy < 0)?.Count() ?? 0);
+            int battMin = 90 - _BattDischargePerHalfHour * (plan?.Plans?.Where(z => z.Buy < 0)?.Count() ?? 0);
             battMin = battMin < 20 ? 20 : battMin;
 
             foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 && (plan.GetPrevious(z)?.Buy ?? -1) > 0))

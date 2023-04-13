@@ -139,7 +139,7 @@ namespace Rwb.Luxopus.Jobs
                 if (outStop != outStopWanted)
                 {
                     await _Lux.SetDischargeToGridStopAsync(outStopWanted);
-                    actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("HH:mm")}0) was {outStop.ToString("HH:mm")}.");
+                    actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("HH:mm")}) was {outStop.ToString("HH:mm")}.");
                 }
 
                 if (!outEnabled || (outBatteryLimitPercentWanted < 100 && outBatteryLimitPercent != outBatteryLimitPercentWanted))
