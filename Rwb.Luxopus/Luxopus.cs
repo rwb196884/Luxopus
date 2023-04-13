@@ -59,7 +59,7 @@ namespace Rwb.Luxopus
                 ////planA,
                 planZero,
                 planFlux,
-                planChecker
+                planChecker,
                 sunrise,
                 sunPosition
             };
