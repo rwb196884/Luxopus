@@ -31,8 +31,8 @@
   <ItemGroup>
     <PackageReference Include="CoordinateSharp" Version="2.17.1.1" />
     <PackageReference Include="InfluxDB.Client" Version="4.11.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="7.0.1" />
     <PackageReference Include="NCrontab.Scheduler.AspNetCore" Version="1.1.17" />
   </ItemGroup>
 

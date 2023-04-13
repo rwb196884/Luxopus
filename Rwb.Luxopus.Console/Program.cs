@@ -19,8 +19,10 @@ namespace Rwb.Luxopus.Console
                 {
                     cfg.ClearProviders();
                     cfg.AddConfiguration(context.Configuration.GetSection("Logging"));
-                    cfg.AddConsole(configure =>
+                    cfg.AddSimpleConsole(configure =>
                     {
+                        configure.IncludeScopes = true;
+                        configure.SingleLine = true;
                         configure.TimestampFormat = "dd MMM HH:mm ";
                     });
                 })
