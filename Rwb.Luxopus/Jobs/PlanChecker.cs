@@ -80,7 +80,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Look 8 hours ahead.
-            IEnumerable<HalfHourPlan> run = plan?.Plans.Where(z => z.Start >= p.Start && z.Start < p.Start.AddHours(8)) ?? new List<HalfHourPlan>() { p};
+            IEnumerable<HalfHourPlan> plansToCheck = plan?.Plans.Where(z => z.Start >= p.Start && z.Start < p.Start.AddHours(8)) ?? new List<HalfHourPlan>() { p};
 
             StringBuilder actions = new StringBuilder();
 
@@ -101,17 +101,20 @@ namespace Rwb.Luxopus.Jobs
             DateTime outStopWanted = outStop;
             int outBatteryLimitPercentWanted = outBatteryLimitPercent;
 
-            outEnabledWanted = run.Any(z => (z.Action?.DischargeToGrid ?? 100) < 100);
+            outEnabledWanted = plansToCheck.Any(z => (z.Action?.DischargeToGrid ?? 100) < 100);
             if (plan != null && outEnabledWanted)
             {
-                HalfHourPlan runFirst = run.OrderBy(z => z.Start).First(z => (z.Action?.DischargeToGrid ?? 100) < 100);
+                HalfHourPlan runFirst = plansToCheck.OrderBy(z => z.Start).First(z => (z.Action?.DischargeToGrid ?? 100) < 100);
                 outStartWanted = runFirst.Start;
                 outBatteryLimitPercentWanted = runFirst.Action!.DischargeToGrid;
-                HalfHourPlan runLast = run.OrderBy(z => z.Start).Last(z => (z.Action?.DischargeToGrid ?? 100) < 100);
-                outStopWanted = (plan.GetNext(runLast)?.Start ?? runLast.Start.AddMinutes(30));
+
+                (IEnumerable<HalfHourPlan> run, HalfHourPlan? next) = plan.GetNextRun(runFirst, Plan.DischargeToGridCondition);
+                outStopWanted = (next?.Start ?? run.Last().Start.AddMinutes(30));
+                // If there's more than one run in plansToCheck then there must be a gap,
+                // so in the first period in that gap the plan checker will set up for the next run.
 
                 // If we're discharging now and started already then no change is needed.
-                if( (p.Action?.DischargeToGrid ?? 100) < 100 && outStart < outStartWanted)
+                if ( (p.Action?.DischargeToGrid ?? 100) < 100 && outStart < outStartWanted)
                 {
                     outStartWanted = outStart;
                 }
@@ -153,14 +156,15 @@ namespace Rwb.Luxopus.Jobs
             DateTime inStopWanted = inStop;
             int inBatteryLimitPercentWanted = inBatteryLimitPercent;
 
-            inEnabledWanted = run.Any(z => (z.Action?.ChargeFromGrid ?? 0) > 0);
+            inEnabledWanted = plansToCheck.Any(z => (z.Action?.ChargeFromGrid ?? 0) > 0);
             if (plan != null && inEnabledWanted)
             {
-                HalfHourPlan runFirst = run.OrderBy(z => z.Start).First(z => (z.Action?.ChargeFromGrid ?? 0) > 0);
+                HalfHourPlan runFirst = plansToCheck.OrderBy(z => z.Start).First(z => (z.Action?.ChargeFromGrid ?? 0) > 0);
                 inStartWanted = runFirst.Start;
                 inBatteryLimitPercentWanted = runFirst.Action!.ChargeFromGrid;
-                HalfHourPlan runLast = run.OrderBy(z => z.Start).Last(z => (z.Action?.ChargeFromGrid ?? 0) > 0);
-                inStopWanted = (plan.GetNext(runLast)?.Start ?? runLast.Start.AddMinutes(30));
+
+                (IEnumerable<HalfHourPlan> run, HalfHourPlan? next) = plan.GetNextRun(runFirst, Plan.ChargeFromGridCondition);
+                inStopWanted = (next?.Start ?? run.Last().Start.AddMinutes(30));
 
                 // If we're charging now and started already then no change is needed.
                 if ((p.Action?.ChargeFromGrid ?? 0) > 0 && outStart < outStartWanted)

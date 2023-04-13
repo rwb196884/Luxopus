@@ -69,10 +69,25 @@ namespace Rwb.Luxopus.Services
 
         public override string ToString()
         {
-            if(Plans.Count == 0) { return "Ce n'est pas un plan."; }
+            if (Plans.Count == 0) { return "Ce n'est pas un plan."; }
             IEnumerable<HalfHourPlan> plans = Plans.OrderBy(z => z.Start);
             return $"{plans.First().Start.ToString("dd MMM HH:mm")} to {plans.Last().Start.ToString("dd MMM HH:mm")}";
         }
+
+        public (IEnumerable<HalfHourPlan>, HalfHourPlan?) GetNextRun(HalfHourPlan start, Func<HalfHourPlan, bool> condition)
+        {
+            List<HalfHourPlan> run = new List<HalfHourPlan>();
+            HalfHourPlan p = start;
+            while (p != null && condition(p))
+            {
+                p = GetNext(p);
+            }
+            return (run, p);
+        }
+
+        public static Func<HalfHourPlan, bool> DischargeToGridCondition { get { return (HalfHourPlan p) => (p.Action?.DischargeToGrid ?? 100) < 100; } }
+        public static Func<HalfHourPlan, bool> ChargeFromGridCondition { get { return (HalfHourPlan p) => (p.Action?.ChargeFromGrid ?? 0) > 0; } }
+        public static Func<HalfHourPlan, bool> FreeElectricityCondition { get { return (HalfHourPlan p) => p.Buy < 0; } }
 
         #region IQueryable
         /*
@@ -130,7 +145,7 @@ namespace Rwb.Luxopus.Services
 
         private static Plan Load(FileInfo planFile)
         {
-            if( !planFile.Exists) { return null; }
+            if (!planFile.Exists) { return null; }
             using (FileStream fs = planFile.OpenRead())
             {
                 using (StreamReader r = new StreamReader(fs))
@@ -178,7 +193,7 @@ namespace Rwb.Luxopus.Services
                .FirstOrDefault()
                ?.File;
 
-            if(f == null)
+            if (f == null)
             {
                 return null;
             }
