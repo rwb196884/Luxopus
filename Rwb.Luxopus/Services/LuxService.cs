@@ -286,7 +286,7 @@ namespace Rwb.Luxopus.Services
 
         public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDischargeToGrid(Dictionary<string, string> settings)
         {
-            bool enabled = settings["FUNC_FORCED_DISCHG_EN"] == "TRUE";
+            bool enabled = settings["FUNC_FORCED_DISCHG_EN"].ToUpper() == "TRUE";
             int startH = int.Parse(settings["HOLD_FORCED_DISCHARGE_START_HOUR"]);
             int startM = int.Parse(settings["HOLD_FORCED_DISCHARGE_START_MINUTE"]);
             int endH = int.Parse(settings["HOLD_FORCED_DISCHARGE_END_HOUR"]);
