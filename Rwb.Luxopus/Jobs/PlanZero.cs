@@ -98,12 +98,10 @@ namespace Rwb.Luxopus.Jobs
         private void ConfigurePeriod(IEnumerable<HalfHourPlan> period)
         {
             // Discharge what we can in the most profitable periods.
-            // Assume initial battery is 100.
             int periodsToDischarge = (100 - _BattMin) / _BattDischargePerHalfHour; // integer division...
-            int batt = 100;
-            foreach (HalfHourPlan p in period.OrderByDescending(z => z.Sell).Take(periodsToDischarge /* There may be fewer. */).OrderBy(z => z.Start))
+            int batt = _BattMin;
+            foreach (HalfHourPlan p in period.OrderByDescending(z => z.Sell).Take(periodsToDischarge /* There may be fewer. */).OrderByDescending(z => z.Start))
             {
-                batt -= _BattDischargePerHalfHour;
                 p.Action = new PeriodAction()
                 {
                     ChargeFromGrid = 0,
@@ -111,10 +109,12 @@ namespace Rwb.Luxopus.Jobs
                     //BatteryGridDischargeRate = 33 + (p.Sell > 15 ? 33 : 0),
                     DischargeToGrid = batt
                 };
+                batt += _BattDischargePerHalfHour; // Leave enough for other periods.
             }
+            HalfHourPlan firstMainDischarge = period.Where(z => z.Action != null).OrderBy(z => z.Start).First();
 
             // ... so whatever is left will fit into one remainder period.
-            HalfHourPlan? remainder = period.OrderByDescending(z => z.Sell).Take(periodsToDischarge).Take(1).FirstOrDefault();
+            HalfHourPlan? remainder = period.OrderByDescending(z => z.Sell).Skip(periodsToDischarge).Take(1).FirstOrDefault();
             if(remainder != null)
             {
                 remainder.Action = new PeriodAction()
@@ -122,7 +122,7 @@ namespace Rwb.Luxopus.Jobs
                     ChargeFromGrid = 0,
                     //BatteryChargeRate = 0, // Send any generation straight out.
                     //BatteryGridDischargeRate = 33 + (p.Sell > 15 ? 33 : 0),
-                    DischargeToGrid = _BattMin
+                    DischargeToGrid = remainder.Start < firstMainDischarge.Start ? batt : _BattMin
                 };
             }
 
