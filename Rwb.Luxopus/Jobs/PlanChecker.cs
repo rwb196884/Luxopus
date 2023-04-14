@@ -207,31 +207,38 @@ namespace Rwb.Luxopus.Jobs
             // Batt charge.
             int requiredBattChargeRate = 97; // Correct for charge from grid.
             string why = "default";
-            if (inEnabled)
+            if (inEnabledWanted)
             {
                 requiredBattChargeRate = 97;
                 why = "charge from grid";
             }
             else
             {
-                // Charging from solar.
-                // Therefore don't over-do it.
-                int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
-                if (battLevel > 95)
+                if (outEnabledWanted)
                 {
                     requiredBattChargeRate = 0;
-                    why = "battery is full";
                 }
                 else
                 {
-                    if (DateTime.Now.Hour < 14)
+                    // Charging from solar.
+                    // Therefore don't over-do it.
+                    int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
+                    if (battLevel > 95)
                     {
-                        requiredBattChargeRate = 33;
-                        why = "batttery has space but it's only the morning";
+                        requiredBattChargeRate = 0;
+                        why = "discharging to grid";
                     }
                     else
                     {
-                        why = "batttery has space but it's the afternoon";
+                        if (DateTime.Now.Hour < 14)
+                        {
+                            requiredBattChargeRate = 33;
+                            why = "batttery has space but it's only the morning";
+                        }
+                        else
+                        {
+                            why = "batttery has space but it's the afternoon";
+                        }
                     }
                 }
             }
