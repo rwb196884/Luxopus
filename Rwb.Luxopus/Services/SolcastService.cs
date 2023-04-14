@@ -1,14 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
-using System.Linq;
 using System.Net.Http;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Services
 {
-
     public class SolcastSettings : Settings
     {
         public string BaseAddress { get; set; }
