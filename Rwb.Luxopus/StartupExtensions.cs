@@ -40,6 +40,7 @@ namespace Rwb.Luxopus
                     services.Register<IOctopusService, OctopusService, OctopusSettings>(context);
                     services.Register<ISolcastService, SolcastService, SolcastSettings>(context);
                     services.Register<ISunService, SunService, SunSettings>(context);
+                    services.Register<IOpenWeathermapService, OpenWeathermapService, OpenWeathermapSettings>(context);
 
                     // Main thingy.
                     services.AddScoped<Luxopus>();

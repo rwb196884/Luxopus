@@ -97,6 +97,7 @@ namespace Rwb.Luxopus.Jobs
 
         private void ConfigurePeriod(IEnumerable<HalfHourPlan> period)
         {
+            if ( !period.Any(z => z.Sell > 15M)) { return; } // TODO: determine sellable periods properly.
             // Discharge what we can in the most profitable periods.
             int periodsToDischarge = (100 - _BattMin) / _BattDischargePerHalfHour; // integer division...
             int batt = _BattMin;

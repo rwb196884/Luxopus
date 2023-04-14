@@ -1,9 +1,7 @@
 ﻿using CoordinateSharp;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using NodaTime;
 using System;
-using System.Collections.Generic;
 
 namespace Rwb.Luxopus.Services
 {
