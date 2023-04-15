@@ -93,13 +93,13 @@ namespace Rwb.Luxopus.Jobs
 
         // TODO: estimate these parameters from historical data. Or move to settings.
         private const int _BattMin = 65;
-        private const int _BattDischargePerHalfHour = 12; // Currently set tp 66% discharge rate.
+        private const int _BattDischargePerHalfHour = 12; // Currently set tp 66% discharge rate. This should be an over-estimate.
 
         private void ConfigurePeriod(IEnumerable<HalfHourPlan> period)
         {
-            if ( !period.Any(z => z.Sell > 15M)) { return; } // TODO: determine sellable periods properly.
+            if (!period.Any(z => z.Sell > 15M)) { return; } // TODO: determine sellable periods properly.
             // Discharge what we can in the most profitable periods.
-            int periodsToDischarge = (100 - _BattMin) / _BattDischargePerHalfHour; // integer division...
+            int periodsToDischarge = ((100 - _BattMin) / _BattDischargePerHalfHour /* integer division */ + 1);
             int batt = _BattMin;
             foreach (HalfHourPlan p in period.OrderByDescending(z => z.Sell).Take(periodsToDischarge /* There may be fewer. */).OrderByDescending(z => z.Start))
             {
@@ -114,20 +114,18 @@ namespace Rwb.Luxopus.Jobs
             }
             HalfHourPlan lastMainDischarge = period.Where(z => z.Action != null).OrderBy(z => z.Start).Last();
 
-            // ... so whatever is left will fit into one remainder period.
-            HalfHourPlan? remainder = period.OrderByDescending(z => z.Sell).Skip(periodsToDischarge).Take(1).FirstOrDefault();
-            if (remainder != null)
+            // Fill in gaps with discharge to the previous level.
+            foreach (HalfHourPlan p in period.Where(z => z.Action != null))
             {
-                remainder.Action = new PeriodAction()
+                foreach (HalfHourPlan g in period.OrderBy(z => z.Start).Gap(p, z => z.Action == null))
                 {
-                    ChargeFromGrid = 0,
-                    //BatteryChargeRate = 0, // Send any generation straight out.
-                    //BatteryGridDischargeRate = 33 + (p.Sell > 15 ? 33 : 0),
-                    DischargeToGrid = remainder.Start < lastMainDischarge.Start ? batt - _BattDischargePerHalfHour /* it was incremented */ : _BattMin
-                };
+                    g.Action = new PeriodAction()
+                    {
+                        ChargeFromGrid = 0,
+                        DischargeToGrid = p.Action!.DischargeToGrid
+                    };
+                }
             }
-
-            // TODO: fill in gaps with discharge to the previous level.
         }
 
         private void SendEmail(Plan plan)

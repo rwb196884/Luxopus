@@ -6,11 +6,46 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Rwb.Luxopus.Services
 {
+    internal static class IEnumerableExtensions
+    {
+        /// <summary>
+        /// Get the run of things.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="things"></param>
+        /// <param name="start"></param>
+        /// <param name="condition"></param>
+        /// <returns></returns>
+        public static IEnumerable<T> Gap<T>(this IOrderedEnumerable<T> things, T start, Func<T, bool> condition) where T : class
+        {
+            List<T> gap = new List<T>();
+            if (condition(start)) { return gap; }
+            using (IEnumerator<T> e = things.GetEnumerator())
+            {
+                bool moveNext = e.MoveNext();
+                while( moveNext && e.Current != start) { moveNext = e.MoveNext(); }
+                if( e.Current == null) {  return gap; }
+                moveNext = e.MoveNext();
+                while (moveNext && condition(e.Current))
+                {
+                    gap.Add(e.Current);
+                    moveNext = e.MoveNext();
+                }
+                if(e.Current != null)
+                {
+                    return gap;
+                }
+                return new List<T>();
+            }
+        }
+    }
+
     public class Plan //: IQueryable<HalfHourPlan>
     {
         //public DateTime Created { get; set; }

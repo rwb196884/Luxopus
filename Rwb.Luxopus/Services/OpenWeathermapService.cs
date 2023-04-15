@@ -14,7 +14,7 @@ namespace Rwb.Luxopus.Services
 
     public interface IOpenWeathermapService
     {
-        Task<(int, int)> GetForecasts();
+        Task<string> GetForecast();
     }
 
     public class OpenWeathermapService : Service<OpenWeathermapSettings>, IOpenWeathermapService
@@ -38,12 +38,12 @@ namespace Rwb.Luxopus.Services
             return true;
         }
 
-        public async Task<(int, int)> GetForecasts()
+        public async Task<string> GetForecast()
         {
             HttpClient client = new HttpClient();
             HttpResponseMessage r = await client.GetAsync($"https://api.openweathermap.org/data/3.0/onecall?lat={Settings.Latitude}&lon={Settings.Longitude}&exclude=current,minutely,hourly,alerts&appid={Settings.ApiKey}&units=metric");
-            // TODO: parse the response and extract cloud and UVI. Day length now comes from sun service.
-            return (0, 0);
+            r.EnsureSuccessStatusCode();
+            return await r.Content.ReadAsStringAsync();
         }
     }
 }

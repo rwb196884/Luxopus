@@ -24,8 +24,7 @@ namespace Rwb.Luxopus
             Solcast solcast,
             SolarPosition sunPosition,
             Sunrise sunrise,
-            // Openweathermap
-            // Solar elevation angle
+            Openweathermap openweathermap,
             PlanChecker planChecker,
             //PlanA planA
             PlanZero planZero,
@@ -44,6 +43,7 @@ namespace Rwb.Luxopus
             AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
             AddJob(sunPosition, "8 * * * *"); // Every 8 minutes.
             AddJob(sunrise, "0 10 * * *"); // Every day.
+            AddJob(openweathermap, "0 */7 * * *"); // Every 7 hours.
             AddJob(planChecker, "1,31 * * * *"); // At the start of every half hour.
             // Make plan after getting prices and before evening peak.
             //AddJob(planA, "34 16 * * *"); 
@@ -60,8 +60,9 @@ namespace Rwb.Luxopus
                 ////solcast, // severely rate lmited.
                 ////planA,
                 planFlux,
+                sunPosition,
                 sunrise,
-                sunPosition
+                openweathermap
             };
         }
 

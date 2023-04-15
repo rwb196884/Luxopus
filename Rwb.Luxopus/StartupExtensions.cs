@@ -53,6 +53,7 @@ namespace Rwb.Luxopus
                     services.AddScoped<Solcast>();
                     services.AddScoped<SolarPosition>();
                     services.AddScoped<Sunrise>();
+                    services.AddScoped<Openweathermap>();
 
                     services.AddScoped<PlanChecker>();
                     services.AddScoped<PlanZero>();
