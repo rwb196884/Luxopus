@@ -80,7 +80,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Look 8 hours ahead.
-            IEnumerable<HalfHourPlan> plansToCheck = plan?.Plans.Where(z => z.Start >= p.Start && z.Start < p.Start.AddHours(8)) ?? new List<HalfHourPlan>() { p};
+            IEnumerable<HalfHourPlan> plansToCheck = plan?.Plans.Where(z => z.Start >= p.Start && z.Start < p.Start.AddHours(8)) ?? new List<HalfHourPlan>() { p };
 
             StringBuilder actions = new StringBuilder();
 
@@ -114,7 +114,7 @@ namespace Rwb.Luxopus.Jobs
                 // so in the first period in that gap the plan checker will set up for the next run.
 
                 // If we're discharging now and started already then no change is needed.
-                if ( (p.Action?.DischargeToGrid ?? 100) < 100 && outStart <= p.Start && outStartWanted <= p.Start)
+                if ((p.Action?.DischargeToGrid ?? 100) < 100 && outStart <= p.Start && outStartWanted <= p.Start)
                 {
                     // No need to change it.
                     outStartWanted = outStart;
@@ -207,81 +207,69 @@ namespace Rwb.Luxopus.Jobs
             // Batt charge.
             int requiredBattChargeRate = 97; // Correct for charge from grid.
             string why = "default";
-            if (inEnabledWanted)
+            if (inEnabledWanted && inStartWanted <= p.Start && inStopWanted > p.Start)
             {
+                // Charging from grid.
                 requiredBattChargeRate = 97;
                 why = "charge from grid";
             }
+            else if (outEnabledWanted && outStartWanted <= p.Start && outStopWanted > p.Start)
+            {
+                // Discharging to grid.
+                requiredBattChargeRate = 0;
+                why = "discharge to grid";
+            }
             else
             {
-                if (outEnabledWanted)
+                // Default: charging from solar. Throttle it down.
+                int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
+                if (battLevel > 95)
                 {
+                    // High.
                     requiredBattChargeRate = 0;
-                    why = "discharge to grid";
+                    why = "battery is full";
+                }
+                else if (battLevel < 60)
+                {
+                    // Low.
+                    requiredBattChargeRate = 80;
+                    why = "battery is low";
                 }
                 else
                 {
-                    // Charging from solar.
-                    // Therefore don't over-do it.
-                    int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
-                    if (battLevel > 95)
-                    {
-                        requiredBattChargeRate = 0;
-                        why = "discharging to grid";
-                    }
-                    else
-                    {
-                        if (DateTime.Now.Hour < 14)
-                        {
-                            if (battLevel > 75)
-                            {
-                                requiredBattChargeRate = 33;
-                                why = "batttery has space but it's only the morning";
-                            }
-                            else
-                            {
-                                requiredBattChargeRate = 66;
-                                why = "batttery has space bit is low, but it's only the morning";
-                            }
-                        }
-                        else
-                        {
-                            requiredBattChargeRate = 33;
-                            why = "batttery has space but it's the afternoon";
-                        }
-                    }
+                    requiredBattChargeRate = 50;
+                    why = "batttery has space";
                 }
-            }
 
-            if (requiredBattChargeRate != battChargeRate)
-            {
-                await _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
-                actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
-            }
-
-            // Batt discharge.
-            //if (battGridDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
-            //{
-            //    await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
-            //    actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battGridDischargeRate}.");
-            //}
-
-            // Report any changes.
-            if (actions.Length > 0)
-            {
-                if (plan != null)
+                if (requiredBattChargeRate != battChargeRate)
                 {
-                    actions.AppendLine();
-                    HalfHourPlan? pp = plan.Current;
-                    while (pp != null)
-                    {
-                        actions.AppendLine(pp.ToString());
-                        pp = plan.GetNext(pp);
-                    }
+                    await _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
+                    actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
                 }
-                _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
-                Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
+
+                // Batt discharge.
+                //if (battGridDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
+                //{
+                //    await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
+                //    actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battGridDischargeRate}.");
+                //}
+
+                // Report any changes.
+                if (actions.Length > 0)
+                {
+                    if (plan != null)
+                    {
+                        actions.AppendLine();
+                        HalfHourPlan? pp = plan.Current;
+                        while (pp != null)
+                        {
+                            actions.AppendLine(pp.ToString());
+                            pp = plan.GetNext(pp);
+                        }
+                    }
+                    _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
+                    Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
+                }
             }
         }
     }
-}
