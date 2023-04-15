@@ -74,8 +74,12 @@ namespace Rwb.Luxopus.Jobs
              * Peak    B:46p, S:34p 4pm to 7pm
              * 
              * Fixed LUX configuration:
-             * Force discharge 16:30 to 17:00 cut off 30
+             * Force charge 15:45 to 16:00 to top up battery to use any available space.
+             * Force discharge 16:00 to 19:00 cut off 5. 
+             * Buy power to use if necessary rather than keep it in battery.
              * Force charge 02:00 to 05:00 cut off at 99
+             * 
+             * To discharge from 95 to 5 in 3 hours (6 periods) will need 15% out per half hour.
              */
 
             DateTime t0 = DateTime.UtcNow;

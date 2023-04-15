@@ -93,7 +93,7 @@ namespace Rwb.Luxopus.Jobs
 
         // TODO: estimate these parameters from historical data. Or move to settings.
         private const int _BattMin = 65;
-        private const int _BattDischargePerHalfHour = 12; // Currently set tp 66% discharge rate. This should be an over-estimate.
+        private const int _BattDischargePerHalfHour = 12; // Currently set tp 66% discharge rate. Should do about 20% (need 15) per half hour at 95% discharge.
 
         private void ConfigurePeriod(IEnumerable<HalfHourPlan> period)
         {
