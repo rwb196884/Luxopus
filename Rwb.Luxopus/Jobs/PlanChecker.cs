@@ -240,36 +240,37 @@ namespace Rwb.Luxopus.Jobs
                     requiredBattChargeRate = 50;
                     why = "batttery has space";
                 }
+            }
 
-                if (requiredBattChargeRate != battChargeRate)
+            if (requiredBattChargeRate != battChargeRate)
+            {
+                await _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
+                actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
+            }
+
+            // Batt discharge.
+            //if (battGridDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
+            //{
+            //    await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
+            //    actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battGridDischargeRate}.");
+            //}
+
+            // Report any changes.
+            if (actions.Length > 0)
+            {
+                if (plan != null)
                 {
-                    await _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
-                    actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
-                }
-
-                // Batt discharge.
-                //if (battGridDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
-                //{
-                //    await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
-                //    actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battGridDischargeRate}.");
-                //}
-
-                // Report any changes.
-                if (actions.Length > 0)
-                {
-                    if (plan != null)
+                    actions.AppendLine();
+                    HalfHourPlan? pp = plan.Current;
+                    while (pp != null)
                     {
-                        actions.AppendLine();
-                        HalfHourPlan? pp = plan.Current;
-                        while (pp != null)
-                        {
-                            actions.AppendLine(pp.ToString());
-                            pp = plan.GetNext(pp);
-                        }
+                        actions.AppendLine(pp.ToString());
+                        pp = plan.GetNext(pp);
                     }
-                    _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
-                    Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
                 }
+                _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
+                Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
             }
         }
     }
+}
