@@ -135,6 +135,39 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
+            // Fill up just before the peak.
+            foreach(HalfHourPlan p in plan.Plans.Where(z => GetFluxCase(plan, p) == FluxCase.Peak))
+            {
+                plan.Plans.Add(new HalfHourPlan()
+                {
+                    Start = p.Start.AddMinutes(-20),
+                    Buy = p.Buy,
+                    Sell = p.Sell,
+                    Action = new PeriodAction()
+                    {
+                        ChargeFromGrid = 98,
+                        DischargeToGrid = 100
+                    }
+                });
+            }
+
+            // Empty just before the low.
+            foreach (HalfHourPlan p in plan.Plans.Where(z => GetFluxCase(plan, p) == FluxCase.Low))
+            {
+                plan.Plans.Add(new HalfHourPlan()
+                {
+                    Start = p.Start.AddMinutes(-20),
+                    Buy = p.Buy,
+                    Sell = p.Sell,
+                    Action = new PeriodAction()
+                    {
+                        ChargeFromGrid = 0,
+                        DischargeToGrid = 5
+                    }
+                });
+            }
+
+
             //PlanService.Save(plan);
             SendEmail(plan);
 
