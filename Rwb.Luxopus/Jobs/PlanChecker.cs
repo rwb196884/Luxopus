@@ -217,6 +217,7 @@ namespace Rwb.Luxopus.Jobs
                 if (outEnabledWanted)
                 {
                     requiredBattChargeRate = 0;
+                    why = "discharge to grid";
                 }
                 else
                 {
@@ -232,11 +233,20 @@ namespace Rwb.Luxopus.Jobs
                     {
                         if (DateTime.Now.Hour < 14)
                         {
-                            requiredBattChargeRate = 33;
-                            why = "batttery has space but it's only the morning";
+                            if (battLevel > 75)
+                            {
+                                requiredBattChargeRate = 33;
+                                why = "batttery has space but it's only the morning";
+                            }
+                            else
+                            {
+                                requiredBattChargeRate = 66;
+                                why = "batttery has space bit is low, but it's only the morning";
+                            }
                         }
                         else
                         {
+                            requiredBattChargeRate = 33;
                             why = "batttery has space but it's the afternoon";
                         }
                     }
