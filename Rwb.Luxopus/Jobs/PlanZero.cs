@@ -112,21 +112,22 @@ namespace Rwb.Luxopus.Jobs
                 };
                 batt += _BattDischargePerHalfHour; // Leave enough for other periods.
             }
-            HalfHourPlan firstMainDischarge = period.Where(z => z.Action != null).OrderBy(z => z.Start).First();
+            HalfHourPlan lastMainDischarge = period.Where(z => z.Action != null).OrderBy(z => z.Start).Last();
 
             // ... so whatever is left will fit into one remainder period.
             HalfHourPlan? remainder = period.OrderByDescending(z => z.Sell).Skip(periodsToDischarge).Take(1).FirstOrDefault();
-            if(remainder != null)
+            if (remainder != null)
             {
                 remainder.Action = new PeriodAction()
                 {
                     ChargeFromGrid = 0,
                     //BatteryChargeRate = 0, // Send any generation straight out.
                     //BatteryGridDischargeRate = 33 + (p.Sell > 15 ? 33 : 0),
-                    DischargeToGrid = remainder.Start < firstMainDischarge.Start ? batt : _BattMin
+                    DischargeToGrid = remainder.Start < lastMainDischarge.Start ? batt - _BattDischargePerHalfHour /* it was incremented */ : _BattMin
                 };
             }
 
+            // TODO: fill in gaps with discharge to the previous level.
         }
 
         private void SendEmail(Plan plan)
