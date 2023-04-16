@@ -27,8 +27,9 @@ namespace Rwb.Luxopus.Jobs
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             DateTime t0 = DateTime.UtcNow;
-            //DateTime t0 = new DateTime(2023, 4, 10, 22, 0, 0);
+            //DateTime t0 = new DateTime(2023, 4, 10, 18, 0, 0);
             //DateTime t0 = new DateTime(2023, 4, 13, 15, 0, 0);
+            //DateTime t0 = new DateTime(2023, 4, 15, 15, 0, 0);
             Plan? current = PlanService.Load(t0);
             if (current != null && current.Current == current.Plans.First())
             {
@@ -60,13 +61,12 @@ namespace Rwb.Luxopus.Jobs
             ConfigurePeriod(plan.Plans.Where(z => z.Start.Date == t0.AddDays(1).Date));
 
             // Make room in the battery.
-            int battMin = 90 - _BattDischargePerHalfHour * (plan?.Plans?.Where(z => z.Buy < 0)?.Count() ?? 0);
-            battMin = battMin < 20 ? 20 : battMin;
-
             foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 && (plan.GetPrevious(z)?.Buy ?? -1) > 0))
             {
+                int battMin = 90 - _BattDischargePerHalfHour *(1 + plan.Plans.Where(z => z.Start > p.Start && z.Buy < 0).Count());
+                battMin = battMin < 20 ? 20 : battMin;
                 int runLength = 1;
-                HalfHourPlan? q = plan.GetPrevious(p);
+                HalfHourPlan? q = plan.GetNext(p);
                 while (q != null && q.Buy < 0)
                 {
                     q = plan.GetNext(q);
@@ -74,14 +74,18 @@ namespace Rwb.Luxopus.Jobs
                 }
 
                 q = plan.GetPrevious(p);
-                for (int i = 1; i <= runLength && q != null && q.Buy > 0 && q.Action == null; i++)
+                for (int i = 1; i <= runLength + 1 // Add an extra one to make sure there's space.
+                    && q != null // Can't sell in the past -- unfortunately.
+                    && q.Sell > p.Buy // Otherwise there's no point.
+                    && (q.Action == null || q.Action.DischargeToGrid == 100 && q.Action.ChargeFromGrid == 0) // Not already doing something.
+                    ; i++)
                 {
                     q.Action = new PeriodAction()
                     {
                         ChargeFromGrid = 0,
                         //BatteryChargeRate = 100,
                         //BatteryGridDischargeRate = 95,
-                        DischargeToGrid = battMin + 12 * (i - 1)
+                        DischargeToGrid = battMin + _BattDischargePerHalfHour * (i - 1)
                     };
                     q = plan.GetPrevious(q);
                 }
@@ -100,7 +104,7 @@ namespace Rwb.Luxopus.Jobs
             if (!period.Any(z => z.Sell > 15M)) { return; } // TODO: determine sellable periods properly.
             // Discharge what we can in the most profitable periods.
             int periodsToDischarge = ((100 - _BattMin) / _BattDischargePerHalfHour /* integer division */ + 1);
-            int batt = _BattMin;
+            HalfHourPlan? previousDischarge = null;
             foreach (HalfHourPlan p in period.OrderByDescending(z => z.Sell).Take(periodsToDischarge /* There may be fewer. */).OrderByDescending(z => z.Start))
             {
                 p.Action = new PeriodAction()
@@ -108,16 +112,16 @@ namespace Rwb.Luxopus.Jobs
                     ChargeFromGrid = 0,
                     //BatteryChargeRate = 0, // Send any generation straight out.
                     //BatteryGridDischargeRate = 33 + (p.Sell > 15 ? 33 : 0),
-                    DischargeToGrid = batt
+                    DischargeToGrid = previousDischarge == null ? _BattMin : previousDischarge.Action.DischargeToGrid + _BattDischargePerHalfHour
                 };
-                batt += _BattDischargePerHalfHour; // Leave enough for other periods.
+                previousDischarge = p;
             }
             HalfHourPlan lastMainDischarge = period.Where(z => z.Action != null).OrderBy(z => z.Start).Last();
 
             // Fill in gaps with discharge to the previous level.
             foreach (HalfHourPlan p in period.Where(z => z.Action != null))
             {
-                foreach (HalfHourPlan g in period.OrderBy(z => z.Start).Gap(p, z => z.Action == null))
+                foreach (HalfHourPlan g in period.OrderBy(z => z.Start).Gap(p, z => z.Action == null || z.Action.DischargeToGrid == 100 && z.Action.ChargeFromGrid == 0))
                 {
                     g.Action = new PeriodAction()
                     {

@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.FileSystemGlobbing.Internal.PathSegments;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Rwb.Luxopus.Jobs;
 using System;
@@ -37,7 +38,7 @@ namespace Rwb.Luxopus.Services
                     gap.Add(e.Current);
                     moveNext = e.MoveNext();
                 }
-                if(e.Current != null)
+                if(moveNext && e.Current != start && !condition(e.Current))
                 {
                     return gap;
                 }
