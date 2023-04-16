@@ -258,6 +258,10 @@ namespace Rwb.Luxopus.Jobs
             // Report any changes.
             if (actions.Length > 0)
             {
+                actions.AppendLine();
+                actions.AppendLine($"   Charge: {inStartWanted:HH:mm} to {inStopWanted:HH:mm} limit {inBatteryLimitPercentWanted} rate {requiredBattChargeRate}");
+                actions.AppendLine($"Discharge: {outStartWanted:HH:mm} to {outStopWanted:HH:mm} limit {outBatteryLimitPercentWanted}");
+
                 if (plan != null)
                 {
                     actions.AppendLine();
