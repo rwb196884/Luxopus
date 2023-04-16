@@ -37,12 +37,9 @@ namespace Rwb.Luxopus.Jobs
         {
 
         }
-
-        private const string SevenSpaces = "       ";
-
         public override string ToString()
         {
-            return $"{base.ToString()} {Action?.ToString() ?? $"{SevenSpaces} | {SevenSpaces}"}";
+            return $"{base.ToString()} {Action?.ToString() ?? $"{PeriodAction.SpacesForToString} | {PeriodAction.SpacesForToString}"}";
         }
     }
 
@@ -82,12 +79,12 @@ namespace Rwb.Luxopus.Jobs
             DischargeToGrid = 100;
         }
 
-        private const string _Six = "      ";
+        public const string SpacesForToString = "      ";
 
         public override string ToString()
         {
-            string chargeFromGrid = ChargeFromGrid > 0 ? $"{ChargeFromGrid:000}<--" : _Six;
-            string dischargeTo = DischargeToGrid < 100 ? $"{DischargeToGrid:000}-->" : _Six;
+            string chargeFromGrid = ChargeFromGrid > 0 ? $"{ChargeFromGrid:000}<--" : SpacesForToString;
+            string dischargeTo = DischargeToGrid < 100 ? $"{DischargeToGrid:000}-->" : SpacesForToString;
             return $"{chargeFromGrid} | {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
         }
     }
