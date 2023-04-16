@@ -221,7 +221,7 @@ from(bucket: ""{Settings.Bucket}"")
 
         public override string ToString()
         {
-            return $"{Start.ToString("dd MMM HH:mm")} S:{Sell.ToString("00.0")} B:{Buy.ToString("00.0")}";
+            return $"{Start.ToString("dd MMM HH:mm")} {Sell.ToString("00.0")}|{Buy.ToString("00.0")}";
         }
     }
 

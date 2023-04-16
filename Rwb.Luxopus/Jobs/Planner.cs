@@ -40,7 +40,7 @@ namespace Rwb.Luxopus.Jobs
 
         public override string ToString()
         {
-            return $"{base.ToString()} {Action?.ToString() ?? "no action"}";
+            return $"{base.ToString()} {Action?.ToString() ?? "     |     "}";
         }
     }
 
@@ -82,8 +82,8 @@ namespace Rwb.Luxopus.Jobs
 
         public override string ToString()
         {
-            string chargeFromGrid = ChargeFromGrid > 0 ? $"charge to {ChargeFromGrid}" : "no charge";
-            string dischargeTo = DischargeToGrid < 100 ? $"discharge to {DischargeToGrid}" : "no discharge";
+            string chargeFromGrid = ChargeFromGrid > 0 ? $"{ChargeFromGrid:000}<--" : "     ";
+            string dischargeTo = DischargeToGrid < 100 ? $"{DischargeToGrid:000}-->" : "     ";
             return $"{chargeFromGrid} | {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
         }
     }
