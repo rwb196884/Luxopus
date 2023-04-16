@@ -30,6 +30,7 @@ namespace Rwb.Luxopus.Jobs
             //DateTime t0 = new DateTime(2023, 4, 10, 18, 0, 0);
             //DateTime t0 = new DateTime(2023, 4, 13, 15, 0, 0);
             //DateTime t0 = new DateTime(2023, 4, 15, 15, 0, 0);
+            //DateTime t0 = new DateTime(2023, 4, 16, 15, 0, 0); // Has morning sell high.
             Plan? current = PlanService.Load(t0);
             if (current != null && current.Current == current.Plans.First())
             {
@@ -57,8 +58,31 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Export a little at peak time to show willing.
-            ConfigurePeriod(plan.Plans.Where(z => z.Start.Date == t0.Date));
-            ConfigurePeriod(plan.Plans.Where(z => z.Start.Date == t0.AddDays(1).Date));
+            //List<HalfHourPlan> maxima = plan.Plans.Where(z =>
+            //{
+            //    HalfHourPlan? p = plan.GetPrevious(z);
+            //    HalfHourPlan? n = plan.GetNext(z);
+            //    return (p == null || z.Sell >= p.Sell) && (n == null || z.Sell >= n.Sell);
+            //}).ToList();
+            //List<HalfHourPlan> minima = plan.Plans.Where(z =>
+            //{
+            //    HalfHourPlan? p = plan.GetPrevious(z);
+            //    HalfHourPlan? n = plan.GetNext(z);
+            //    return (p == null || z.Sell <= p.Sell) && (n == null || z.Sell <= n.Sell);
+            //}).ToList();
+
+            //foreach(HalfHourPlan max in maxima)
+            //{
+            //    HalfHourPlan? p = minima.OrderByDescending(z => z.Sell).FirstOrDefault(z => z.Start < max.Start);
+            //    HalfHourPlan? n = minima.OrderBy(z => z.Sell).FirstOrDefault(z => z.Start > max.Start);
+            //    ConfigurePeriod(plan.Plans.Where(z => (p == null || z.Start >= p.Start) || (n == null || z.Start <= n.Start)));
+            //}
+
+            // TODO: determine discharge periods.
+            ConfigurePeriod(plan.Plans.Where(z => z.Start.Date == t0.Date && z.Start.Hour <= 14));
+            ConfigurePeriod(plan.Plans.Where(z => z.Start.Date == t0.Date && z.Start.Hour >= 14));
+            ConfigurePeriod(plan.Plans.Where(z => z.Start.Date == t0.Date.AddDays(1) && z.Start.Hour <= 14));
+            ConfigurePeriod(plan.Plans.Where(z => z.Start.Date == t0.Date.Date.AddDays(1) && z.Start.Hour >= 14));
 
             // Make room in the battery.
             foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 && (plan.GetPrevious(z)?.Buy ?? -1) > 0))
