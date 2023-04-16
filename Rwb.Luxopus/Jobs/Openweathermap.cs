@@ -28,7 +28,7 @@ namespace Rwb.Luxopus.Jobs
                 JsonElement.ObjectEnumerator day = j.RootElement.GetArray("daily").First().EnumerateObject();
 
                 int clouds = day.First(z => z.Name == "clouds").Value.GetInt32();
-                lines.Add("weather", "cloud", clouds);
+                lines.Add("weather", "cloud", Math.Round(Convert.ToDecimal(clouds)));
 
                 double uvi = day.First(z => z.Name == "uvi").Value.GetDouble();
                 lines.Add("weather", "uvi", uvi);
