@@ -101,10 +101,10 @@ namespace Rwb.Luxopus.Jobs
             DateTime outStopWanted = outStop;
             int outBatteryLimitPercentWanted = outBatteryLimitPercent;
 
-            outEnabledWanted = plansToCheck.Any(z => (z.Action?.DischargeToGrid ?? 100) < 100);
+            outEnabledWanted = plansToCheck.Any(z => Plan.DischargeToGridCondition(z));
             if (plan != null && outEnabledWanted)
             {
-                HalfHourPlan runFirst = plansToCheck.OrderBy(z => z.Start).First(z => (z.Action?.DischargeToGrid ?? 100) < 100);
+                HalfHourPlan runFirst = plansToCheck.OrderBy(z => z.Start).First(z => Plan.DischargeToGridCondition(z));
                 outStartWanted = runFirst.Start;
                 outBatteryLimitPercentWanted = runFirst.Action!.DischargeToGrid;
 
@@ -114,7 +114,7 @@ namespace Rwb.Luxopus.Jobs
                 // so in the first period in that gap the plan checker will set up for the next run.
 
                 // If we're discharging now and started already then no change is needed.
-                if ((p.Action?.DischargeToGrid ?? 100) < 100 && outStart <= p.Start && outStartWanted <= p.Start)
+                if (Plan.DischargeToGridCondition(p) && outStart <= p.Start && outStartWanted <= p.Start)
                 {
                     // No need to change it.
                     outStartWanted = outStart;
@@ -157,10 +157,10 @@ namespace Rwb.Luxopus.Jobs
             DateTime inStopWanted = inStop;
             int inBatteryLimitPercentWanted = inBatteryLimitPercent;
 
-            inEnabledWanted = plansToCheck.Any(z => (z.Action?.ChargeFromGrid ?? 0) > 0);
+            inEnabledWanted = plansToCheck.Any(z => Plan.ChargeFromGridCondition(z));
             if (plan != null && inEnabledWanted)
             {
-                HalfHourPlan runFirst = plansToCheck.OrderBy(z => z.Start).First(z => (z.Action?.ChargeFromGrid ?? 0) > 0);
+                HalfHourPlan runFirst = plansToCheck.OrderBy(z => z.Start).First(z => Plan.ChargeFromGridCondition(z));
                 inStartWanted = runFirst.Start;
                 inBatteryLimitPercentWanted = runFirst.Action!.ChargeFromGrid;
 
@@ -168,7 +168,7 @@ namespace Rwb.Luxopus.Jobs
                 inStopWanted = (next?.Start ?? run.Last().Start.AddMinutes(30));
 
                 // If we're charging now and started already then no change is needed.
-                if ((p.Action?.ChargeFromGrid ?? 0) > 0 && inStart <= p.Start && inStartWanted <= p.Start)
+                if (Plan.ChargeFromGridCondition(p) && inStart <= p.Start && inStartWanted <= p.Start)
                 {
                     // No need to change it.
                     inStartWanted = inStart;
@@ -269,7 +269,7 @@ namespace Rwb.Luxopus.Jobs
                     while (pp != null)
                     {
                         actions.AppendLine(pp.ToString());
-                        pp = plan.GetNext(pp);
+                        pp = plan.Plans.GetNext(pp);
                     }
                 }
                 _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());

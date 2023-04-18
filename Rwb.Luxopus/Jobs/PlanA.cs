@@ -195,12 +195,12 @@ namespace Rwb.Luxopus.Jobs
             }
 
             string emailSubjectPrefix = "";
-            if (plan.Plans.Any(z => (z.Action?.DischargeToGrid ?? 101) <= 100))
+            if (plan.Plans.Any(z => Plan.DischargeToGridCondition(z)))
             {
                 emailSubjectPrefix += "E";
             }
 
-            if (plan.Plans.Any(z => (z.Action?.ChargeFromGrid ?? 0) > 0))
+            if (plan.Plans.Any(z => Plan.ChargeFromGridCondition(z)))
             {
                 emailSubjectPrefix += "I";
             }

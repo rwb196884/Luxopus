@@ -142,7 +142,7 @@ namespace Rwb.Luxopus.Jobs
             // Fill up just before the peak.
             foreach (HalfHourPlan p in plan.Plans.Where(z => GetFluxCase(plan, z) == FluxCase.Peak).ToList())
             {
-                HalfHourPlan? pp = plan.GetPrevious(p);
+                HalfHourPlan? pp = plan.Plans.GetPrevious(p);
                 plan.Plans.Add(new HalfHourPlan()
                 {
                     Start = p.Start.AddMinutes(-30),
@@ -159,7 +159,7 @@ namespace Rwb.Luxopus.Jobs
             // Empty just before the low.
             foreach (HalfHourPlan p in plan.Plans.Where(z => GetFluxCase(plan, z) == FluxCase.Low).ToList())
             {
-                HalfHourPlan? pp = plan.GetPrevious(p);
+                HalfHourPlan? pp = plan.Plans.GetPrevious(p);
                 plan.Plans.Add(new HalfHourPlan()
                 {
                     Start = p.Start.AddMinutes(-20),

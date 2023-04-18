@@ -13,6 +13,18 @@ namespace Rwb.Luxopus.Services
 {
     internal static class IEnumerableExtensions
     {
+        public static T? GetPrevious<T>(this IEnumerable<T> things, HalfHourPlan? current) where T : HalfHour
+        {
+            if (current == null) { return null; }
+            return things.OrderByDescending(z => z.Start).Where(z => z.Start < current.Start).Take(1).SingleOrDefault();
+        }
+
+        public static T? GetNext<T>(this IEnumerable<T> things, HalfHourPlan? current) where T : HalfHour
+        {
+            if( current == null) { return null; }
+            return things.OrderBy(z => z.Start).Where(z => z.Start > current.Start).Take(1).SingleOrDefault();
+        }
+
         /// <summary>
         /// Get the run of things.
         /// </summary>
@@ -78,7 +90,7 @@ namespace Rwb.Luxopus.Services
         {
             get
             {
-                return Plans.OrderByDescending(z => z.Start).Where(z => z.Start < DateTime.UtcNow).Take(1).SingleOrDefault();
+                return Plans.GetPrevious(Current);
             }
         }
 
@@ -87,18 +99,8 @@ namespace Rwb.Luxopus.Services
         {
             get
             {
-                return Plans.OrderBy(z => z.Start).Where(z => z.Start > DateTime.UtcNow).FirstOrDefault();
+                return Plans.GetNext(Current);
             }
-        }
-
-        public HalfHourPlan? GetPrevious(HalfHourPlan current)
-        {
-            return Plans.OrderByDescending(z => z.Start).Where(z => z.Start < current.Start).Take(1).SingleOrDefault();
-        }
-
-        public HalfHourPlan? GetNext(HalfHourPlan current)
-        {
-            return Plans.OrderBy(z => z.Start).Where(z => z.Start > current.Start).Take(1).SingleOrDefault();
         }
 
         public override string ToString()
@@ -121,12 +123,12 @@ namespace Rwb.Luxopus.Services
             // Move to the start of the next run;
             while(p != null && !condition(p))
             {
-                p = GetNext(p);
+                p = Plans.GetNext(p);
             }
             while (p != null && condition(p))
             {
                 run.Add(p);
-                p = GetNext(p);
+                p = Plans.GetNext(p);
             }
             return (run, p);
         }

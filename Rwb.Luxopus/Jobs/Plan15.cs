@@ -70,18 +70,18 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Empty the battery ready to buy.
-            foreach( HalfHourPlan p in plan.Plans.Where(z => (z?.Action.ChargeFromGrid ?? 0) > 0))
+            foreach (HalfHourPlan p in plan.Plans.Where(z => Plan.ChargeFromGridCondition(z)))
             {
-                HalfHourPlan? pp = plan.GetPrevious(p);
-                if( pp == null || (pp?.Action.ChargeFromGrid ?? 0) > 0) { continue; }
+                HalfHourPlan? pp = plan.Plans.GetPrevious(p);
+                if (pp == null || Plan.ChargeFromGridCondition(pp)) { continue; }
 
-                if(pp.Action != null)
+                if (pp.Action != null)
                 {
                     throw new NotImplementedException();
                 }
 
                 int battEstimate = 80; // Current level.
-                while(battEstimate > 20 && pp != null)
+                while (battEstimate > 20 && pp != null)
                 {
                     pp.Action = new PeriodAction()
                     {
@@ -109,12 +109,12 @@ namespace Rwb.Luxopus.Jobs
             }
 
             string emailSubjectPrefix = "";
-            if (plan.Plans.Any(z => (z.Action?.DischargeToGrid ?? 101) <= 100))
+            if (plan.Plans.Any(z => Plan.DischargeToGridCondition(z)))
             {
                 emailSubjectPrefix += "E";
             }
 
-            if (plan.Plans.Any(z => (z.Action?.ChargeFromGrid ?? 0) > 0) )
+            if (plan.Plans.Any(z => Plan.ChargeFromGridCondition(z)))
             {
                 emailSubjectPrefix += "I";
             }
