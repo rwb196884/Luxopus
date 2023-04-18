@@ -7,6 +7,7 @@ using System.Reactive.Joins;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 
 namespace Rwb.Luxopus.Jobs
 {
@@ -85,19 +86,19 @@ namespace Rwb.Luxopus.Jobs
             ConfigurePeriod(plan.Plans.Where(z => z.Start.Date == t0.Date.Date.AddDays(1) && z.Start.Hour >= 14));
 
             // Make room in the battery.
-            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 && (plan.GetPrevious(z)?.Buy ?? -1) > 0))
+            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 && (plan.Plans.GetPrevious(z)?.Buy ?? -1) > 0))
             {
                 int battMin = 90 - _BattDischargePerHalfHour *(1 + plan.Plans.Where(z => z.Start > p.Start && z.Buy < 0).Count());
                 battMin = battMin < 20 ? 20 : battMin;
                 int runLength = 1;
-                HalfHourPlan? q = plan.GetNext(p);
+                HalfHourPlan? q = plan.Plans.GetNext(p);
                 while (q != null && q.Buy < 0)
                 {
-                    q = plan.GetNext(q);
+                    q = plan.Plans.GetNext(q);
                     runLength++;
                 }
 
-                q = plan.GetPrevious(p);
+                q = plan.Plans.GetPrevious(p);
                 for (int i = 1; i <= runLength + 1 // Add an extra one to make sure there's space.
                     && q != null // Can't sell in the past -- unfortunately.
                     && q.Sell > p.Buy // Otherwise there's no point.
@@ -111,7 +112,7 @@ namespace Rwb.Luxopus.Jobs
                         //BatteryGridDischargeRate = 95,
                         DischargeToGrid = battMin + _BattDischargePerHalfHour * (i - 1)
                     };
-                    q = plan.GetPrevious(q);
+                    q = plan.Plans.GetPrevious(q);
                 }
             }
 
@@ -141,6 +142,16 @@ namespace Rwb.Luxopus.Jobs
                 previousDischarge = p;
             }
             HalfHourPlan lastMainDischarge = period.Where(z => z.Action != null).OrderBy(z => z.Start).Last();
+
+            // Move limits backwards if the earlier price is higher.
+            foreach(HalfHourPlan p in period.Where(z => Plan.DischargeToGridCondition(z)))
+            {
+                HalfHourPlan? pp = period.Where(z => Plan.DischargeToGridCondition(z) && z.Start < p.Start).OrderBy(z => z.Start).LastOrDefault();
+                if( pp != null && pp.Sell > p.Sell && pp?.Action.DischargeToGrid > p.Action.DischargeToGrid)
+                {
+                    pp.Action.DischargeToGrid = p.Action.DischargeToGrid;
+                }
+            }
 
             // Fill in gaps with discharge to the previous level.
             foreach (HalfHourPlan p in period.Where(z => z.Action != null))
