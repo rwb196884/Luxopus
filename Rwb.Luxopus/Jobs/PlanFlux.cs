@@ -39,11 +39,11 @@ namespace Rwb.Luxopus.Jobs
             //    return FluxCase.Peak;
             //}
 
-            if(p.Start.Hour < 4)
+            if (p.Start.Hour < 4)
             {
                 return FluxCase.Low;
             }
-            else if( p.Start.Hour >= 15 && p.Start.Hour <= 17)
+            else if (p.Start.Hour >= 15 && p.Start.Hour <= 17)
             {
                 return FluxCase.Peak;
             }
@@ -97,14 +97,14 @@ namespace Rwb.Luxopus.Jobs
 
             // Find the current period: the last period that starts before t0.
             ElectricityPrice? priceNow = prices.Where(z => z.Start < t0).OrderByDescending(z => z.Start).FirstOrDefault();
-            if(priceNow == null)
+            if (priceNow == null)
             {
                 Logger.LogError("No current price.");
                 return;
             }
             Plan plan = new Plan(prices.Where(z => z.Start >= priceNow.Start));
 
-            foreach(HalfHourPlan p in plan.Plans)
+            foreach (HalfHourPlan p in plan.Plans)
             {
                 switch (GetFluxCase(plan, p))
                 {
@@ -140,13 +140,14 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Fill up just before the peak.
-            foreach(HalfHourPlan p in plan.Plans.Where(z => GetFluxCase(plan, z) == FluxCase.Peak).ToList())
+            foreach (HalfHourPlan p in plan.Plans.Where(z => GetFluxCase(plan, z) == FluxCase.Peak).ToList())
             {
+                HalfHourPlan? pp = plan.GetPrevious(p);
                 plan.Plans.Add(new HalfHourPlan()
                 {
-                    Start = p.Start.AddMinutes(-20),
-                    Buy = p.Buy,
-                    Sell = p.Sell,
+                    Start = p.Start.AddMinutes(-30),
+                    Buy = pp?.Buy ?? 100,
+                    Sell = pp?.Sell ?? -1,
                     Action = new PeriodAction()
                     {
                         ChargeFromGrid = 98,
@@ -158,11 +159,12 @@ namespace Rwb.Luxopus.Jobs
             // Empty just before the low.
             foreach (HalfHourPlan p in plan.Plans.Where(z => GetFluxCase(plan, z) == FluxCase.Low).ToList())
             {
+                HalfHourPlan? pp = plan.GetPrevious(p);
                 plan.Plans.Add(new HalfHourPlan()
                 {
                     Start = p.Start.AddMinutes(-20),
-                    Buy = p.Buy,
-                    Sell = p.Sell,
+                    Buy = pp?.Buy ?? 100,
+                    Sell = pp?.Sell ?? -1,
                     Action = new PeriodAction()
                     {
                         ChargeFromGrid = 0,
