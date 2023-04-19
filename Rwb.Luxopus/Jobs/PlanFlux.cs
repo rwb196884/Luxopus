@@ -139,22 +139,10 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
-            // Fill up just before the peak.
-            foreach (HalfHourPlan p in plan.Plans.Where(z => GetFluxCase(plan, z) == FluxCase.Peak).ToList())
-            {
-                HalfHourPlan? pp = plan.Plans.GetPrevious(p);
-                plan.Plans.Add(new HalfHourPlan()
-                {
-                    Start = p.Start.AddMinutes(-30),
-                    Buy = pp?.Buy ?? 100,
-                    Sell = pp?.Sell ?? -1,
-                    Action = new PeriodAction()
-                    {
-                        ChargeFromGrid = 98,
-                        DischargeToGrid = 100
-                    }
-                });
-            }
+            // Do not fill up just before the peak.
+            // Buy at 33p with 90% efficiency each wsy leaves 0.81 units at 34p = 27p.
+
+            // No different efficiency between exporting and using therefore empty the battery (and buy to use) rather than keep for use.
 
             // Empty just before the low.
             foreach (HalfHourPlan p in plan.Plans.Where(z => GetFluxCase(plan, z) == FluxCase.Low).ToList())
