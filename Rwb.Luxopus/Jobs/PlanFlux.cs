@@ -23,6 +23,8 @@ namespace Rwb.Luxopus.Jobs
     /// </summary>
     public class PlanFlux : Planner
     {
+        private const bool _ExportTariffWorking = false; // 9 fucking weeks.
+
         private static FluxCase GetFluxCase(Plan plan, HalfHourPlan p)
         {
             //List<decimal> ps = plan.Plans.Select(z => z.Sell).Distinct().OrderBy(z => z).ToList();
@@ -112,7 +114,7 @@ namespace Rwb.Luxopus.Jobs
                         p.Action = new PeriodAction()
                         {
                             ChargeFromGrid = 0,
-                            DischargeToGrid = 5, // We can buy back cheaper before the low. On-grid cut-off is 5.
+                            DischargeToGrid = _ExportTariffWorking ? 5 : 65, // We can buy back cheaper before the low. On-grid cut-off is 5.
                             // TODO: get prices to check that ^^ is true.
                             //BatteryChargeRate = 0,
                             //BatteryGridDischargeRate = 100,
@@ -130,7 +132,7 @@ namespace Rwb.Luxopus.Jobs
                     case FluxCase.Low:
                         p.Action = new PeriodAction()
                         {
-                            ChargeFromGrid = 98,
+                            ChargeFromGrid = _ExportTariffWorking ? 98 : 0,
                             DischargeToGrid = 100,
                             //BatteryChargeRate = 100,
                             //BatteryGridDischargeRate = 0,
@@ -145,7 +147,7 @@ namespace Rwb.Luxopus.Jobs
             // No different efficiency between exporting and using therefore empty the battery (and buy to use) rather than keep for use.
 
             // Empty just before the low.
-            foreach (HalfHourPlan p in plan.Plans.Where(z => GetFluxCase(plan, z) == FluxCase.Low).ToList())
+            foreach (HalfHourPlan p in plan.Plans.Where(z => _ExportTariffWorking && GetFluxCase(plan, z) == FluxCase.Low).ToList())
             {
                 HalfHourPlan? pp = plan.Plans.GetPrevious(p);
                 plan.Plans.Add(new HalfHourPlan()
