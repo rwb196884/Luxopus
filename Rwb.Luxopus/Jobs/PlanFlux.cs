@@ -164,7 +164,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
 
-            //PlanService.Save(plan);
+            PlanService.Save(plan);
             SendEmail(plan);
 
             // 7PM: sell but keep enough to get to 2AM. Export generation.

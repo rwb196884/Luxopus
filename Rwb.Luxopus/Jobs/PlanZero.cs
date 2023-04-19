@@ -3,11 +3,9 @@ using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Joins;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 
 namespace Rwb.Luxopus.Jobs
 {
@@ -116,7 +114,7 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
-            PlanService.Save(plan);
+            //PlanService.Save(plan); // Disabled because PlanFlux is in use.
             SendEmail(plan);
         }
 
