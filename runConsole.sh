@@ -2,7 +2,7 @@
 
 d=$(realpath "$0")
 wd=$(dirname "$d")
-echo "wd is $wd"
+echo "Luxopus is trying to run at: $wd"
 
 if [ ! -d "${wd}/log" ]; then
 	echo "Creating log directory at ${wd}/log"
