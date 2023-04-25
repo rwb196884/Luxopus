@@ -227,18 +227,18 @@ namespace Rwb.Luxopus.Jobs
                 {
                     // High.
                     requiredBattChargeRate = 0;
-                    why = "battery is full";
+                    why = $"battery is full ({battLevel}%)";
                 }
                 else if (battLevel < 60)
                 {
                     // Low.
                     requiredBattChargeRate = 80;
-                    why = "battery is low";
+                    why = $"battery is low ({battLevel}%)";
                 }
                 else
                 {
                     requiredBattChargeRate = 50;
-                    why = "batttery has space";
+                    why = $"batttery has space ({battLevel}%)";
                 }
             }
 

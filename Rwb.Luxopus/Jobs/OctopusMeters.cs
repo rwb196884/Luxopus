@@ -30,12 +30,13 @@ namespace Rwb.Luxopus.Jobs
             {
                 foreach (string serialNumber in await _Octopus.GetElectricityMeters(mpan))
                 {
-                    DateTime from = await GetLatestMeterReadingAsync(serialNumber);
+                    DateTime from = await GetLatestMeterReadingAsync(mpan, serialNumber);
                     Dictionary<string, string> tags = new Dictionary<string, string>()
                     {
                         { "fuel", "electricity" },
                         { "mpan", mpan },
                         { "serialNumber", serialNumber},
+                        // TODO: add tariff, direction import/export.
                     };
 
                     IEnumerable<MeterReading> m = await _Octopus.GetElectricityMeterReadings(mpan, serialNumber, from.AddMinutes(15), DateTime.Now);
@@ -52,12 +53,13 @@ namespace Rwb.Luxopus.Jobs
             {
                 foreach (string serialNumber in await _Octopus.GetGasMeters(mprn))
                 {
-                    DateTime from = await GetLatestMeterReadingAsync(serialNumber);
+                    DateTime from = await GetLatestMeterReadingAsync(mprn, serialNumber);
                     Dictionary<string, string> tags = new Dictionary<string, string>()
                     {
                         { "fuel", "gas" },
                         {"mprn", mprn },
                         { "serialNumber", serialNumber}
+                        // TODO: add tariff.
                     };
 
                     IEnumerable<MeterReading> m = await _Octopus.GetGasMeterReadings(mprn, serialNumber, from.AddMinutes(15), DateTime.Now);
@@ -71,12 +73,12 @@ namespace Rwb.Luxopus.Jobs
             }
         }
 
-        private async Task<DateTime> GetLatestMeterReadingAsync(string serialNumber)
+        private async Task<DateTime> GetLatestMeterReadingAsync(string mp_ar_n, string serialNumber)
         {
             string flux = $@"
 from(bucket:""{_InfluxQuery.Bucket}"")
   |> range(start: -1y, stop: now())
-  |> filter(fn: (r) => r[""_measurement""] == ""meters"" and r[""serialNumber""] == ""{serialNumber}"")
+  |> filter(fn: (r) => r[""_measurement""] == ""meters"" and (r[""mpan""] == ""{mp_ar_n}"" or r[""mprn""] == ""{mp_ar_n}"") and r[""serialNumber""] == ""{serialNumber}"")
   |> last()
 ";
             List<FluxTable> q = await _InfluxQuery.QueryAsync(flux);
