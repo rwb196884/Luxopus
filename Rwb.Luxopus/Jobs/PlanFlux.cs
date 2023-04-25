@@ -23,7 +23,7 @@ namespace Rwb.Luxopus.Jobs
     /// </summary>
     public class PlanFlux : Planner
     {
-        private const bool _ExportTariffWorking = false; // 9 fucking weeks.
+        private const bool _ExportTariffWorking = true; // 10 fucking weeks.
 
         private static FluxCase GetFluxCase(Plan plan, HalfHourPlan p)
         {
@@ -114,10 +114,14 @@ namespace Rwb.Luxopus.Jobs
                         p.Action = new PeriodAction()
                         {
                             ChargeFromGrid = 0,
-                            DischargeToGrid = _ExportTariffWorking ? 5 : 65, // We can buy back cheaper before the low. On-grid cut-off is 5.
+                            DischargeToGrid = _ExportTariffWorking ? 17 : 65, // We can buy back cheaper before the low. On-grid cut-off is 5. 
                             // TODO: get prices to check that ^^ is true.
+                            // TODO: aim for batt at 6% (cutoff is 5%) at 2AM.
+                            // MUST NOT buy during peak threfore leave some.
                             //BatteryChargeRate = 0,
                             //BatteryGridDischargeRate = 100,
+                            // Selling at peak for 34p * 0.9 = 30p. Day rate to buy is 33p. Therefore MUST NOT BUT before low.
+                            // Need about 20% to get over night, therefore estimate 10% to get to low.
                         };
                         break;
                     case FluxCase.Daytime:
@@ -142,27 +146,12 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Do not fill up just before the peak.
-            // Buy at 33p with 90% efficiency each wsy leaves 0.81 units at 34p = 27p.
+            // Buy at 33p with 90% efficiency each way leaves 0.81 units at 34p = 27p.
 
             // No different efficiency between exporting and using therefore empty the battery (and buy to use) rather than keep for use.
 
-            // Empty just before the low.
-            foreach (HalfHourPlan p in plan.Plans.Where(z => _ExportTariffWorking && GetFluxCase(plan, z) == FluxCase.Low).ToList())
-            {
-                HalfHourPlan? pp = plan.Plans.GetPrevious(p);
-                plan.Plans.Add(new HalfHourPlan()
-                {
-                    Start = p.Start.AddMinutes(-20),
-                    Buy = pp?.Buy ?? 100,
-                    Sell = pp?.Sell ?? -1,
-                    Action = new PeriodAction()
-                    {
-                        ChargeFromGrid = 0,
-                        DischargeToGrid = 5
-                    }
-                });
-            }
-
+            // Do not empty just before the low.
+            // Buy at 20p with 90% efficiency each way leaves 0.81 units at 21p = 17p.
 
             PlanService.Save(plan);
             SendEmail(plan);
