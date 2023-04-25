@@ -11,7 +11,7 @@ namespace Rwb.Luxopus.Jobs
 {
     /// <summary>
     /// <para>
-    /// Plan for unable to sell but can buy at less than zero.
+    /// Plan for unable to sell but can buy at less than zero because it takes over 10 weeks to get connected for export.
 	/// </para>
     /// </summary>
     public class PlanZero : Planner
