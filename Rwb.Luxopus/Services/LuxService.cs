@@ -266,7 +266,7 @@ namespace Rwb.Luxopus.Services
             int startM = int.Parse(settings["HOLD_AC_CHARGE_START_MINUTE"]);
             int endH = int.Parse(settings["HOLD_AC_CHARGE_END_HOUR"]);
             int endM = int.Parse(settings["HOLD_AC_CHARGE_END_MINUTE"]);
-            int lim = int.Parse(settings["HOLD_AC_CHARGE_END_BATTERY_SOC"]);
+            int lim = int.Parse(settings["HOLD_AC_CHARGE_SOC_LIMIT"]);
 
             DateTime t = DateTime.Parse(settings["inverterRuntimeDeviceTime"]);
 
