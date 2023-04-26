@@ -282,7 +282,8 @@ namespace Rwb.Luxopus.Services
         {
             DateTime t = DateTime.Parse($"{relativeTo.ToString("yyyy-MM-dd")}T{hours.ToString("00")}:{minutes.ToString("00")}:00");
             t = DateTime.SpecifyKind(t, DateTimeKind.Local);
-            return ToUtc(t);
+            DateTime u = ToUtc(t);
+            return u < DateTime.UtcNow ? u.AddDays(1) : u; // The next time that the time will happen.
         }
 
         public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDischargeToGrid(Dictionary<string, string> settings)
