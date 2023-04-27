@@ -131,13 +131,13 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                if (outStart != outStartWanted)
+                if (outStart != outStartWanted && (outStart.Hour != outStartWanted.Hour || outStart.Minute != outStartWanted.Minute))
                 {
                     await _Lux.SetDischargeToGridStartAsync(outStartWanted);
                     actions.AppendLine($"SetDischargeToGridStartAsync({outStartWanted.ToString("HH:mm")}) was {outStart.ToString("HH:mm")}.");
                 }
 
-                if (outStop != outStopWanted)
+                if (outStop != outStopWanted && (outStop.Hour != outStopWanted.Hour || outStop.Minute != outStopWanted.Minute))
                 {
                     await _Lux.SetDischargeToGridStopAsync(outStopWanted);
                     actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("HH:mm")}) was {outStop.ToString("HH:mm")}.");
@@ -185,13 +185,13 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                if (inStart != inStartWanted)
+                if (inStart != inStartWanted && (inStart.Hour != inStartWanted.Hour || inStart.Minute != inStartWanted.Minute) )
                 {
                     await _Lux.SetChargeFromGridStartAsync(inStartWanted);
                     actions.AppendLine($"SetChargeFromGridStartAsync({inStartWanted.ToString("HH:mm")}) was {inStart.ToString("HH:mm")}.");
                 }
 
-                if (inStop != inStopWanted)
+                if (inStop != inStopWanted && (inStop.Hour != inStopWanted.Hour || inStop.Minute != inStopWanted.Minute))
                 {
                     await _Lux.SetChargeFromGridStopAsync(inStopWanted);
                     actions.AppendLine($"SetChargeFromGridStopAsync({inStopWanted.ToString("HH:mm")}0) was {inStop.ToString("HH:mm")}.");
