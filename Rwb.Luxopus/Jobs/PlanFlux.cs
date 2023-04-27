@@ -54,7 +54,7 @@ namespace Rwb.Luxopus.Jobs
             throw new NotImplementedException();
         }
 
-        IEmailService _Email;
+        private IEmailService _Email;
 
         public PlanFlux(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email) : base(logger, influxQuery, plan)
         {
@@ -111,10 +111,34 @@ namespace Rwb.Luxopus.Jobs
                 switch (GetFluxCase(plan, p))
                 {
                     case FluxCase.Peak:
+                        (DateTime td, long dischargeAchievedYesterday) = (await InfluxQuery.QueryAsync(Query.DischargeAchievedYesterday, t0)).First().FirstOrDefault<long>();
+                        (DateTime tm, long batteryMinimumYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryMinimumYesterday, t0)).First().FirstOrDefault<long>();
+
+                        long dischargeToGrid = dischargeAchievedYesterday;
+                        if(batteryMinimumYesterday <= BatteryAbsoluteMinimum)
+                        {
+                            // If the battery got down to BatteryAbsoluteMinimum then we sold too much yesterday.
+                            dischargeToGrid += 1 + (BatteryAbsoluteMinimum - batteryMinimumYesterday);
+                        }
+                        else if(batteryMinimumYesterday > BatteryAbsoluteMinimum + 1)
+                        {
+                            // Could sell more,
+                            dischargeToGrid -= (batteryMinimumYesterday - BatteryAbsoluteMinimum - 1);
+                        }
+                        // If batteryMinimumYesterday == BatteryAbsoluteMinimum + 1 then we got it right.
+
+                        if (dischargeToGrid < DischargeAbsoluteMinimum)
+                        {
+                            dischargeToGrid = DischargeAbsoluteMinimum;
+                        }
+
+                        // TODO: look at this afternoon's house usage and work out if it's unusually high (e.g., visitors)
+                        // and adjust prediction for evening use.
+
                         p.Action = new PeriodAction()
                         {
                             ChargeFromGrid = 0,
-                            DischargeToGrid = _ExportTariffWorking ? 17 : 65, // We can buy back cheaper before the low. On-grid cut-off is 5. 
+                            DischargeToGrid = _ExportTariffWorking ? Convert.ToInt32(dischargeToGrid) : 65, // We can buy back cheaper before the low. On-grid cut-off is 5. 
                             // TODO: get prices to check that ^^ is true.
                             // TODO: aim for batt at 6% (cutoff is 5%) at 2AM.
                             // MUST NOT buy during peak threfore leave some.
@@ -180,5 +204,9 @@ namespace Rwb.Luxopus.Jobs
             _Email.SendEmail("Solar strategy (flux) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString());
             Logger.LogInformation("PlanFlux creted new plan: " + Environment.NewLine + message.ToString());
         }
+
+        private const int DischargeAbsoluteMinimum = 17;
+
+        private const int BatteryAbsoluteMinimum = 5;
     }
 }

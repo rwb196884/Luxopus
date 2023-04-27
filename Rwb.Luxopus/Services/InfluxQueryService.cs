@@ -117,7 +117,10 @@ namespace Rwb.Luxopus.Services
         //DaytimeBuyMin,
 
         SolcastFactors,
-        SolcastTomorrow
+        SolcastTomorrow,
+
+        DischargeAchievedYesterday,
+        BatteryMinimumYesterday
     }
 
     public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable

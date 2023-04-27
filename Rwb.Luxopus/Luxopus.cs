@@ -53,7 +53,7 @@ namespace Rwb.Luxopus
             _StartupTasks = new List<Job>()
             {
                 planFlux,
-                planZero,
+                //planZero,
                 planChecker,
                 luxMonitor,
                 //octopusMeters,
