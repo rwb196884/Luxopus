@@ -205,7 +205,7 @@ namespace Rwb.Luxopus.Jobs
             Logger.LogInformation("PlanFlux creted new plan: " + Environment.NewLine + message.ToString());
         }
 
-        private const int DischargeAbsoluteMinimum = 17;
+        private const int DischargeAbsoluteMinimum = 18;
 
         private const int BatteryAbsoluteMinimum = 5;
     }

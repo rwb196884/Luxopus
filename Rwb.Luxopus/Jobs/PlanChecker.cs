@@ -131,16 +131,16 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                if (outStart != outStartWanted && (outStart.Hour != outStartWanted.Hour || outStart.Minute != outStartWanted.Minute))
+                if (outStart != outStartWanted )
                 {
                     await _Lux.SetDischargeToGridStartAsync(outStartWanted);
-                    actions.AppendLine($"SetDischargeToGridStartAsync({outStartWanted.ToString("HH:mm")}) was {outStart.ToString("HH:mm")}.");
+                    actions.AppendLine($"SetDischargeToGridStartAsync({outStartWanted.ToString("dd MMM HH:mm")}) was {outStart.ToString("dd MMM HH:mm")}.");
                 }
 
-                if (outStop != outStopWanted && (outStop.Hour != outStopWanted.Hour || outStop.Minute != outStopWanted.Minute))
+                if (outStop != outStopWanted )
                 {
                     await _Lux.SetDischargeToGridStopAsync(outStopWanted);
-                    actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("HH:mm")}) was {outStop.ToString("HH:mm")}.");
+                    actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("dd MMM HH:mm")}) was {outStop.ToString("dd MMM HH:mm")}.");
                 }
 
                 if (!outEnabled || (outBatteryLimitPercentWanted < 100 && outBatteryLimitPercent != outBatteryLimitPercentWanted))
@@ -185,16 +185,16 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                if (inStart != inStartWanted && (inStart.Hour != inStartWanted.Hour || inStart.Minute != inStartWanted.Minute) )
+                if (inStart != inStartWanted )
                 {
                     await _Lux.SetChargeFromGridStartAsync(inStartWanted);
-                    actions.AppendLine($"SetChargeFromGridStartAsync({inStartWanted.ToString("HH:mm")}) was {inStart.ToString("HH:mm")}.");
+                    actions.AppendLine($"SetChargeFromGridStartAsync({inStartWanted.ToString("dd MMM HH:mm")}) was {inStart.ToString("dd MMM HH:mm")}.");
                 }
 
-                if (inStop != inStopWanted && (inStop.Hour != inStopWanted.Hour || inStop.Minute != inStopWanted.Minute))
+                if (inStop != inStopWanted )
                 {
                     await _Lux.SetChargeFromGridStopAsync(inStopWanted);
-                    actions.AppendLine($"SetChargeFromGridStopAsync({inStopWanted.ToString("HH:mm")}0) was {inStop.ToString("HH:mm")}.");
+                    actions.AppendLine($"SetChargeFromGridStopAsync({inStopWanted.ToString("dd MMM HH:mm")}) was {inStop.ToString("dd MMM HH:mm")}.");
                 }
 
                 if (!inEnabled || (inBatteryLimitPercentWanted > 0 && inBatteryLimitPercent != inBatteryLimitPercentWanted))
