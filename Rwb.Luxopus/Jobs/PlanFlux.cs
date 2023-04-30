@@ -16,6 +16,13 @@ namespace Rwb.Luxopus.Jobs
         Low
     }
 
+    /*
+     * Extra for using battery for generation = 34.9-21.8 = 13.1
+     * Profit on buying at night = 24.9-19.7 = 15.2
+     * 13.1 / 15.2 = 87% which is less than inverter efficienty squared.
+     * Therefore it's efficient to 
+     */
+
     /// <summary>
     /// <para>
     /// Plan for 'flux' tariff https://octopus.energy/smart/flux/
