@@ -17,10 +17,33 @@ namespace Rwb.Luxopus.Jobs
     }
 
     /*
-     * Extra for using battery for generation = 34.9-21.8 = 13.1
-     * Profit on buying at night = 24.9-19.7 = 15.2
-     * 13.1 / 15.2 = 87% which is less than inverter efficienty squared.
-     * Therefore it's efficient to 
+Must empty the battery to the grid at the evening peak time.
+
+If you empty the battery completely then you have to buy back to use.
+Sell price is 34.9p and buy price is 32.3p therefore it's economic to empty the battery completely.
+
+At the over night low you can either
+(1) leave the battery empty, or
+(2) fill the battery.
+
+In case (1) what you generate during the day gets store in the battery to be sold in the evening at 34.9p.
+
+In case (2) what you generate during the day must be exported immediately at 21.8p.
+
+The profit in case (2) is 15.2p but the extra in case (1) is 13.1p.
+
+However, there are losses whenever electricity moves through the inverter. The movements are:
+Case (1): solar to battery, battery to grid.
+Case (2): grid to battery, solar to grid, battery to grid.
+
+In case (2) solar goes to grid instead of battery, battery still goes to grid, but there is an extra movement for charging the battery. Therefore case (2) is only economic if the inverter is at lest 13.1/15/2 = 87% efficient (which it is, I’m seeing over 95%).
+
+Therefore the plan should be:
+
+    empty the battery completely at the evening peak,
+    buy grid electricity to use after the evening peak,
+    fill the battery at the nighttime low,
+    export daytime generation immediately (this is the best time to run appliances because losing 21.8p of export is better than buying at 32.8p to use.)
      */
 
     /// <summary>
