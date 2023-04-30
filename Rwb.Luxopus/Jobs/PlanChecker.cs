@@ -131,13 +131,15 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                if (outStart != outStartWanted )
+                // Lux serivce returns the first time in the future that the out will start.
+                // But the start of the current plan period may be in the past.
+                if (outStart.TimeOfDay != outStartWanted.TimeOfDay )
                 {
                     await _Lux.SetDischargeToGridStartAsync(outStartWanted);
                     actions.AppendLine($"SetDischargeToGridStartAsync({outStartWanted.ToString("dd MMM HH:mm")}) was {outStart.ToString("dd MMM HH:mm")}.");
                 }
 
-                if (outStop != outStopWanted )
+                if (outStop.TimeOfDay != outStopWanted.TimeOfDay )
                 {
                     await _Lux.SetDischargeToGridStopAsync(outStopWanted);
                     actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("dd MMM HH:mm")}) was {outStop.ToString("dd MMM HH:mm")}.");
@@ -185,13 +187,13 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                if (inStart != inStartWanted )
+                if (inStart.TimeOfDay != inStartWanted.TimeOfDay)
                 {
                     await _Lux.SetChargeFromGridStartAsync(inStartWanted);
                     actions.AppendLine($"SetChargeFromGridStartAsync({inStartWanted.ToString("dd MMM HH:mm")}) was {inStart.ToString("dd MMM HH:mm")}.");
                 }
 
-                if (inStop != inStopWanted )
+                if (inStop.TimeOfDay != inStopWanted.TimeOfDay)
                 {
                     await _Lux.SetChargeFromGridStopAsync(inStopWanted);
                     actions.AppendLine($"SetChargeFromGridStopAsync({inStopWanted.ToString("dd MMM HH:mm")}) was {inStop.ToString("dd MMM HH:mm")}.");
