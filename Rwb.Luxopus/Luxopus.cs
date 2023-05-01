@@ -27,8 +27,8 @@ namespace Rwb.Luxopus
             Openweathermap openweathermap,
             PlanChecker planChecker,
             //PlanA planA
-            PlanZero planZero,
-            PlanFlux planFlux
+            //PlanZero planZero,
+            PlanFlux1 planFlux
             )
         {
             _Logger = logger;
@@ -47,8 +47,8 @@ namespace Rwb.Luxopus
             AddJob(planChecker, "1,31 * * * *"); // At the start of every half hour.
             // Make plan after getting prices and before evening peak.
             //AddJob(planA, "34 16 * * *"); 
-            AddJob(planZero, "38 16 * * *");
-            AddJob(planFlux, "38 16 * * *"); // Has been hacked to let planZero take priority.
+            //AddJob(planZero, "38 16 * * *");
+            AddJob(planFlux, "38 16 * * *");
 
             _StartupTasks = new List<Job>()
             {

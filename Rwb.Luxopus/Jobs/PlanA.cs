@@ -89,7 +89,8 @@ namespace Rwb.Luxopus.Jobs
         IEmailService _Email;
         ISmsService _Sms;
 
-        public PlanA(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger, influxQuery, plan)
+        public PlanA(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) 
+            : base(logger, influxQuery, plan)
         {
             _Lux = lux;
             _Email = email;

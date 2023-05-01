@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Security.Permissions;
 using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Services
@@ -120,7 +119,11 @@ namespace Rwb.Luxopus.Services
         SolcastTomorrow,
 
         DischargeAchievedYesterday,
-        BatteryMinimumYesterday
+        BatteryMinimumYesterday,
+
+        Sunrise,
+        BatteryMorningLow,
+        BatteryGridChargeHigh
     }
 
     public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable

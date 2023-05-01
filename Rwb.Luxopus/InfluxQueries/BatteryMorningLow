@@ -1,0 +1,10 @@
+import "date"
+
+t0 = today()
+tMorningStart = date.add(d: 5h, to: t0)
+tMorningEnd = date.add(d: 10h, to: t0)
+
+from(bucket: "solar")
+  |> range(start: tMorningStart , stop: tMorningEnd)
+  |> filter(fn: (r) => r["_measurement"] == "inverter" and r["_field"] == "batt_level")
+  |> min()

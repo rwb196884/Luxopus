@@ -19,7 +19,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="InfluxQueries\BatteryGridChargeHigh" />
     <None Remove="InfluxQueries\BatteryMinimumYesterday" />
+    <None Remove="InfluxQueries\BatteryMorningLow" />
     <None Remove="InfluxQueries\DaytimeBuyMin" />
     <None Remove="InfluxQueries\DaytimeSellMedian" />
     <None Remove="InfluxQueries\DischargeAchievedYesterday" />
@@ -28,6 +30,7 @@
     <None Remove="InfluxQueries\OvernightMin" />
     <None Remove="InfluxQueries\SolcastFactors" />
     <None Remove="InfluxQueries\SolcastTomorrow" />
+    <None Remove="InfluxQueries\Sunrise" />
   </ItemGroup>
 
   <ItemGroup>

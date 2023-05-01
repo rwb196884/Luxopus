@@ -56,9 +56,11 @@ namespace Rwb.Luxopus
                     services.AddScoped<Openweathermap>();
 
                     services.AddScoped<PlanChecker>();
-                    services.AddScoped<PlanZero>();
+
+                    //services.AddScoped<PlanZero>();
                     //services.AddScoped<PlanA>();
-                    services.AddScoped<PlanFlux>();
+                    services.AddScoped<PlanFlux1>();
+                    //services.AddScoped<PlanFlux2>();
                 });
         }
     }
