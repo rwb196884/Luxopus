@@ -28,7 +28,7 @@ namespace Rwb.Luxopus
             PlanChecker planChecker,
             //PlanA planA
             //PlanZero planZero,
-            PlanFlux1 planFlux
+            PlanFlux2 planFlux
             )
         {
             _Logger = logger;
