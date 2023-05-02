@@ -30,6 +30,7 @@ namespace Rwb.Luxopus.Jobs
     public class PlanFlux2 : PlanFlux
     {
         private const int BatteryAbsoluteMinimum = 5;
+        private const int DischargeAbsoluteMinimum = 18;
 
         public PlanFlux2(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email)
             : base(logger, influxQuery, plan, email)
@@ -58,10 +59,47 @@ namespace Rwb.Luxopus.Jobs
                 switch (GetFluxCase(plan, p))
                 {
                     case FluxCase.Peak:
+                        /*
+                         * I will need an electricity later and there is one in the battery.
+                         * Should I sell it now at 34p and buy it back later for 33p, or just keep it?
+                         * 33/34 => 97% so: keep.
+                         * Therefore we need to work out how much to keep to get to the nighttime low.
+                         */
+                        (DateTime td, long dischargeAchievedYesterday) = (await InfluxQuery.QueryAsync(Query.DischargeAchievedYesterday, t0)).First().FirstOrDefault<long>();
+                        (DateTime tm, long batteryMinimumYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryMinimumYesterday, t0)).First().FirstOrDefault<long>();
+
+                        long dischargeToGrid = dischargeAchievedYesterday;
+                        if (batteryMinimumYesterday <= BatteryAbsoluteMinimum)
+                        {
+                            // If the battery got down to BatteryAbsoluteMinimum then we sold too much yesterday.
+                            dischargeToGrid += 1 + (BatteryAbsoluteMinimum - batteryMinimumYesterday);
+                        }
+                        else if (batteryMinimumYesterday > BatteryAbsoluteMinimum + 1)
+                        {
+                            // Could sell more,
+                            dischargeToGrid -= (batteryMinimumYesterday - BatteryAbsoluteMinimum - 1);
+                        }
+                        // If batteryMinimumYesterday == BatteryAbsoluteMinimum + 1 then we got it right.
+
+                        if (dischargeToGrid < DischargeAbsoluteMinimum)
+                        {
+                            dischargeToGrid = DischargeAbsoluteMinimum;
+                        }
+
+                        // TODO: look at this afternoon's house usage and work out if it's unusually high (e.g., visitors)
+                        // and adjust prediction for evening use.
+
                         p.Action = new PeriodAction()
                         {
                             ChargeFromGrid = 0,
-                            DischargeToGrid = BatteryAbsoluteMinimum
+                            DischargeToGrid = Convert.ToInt32(dischargeToGrid), // We can buy back cheaper before the low. On-grid cut-off is 5. 
+                            // TODO: get prices to check that ^^ is true.
+                            // TODO: aim for batt at 6% (cutoff is 5%) at 2AM.
+                            // MUST NOT buy during peak threfore leave some.
+                            //BatteryChargeRate = 0,
+                            //BatteryGridDischargeRate = 100,
+                            // Selling at peak for 34p * 0.9 = 30p. Day rate to buy is 33p. Therefore MUST NOT BUT before low.
+                            // Need about 20% to get over night, therefore estimate 10% to get to low.
                         };
                         break;
                     case FluxCase.Daytime:

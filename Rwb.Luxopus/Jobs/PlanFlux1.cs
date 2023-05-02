@@ -95,10 +95,42 @@ Therefore the plan should be:
                 switch (GetFluxCase(plan, p))
                 {
                     case FluxCase.Peak:
+                        /*
+                         * I will need an electricity later and there is one in the battery.
+                         * Should I sell it now at 34p and buy it back later for 33p, or just keep it?
+                         * 33/34 => 97% so: keep.
+                         * Therefore we need to work out how much to keep to get to the nighttime low.
+                         */
+                        (DateTime td, long dischargeAchievedYesterday) = (await InfluxQuery.QueryAsync(Query.DischargeAchievedYesterday, t0)).First().FirstOrDefault<long>();
+                        (DateTime tm, long batteryMinimumYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryMinimumYesterday, t0)).First().FirstOrDefault<long>();
+
+                        long dischargeToGrid = dischargeAchievedYesterday;
+                        if (batteryMinimumYesterday <= BatteryAbsoluteMinimum)
+                        {
+                            // If the battery got down to BatteryAbsoluteMinimum then we sold too much yesterday.
+                            dischargeToGrid += 1 + (BatteryAbsoluteMinimum - batteryMinimumYesterday);
+                        }
+                        else if (batteryMinimumYesterday > BatteryAbsoluteMinimum + 1)
+                        {
+                            // Could sell more,
+                            dischargeToGrid -= (batteryMinimumYesterday - BatteryAbsoluteMinimum - 1);
+                        }
+                        // If batteryMinimumYesterday == BatteryAbsoluteMinimum + 1 then we got it right.
+
+                        if (dischargeToGrid < DischargeAbsoluteMinimum)
+                        {
+                            dischargeToGrid = DischargeAbsoluteMinimum;
+                        }
+
+                        // TODO: look at this afternoon's house usage and work out if it's unusually high (e.g., visitors)
+                        // and adjust prediction for evening use.
+
                         p.Action = new PeriodAction()
                         {
                             ChargeFromGrid = 0,
-                            DischargeToGrid = _ExportTariffWorking ? 8 : 65, // We can buy back cheaper before the low. On-grid cut-off is 5. 
+                            DischargeToGrid = _ExportTariffWorking ? Convert.ToInt32(dischargeToGrid) : 65, // We can buy back cheaper before the low. On-grid cut-off is 5. 
+                            // TODO: get prices to check that ^^ is true.
+                            // TODO: aim for batt at 6% (cutoff is 5%) at 2AM.
                             // MUST NOT buy during peak threfore leave some.
                             //BatteryChargeRate = 0,
                             //BatteryGridDischargeRate = 100,
