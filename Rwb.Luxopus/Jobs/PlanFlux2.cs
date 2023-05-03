@@ -125,20 +125,20 @@ namespace Rwb.Luxopus.Jobs
                         (DateTime _, long batteryMorningLow) = (await InfluxQuery.QueryAsync(Query.BatteryMorningLow, tt)).First().FirstOrDefault<long>();
                         (DateTime _, long batteryCharged) = (await InfluxQuery.QueryAsync(Query.BatteryGridChargeHigh, tt)).First().FirstOrDefault<long>();
 
-                        long chargeFromGrid = batteryCharged;
-                        if(batteryMorningLow < 15)
+                        long chargeFromGrid = batteryCharged; // Starting point: do the same as yesterday.
+                        if(batteryMorningLow < 8)
                         {
-                            chargeFromGrid += (15 - batteryMorningLow);
+                            chargeFromGrid += (8 - batteryMorningLow);
                         }
-                        else if( batteryMorningLow > 17)
+                        else if( batteryMorningLow > 13)
                         {
-                            chargeFromGrid --;
+                            chargeFromGrid = 9 + (batteryCharged - batteryMorningLow);
                         }
 
                         // Hack.
-                        if( chargeFromGrid > 50)
+                        if( chargeFromGrid > 20)
                         {
-                            chargeFromGrid = 10; 
+                            chargeFromGrid = 20; 
                         }
 
                         // Power needed to satisfy daytime demand if there is not enough solar generation (e.g., ovening in winter).
