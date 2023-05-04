@@ -1,10 +1,28 @@
 import "date"
+import "strings"
 
+// FUNCTIONS
+getTime = (tables=<-, field = "") => {
+    extract = tables
+        |> findColumn(fn: (key) => strings.strlen(v: field) == 0 or key._field == field, column: "_time")
+
+    return extract[0]
+}
+
+// PARAMETERS
 t0 = today()
 tMorningStart = date.add(d: 5h, to: t0)
-tMorningEnd = date.add(d: 10h, to: t0)
+
+// QUERIES
+hourAfterSunrise = from(bucket: "solar")
+  |> range(start: today(), stop: date.add(d: 1d, to: today()))
+  |> filter(fn: (r) => r["_measurement"] == "sun" and r["_field"] == "risen" and r["_value"] == 1)
+  |> first()
+  |> timeShift(duration: 1h)
+  |> getTime()
 
 from(bucket: "solar")
-  |> range(start: tMorningStart , stop: tMorningEnd)
+  |> range(start: tMorningStart , stop: hourAfterSunrise)
   |> filter(fn: (r) => r["_measurement"] == "inverter" and r["_field"] == "batt_level")
   |> min()
+  |> yield()

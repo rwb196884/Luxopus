@@ -133,13 +133,13 @@ namespace Rwb.Luxopus.Jobs
             {
                 // Lux serivce returns the first time in the future that the out will start.
                 // But the start of the current plan period may be in the past.
-                if (outStart.TimeOfDay != outStartWanted.TimeOfDay )
+                if (outStart.TimeOfDay != outStartWanted.TimeOfDay)
                 {
                     await _Lux.SetDischargeToGridStartAsync(outStartWanted);
                     actions.AppendLine($"SetDischargeToGridStartAsync({outStartWanted.ToString("dd MMM HH:mm")}) was {outStart.ToString("dd MMM HH:mm")}.");
                 }
 
-                if (outStop.TimeOfDay != outStopWanted.TimeOfDay )
+                if (outStop.TimeOfDay != outStopWanted.TimeOfDay)
                 {
                     await _Lux.SetDischargeToGridStopAsync(outStopWanted);
                     actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("dd MMM HH:mm")}) was {outStop.ToString("dd MMM HH:mm")}.");
@@ -231,52 +231,102 @@ namespace Rwb.Luxopus.Jobs
                     requiredBattChargeRate = 0;
                     why = $"battery is full ({battLevel}%)";
                 }
-                else if (battLevel < 60)
-                {
-                    // Low.
-                    requiredBattChargeRate = 80;
-                    why = $"battery is low ({battLevel}%)";
-                }
                 else
                 {
-                    requiredBattChargeRate = 50;
-                    why = $"batttery has space ({battLevel}%)";
-                }
-            }
-
-            if (requiredBattChargeRate != battChargeRate)
-            {
-                await _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
-                actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
-            }
-
-            // Batt discharge.
-            //if (battGridDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
-            //{
-            //    await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
-            //    actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battGridDischargeRate}.");
-            //}
-
-            // Report any changes.
-            if (actions.Length > 0)
-            {
-                actions.AppendLine();
-                actions.AppendLine($"   Charge: {inStartWanted:HH:mm} to {inStopWanted:HH:mm} limit {inBatteryLimitPercentWanted} rate {requiredBattChargeRate}");
-                actions.AppendLine($"Discharge: {outStartWanted:HH:mm} to {outStopWanted:HH:mm} limit {outBatteryLimitPercentWanted}");
-
-                if (plan != null)
-                {
-                    actions.AppendLine();
-                    HalfHourPlan? pp = plan.Current;
-                    while (pp != null)
+                    HalfHourPlan? q = plan?.Plans.GetNext(p, Plan.DischargeToGridCondition);
+                    int predicted = 0;
+                    if (q != null)
                     {
-                        actions.AppendLine(pp.ToString());
-                        pp = plan.Plans.GetNext(pp);
+                        (DateTime _, double g) = (await Generation(t0)); // Generation is in W.
+                        predicted = Convert.ToInt32(Math.Ceiling(g * (t0.Hour < 13 ? 1.2 : 0.8)) * (q.Start - t0).TotalHours / 1000.0);
+                    }
+
+                    if (predicted == 0)
+                    {
+                        // Default case.
+                        if (battLevel > 80)
+                        {
+                            requiredBattChargeRate = 25;
+                            why = $"battery is getting full ({battLevel}%)";
+                        }
+                        else
+                        {
+                            if (t0.Hour < 14)
+                            {
+                                requiredBattChargeRate = 50;
+                                why = $"it's early but battery is low ({battLevel}%)";
+                            }
+                            else
+                            {
+                                requiredBattChargeRate = 75;
+                                why = $"it's late and battery is low ({battLevel}%)";
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // !
+                        int required = _Lux.BattToKwh(95 - battLevel);
+                        if (predicted < required)
+                        {
+                            requiredBattChargeRate = 75;
+                        }
+                        else
+                        {
+                            requiredBattChargeRate = (100 * required) / predicted;
+                        }
+                        why = $"predicted: {predicted} kWh but {required} kWh required to get from {battLevel}% to 95%";
+                    }
                     }
                 }
-                _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
-                Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
+
+                if (requiredBattChargeRate != battChargeRate)
+                {
+                    await _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
+                    actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
+                }
+
+                // Batt discharge.
+                //if (battGridDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
+                //{
+                //    await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
+                //    actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battGridDischargeRate}.");
+                //}
+
+                // Report any changes.
+                if (actions.Length > 0)
+                {
+                    actions.AppendLine();
+                    actions.AppendLine($"   Charge: {inStartWanted:HH:mm} to {inStopWanted:HH:mm} limit {inBatteryLimitPercentWanted} rate {requiredBattChargeRate}");
+                    actions.AppendLine($"Discharge: {outStartWanted:HH:mm} to {outStopWanted:HH:mm} limit {outBatteryLimitPercentWanted}");
+
+                    if (plan != null)
+                    {
+                        actions.AppendLine();
+                        HalfHourPlan? pp = plan.Current;
+                        while (pp != null)
+                        {
+                            actions.AppendLine(pp.ToString());
+                            pp = plan.Plans.GetNext(pp);
+                        }
+                    }
+                    _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
+                    Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
+                }
+            }
+
+            private async Task<(DateTime, double)> Generation(DateTime now)
+            {
+                string query = @$"
+from(bucket: ""solar"")
+  |> range(start: {now.AddHours(-2):yyyy-MM-ddT00:00:00Z}, stop: now())
+  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+  |> filter(fn: (r) => r._value > 0)
+  |> median()
+  |> map(fn: (r) => ({{r with _time: {now:yyyy-MM-ddT00:00:00Z}}}))
+";
+                return (await _InfluxQuery.QueryAsync(query)).First().FirstOrDefault<double>();
+
             }
         }
     }
-}
