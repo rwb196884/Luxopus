@@ -69,7 +69,7 @@ namespace Rwb.Luxopus.Jobs
                         (DateTime tm, long batteryLowBeforeChargingYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryLowBeforeCharging, t0)).First().FirstOrDefault<long>();
 
                         long dischargeToGrid = dischargeAchievedYesterday;
-                        if (batteryLowBeforeChargingYesterday <= BatteryAbsoluteMinimum)
+                        if (batteryLowBeforeChargingYesterday < BatteryAbsoluteMinimum)
                         {
                             // If the battery got down to BatteryAbsoluteMinimum then we sold too much yesterday.
                             dischargeToGrid += 1 + (BatteryAbsoluteMinimum - batteryLowBeforeChargingYesterday);
@@ -91,6 +91,11 @@ namespace Rwb.Luxopus.Jobs
 
                         // TODO
                         long z = AdjustLimit(false, dischargeAchievedYesterday, batteryLowBeforeChargingYesterday, BatteryAbsoluteMinimum, DischargeAbsoluteMinimum);
+
+                        if( z != dischargeToGrid)
+                        {
+                            Logger.LogCritical($"dischargeToGrid old: {dischargeToGrid}, new: {z}.");
+                        }
 
                         p.Action = new PeriodAction()
                         {
@@ -147,6 +152,10 @@ namespace Rwb.Luxopus.Jobs
                         long wantedResult = 8; // Plus power needed to satisfy daytime demand if there is not enough solar generation (e.g., ovening in winter).
 
                         long zz = AdjustLimit(true, batteryCharged, batteryMorningLow, wantedResult, 20);
+                        if (zz != chargeFromGrid)
+                        {
+                            Logger.LogCritical($"chargeFromGrid old: {chargeFromGrid}, new: {zz}.");
+                        }
 
                         p.Action = new PeriodAction()
                         {
