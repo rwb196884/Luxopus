@@ -72,5 +72,70 @@ namespace Rwb.Luxopus.Jobs
             _Email.SendEmail($"Solar strategy ({this.GetType().Name}) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString());
             Logger.LogInformation($"Planner '{this.GetType().Name}' creted new plan: " + Environment.NewLine + message.ToString());
         }
+
+        /// <summary>
+        /// <para>What limit should we set now in order to reach a target later?</para>
+        /// <para>Fudged by examining previous case. TODO: use rate data.</para>
+        /// </summary>
+        /// <param name="target"></param>
+        /// <param name="absoluteLimit"></param>
+        /// <param name="previousLimit"></param>
+        /// <param name="previousActual"></param>
+        /// <returns></returns>
+        protected static long AdjustLimit(long target, long absoluteLimit, long previousLimit, long previousActual)
+        {
+            long newLimit = previousLimit;
+            if (target < absoluteLimit)
+            {
+                // Adjust up to maximum.
+                if (previousActual > target)
+                {
+                    // We over-shot, so throttle it back.
+                    newLimit -= (target - previousActual);
+                }
+                else if (previousActual < target)
+                {
+                    // Try harder.
+                    newLimit += (previousActual - target);
+                }
+
+                if (newLimit > absoluteLimit)
+                {
+                    newLimit = absoluteLimit;
+                }
+            }
+            else if (target > absoluteLimit)
+            {
+                // Adjust down to minimum.
+                if (previousActual < target)
+                {
+                    // We over-shot, so throttle it back.
+                    newLimit += (target - previousActual);
+                }
+                else if (previousActual > target)
+                {
+                    // Try harder.
+                    newLimit -= (previousActual - target);
+                }
+
+                if (newLimit < absoluteLimit)
+                {
+                    newLimit = absoluteLimit;
+                }
+            }
+            return newLimit;
+        }
+
+        protected static long SetLimit(long valueNow, decimal rate, long targetLater)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected DateTime GenerationStartTomorrow(DateTime today)
+        {
+            // TODO: query.
+            return today.Date.AddDays(1).AddHours(10);
+        }
+
     }
 }

@@ -49,6 +49,9 @@ namespace Rwb.Luxopus.Services
         Task SetBatteryChargeRateAsync(int batteryChargeRatePercent);
         //Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent);
         //Task SetBatteryGridDischargeRateAsync(int batteryDischargeRatePercent);
+
+        int KwhToBatt(int kWh);
+        int BattToKwh(int batt);
     }
 
     public class LuxService : Service<LuxSettings>, ILuxService, IDisposable
@@ -431,6 +434,22 @@ namespace Rwb.Luxopus.Services
 
             return parameters;
         }
+
+        private const decimal _BattAh = 189M;
+        private const decimal _BattV = 53.4M;
+
+        public int KwhToBatt(int kWh)
+        {
+            decimal battkWh = _BattAh * _BattV / 1000M;
+            return Convert.ToInt32(Math.Floor(kWh / battkWh));
+        }
+
+        public int BattToKwh(int batt)
+        {
+            decimal battkWh = _BattAh * _BattV / 1000M;
+            return Convert.ToInt32(Math.Floor(Convert.ToDecimal(batt) * battkWh / 100M));
+        }
+
 
         protected virtual void Dispose(bool disposing)
         {
