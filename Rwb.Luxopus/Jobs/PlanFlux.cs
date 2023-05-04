@@ -77,53 +77,54 @@ namespace Rwb.Luxopus.Jobs
         /// <para>What limit should we set now in order to reach a target later?</para>
         /// <para>Fudged by examining previous case. TODO: use rate data.</para>
         /// </summary>
+        /// <param name="up"></param>
         /// <param name="target"></param>
         /// <param name="absoluteLimit"></param>
         /// <param name="previousLimit"></param>
         /// <param name="previousActual"></param>
         /// <returns></returns>
-        protected static long AdjustLimit(long target, long absoluteLimit, long previousLimit, long previousActual)
+        protected static long AdjustLimit(bool up, long previousValue, long previousResult, long wantedResult, long newValueLimit)
         {
-            long newLimit = previousLimit;
-            if (target < absoluteLimit)
+            long newValue = previousValue;
+            if (up)
             {
                 // Adjust up to maximum.
-                if (previousActual > target)
+                if (previousResult > wantedResult)
                 {
                     // We over-shot, so throttle it back.
-                    newLimit -= (target - previousActual);
+                    newValue -= (previousResult - wantedResult);
                 }
-                else if (previousActual < target)
+                else if (previousResult < wantedResult)
                 {
                     // Try harder.
-                    newLimit += (previousActual - target);
+                    newValue += (wantedResult - previousResult);
                 }
 
-                if (newLimit > absoluteLimit)
+                if (newValue > newValueLimit)
                 {
-                    newLimit = absoluteLimit;
+                    newValue = newValueLimit;
                 }
             }
-            else if (target > absoluteLimit)
+            else
             {
                 // Adjust down to minimum.
-                if (previousActual < target)
+                if (previousResult < wantedResult)
                 {
                     // We over-shot, so throttle it back.
-                    newLimit += (target - previousActual);
+                    newValue += (wantedResult - previousResult);
                 }
-                else if (previousActual > target)
+                else if (previousResult > wantedResult)
                 {
                     // Try harder.
-                    newLimit -= (previousActual - target);
+                    newValue -= (previousResult - wantedResult);
                 }
 
-                if (newLimit < absoluteLimit)
+                if (newValue < newValueLimit)
                 {
-                    newLimit = absoluteLimit;
+                    newValue = newValueLimit;
                 }
             }
-            return newLimit;
+            return newValue;
         }
 
         protected static long SetLimit(long valueNow, decimal rate, long targetLater)

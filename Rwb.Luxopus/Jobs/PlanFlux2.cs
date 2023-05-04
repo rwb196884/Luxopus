@@ -90,7 +90,7 @@ namespace Rwb.Luxopus.Jobs
                         // and adjust prediction for evening use.
 
                         // TODO
-                        long z = AdjustLimit(BatteryAbsoluteMinimum+1, BatteryAbsoluteMinimum, dischargeAchievedYesterday, dischargeAchievedYesterday);
+                        long z = AdjustLimit(false, dischargeAchievedYesterday, batteryLowBeforeChargingYesterday, BatteryAbsoluteMinimum, DischargeAbsoluteMinimum);
 
                         p.Action = new PeriodAction()
                         {
@@ -144,9 +144,9 @@ namespace Rwb.Luxopus.Jobs
                             chargeFromGrid = 20; 
                         }
 
-                        // Power needed to satisfy daytime demand if there is not enough solar generation (e.g., ovening in winter).
+                        long wantedResult = 8; // Plus power needed to satisfy daytime demand if there is not enough solar generation (e.g., ovening in winter).
 
-                        long zz = AdjustLimit(8, BatteryAbsoluteMinimum, batteryCharged, batteryMorningLow);
+                        long zz = AdjustLimit(true, batteryCharged, batteryMorningLow, wantedResult, 20);
 
                         p.Action = new PeriodAction()
                         {
