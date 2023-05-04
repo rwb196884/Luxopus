@@ -277,56 +277,56 @@ namespace Rwb.Luxopus.Jobs
                         }
                         why = $"predicted: {predicted} kWh but {required} kWh required to get from {battLevel}% to 95%";
                     }
-                    }
-                }
-
-                if (requiredBattChargeRate != battChargeRate)
-                {
-                    await _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
-                    actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
-                }
-
-                // Batt discharge.
-                //if (battGridDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
-                //{
-                //    await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
-                //    actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battGridDischargeRate}.");
-                //}
-
-                // Report any changes.
-                if (actions.Length > 0)
-                {
-                    actions.AppendLine();
-                    actions.AppendLine($"   Charge: {inStartWanted:HH:mm} to {inStopWanted:HH:mm} limit {inBatteryLimitPercentWanted} rate {requiredBattChargeRate}");
-                    actions.AppendLine($"Discharge: {outStartWanted:HH:mm} to {outStopWanted:HH:mm} limit {outBatteryLimitPercentWanted}");
-
-                    if (plan != null)
-                    {
-                        actions.AppendLine();
-                        HalfHourPlan? pp = plan.Current;
-                        while (pp != null)
-                        {
-                            actions.AppendLine(pp.ToString());
-                            pp = plan.Plans.GetNext(pp);
-                        }
-                    }
-                    _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
-                    Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
                 }
             }
 
-            private async Task<(DateTime, double)> Generation(DateTime now)
+            if (requiredBattChargeRate != battChargeRate)
             {
-                string query = @$"
+                await _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
+                actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}. Why: {why}.");
+            }
+
+            // Batt discharge.
+            //if (battGridDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
+            //{
+            //    await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
+            //    actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battGridDischargeRate}.");
+            //}
+
+            // Report any changes.
+            if (actions.Length > 0)
+            {
+                actions.AppendLine();
+                actions.AppendLine($"   Charge: {inStartWanted:HH:mm} to {inStopWanted:HH:mm} limit {inBatteryLimitPercentWanted} rate {requiredBattChargeRate}");
+                actions.AppendLine($"Discharge: {outStartWanted:HH:mm} to {outStopWanted:HH:mm} limit {outBatteryLimitPercentWanted}");
+
+                if (plan != null)
+                {
+                    actions.AppendLine();
+                    HalfHourPlan? pp = plan.Current;
+                    while (pp != null)
+                    {
+                        actions.AppendLine(pp.ToString());
+                        pp = plan.Plans.GetNext(pp);
+                    }
+                }
+                _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
+                Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
+            }
+        }
+
+        private async Task<(DateTime, double)> Generation(DateTime now)
+        {
+            string query = @$"
 from(bucket: ""solar"")
-  |> range(start: {now.AddHours(-2):yyyy-MM-ddT00:00:00Z}, stop: now())
+  |> range(start: {now.AddHours(-2):yyyy-MM-ddTHH:00:00Z}, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> filter(fn: (r) => r._value > 0)
   |> median()
   |> map(fn: (r) => ({{r with _time: {now:yyyy-MM-ddT00:00:00Z}}}))
 ";
-                return (await _InfluxQuery.QueryAsync(query)).First().FirstOrDefault<double>();
+            return (await _InfluxQuery.QueryAsync(query)).First().FirstOrDefault<double>();
 
-            }
         }
     }
+}

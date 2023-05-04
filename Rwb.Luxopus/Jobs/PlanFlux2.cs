@@ -66,18 +66,18 @@ namespace Rwb.Luxopus.Jobs
                          * Therefore we need to work out how much to keep to get to the nighttime low.
                          */
                         (DateTime td, long dischargeAchievedYesterday) = (await InfluxQuery.QueryAsync(Query.DischargeAchievedYesterday, t0)).First().FirstOrDefault<long>();
-                        (DateTime tm, long batteryMinimumYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryMinimumYesterday, t0)).First().FirstOrDefault<long>();
+                        (DateTime tm, long batteryLowBeforeChargingYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryLowBeforeCharging, t0)).First().FirstOrDefault<long>();
 
                         long dischargeToGrid = dischargeAchievedYesterday;
-                        if (batteryMinimumYesterday <= BatteryAbsoluteMinimum)
+                        if (batteryLowBeforeChargingYesterday <= BatteryAbsoluteMinimum)
                         {
                             // If the battery got down to BatteryAbsoluteMinimum then we sold too much yesterday.
-                            dischargeToGrid += 1 + (BatteryAbsoluteMinimum - batteryMinimumYesterday);
+                            dischargeToGrid += 1 + (BatteryAbsoluteMinimum - batteryLowBeforeChargingYesterday);
                         }
-                        else if (batteryMinimumYesterday > BatteryAbsoluteMinimum + 1)
+                        else if (batteryLowBeforeChargingYesterday > BatteryAbsoluteMinimum + 1)
                         {
                             // Could sell more,
-                            dischargeToGrid -= (batteryMinimumYesterday - BatteryAbsoluteMinimum - 1);
+                            dischargeToGrid -= (batteryLowBeforeChargingYesterday - BatteryAbsoluteMinimum - 1);
                         }
                         // If batteryMinimumYesterday == BatteryAbsoluteMinimum + 1 then we got it right.
 
@@ -88,6 +88,9 @@ namespace Rwb.Luxopus.Jobs
 
                         // TODO: look at this afternoon's house usage and work out if it's unusually high (e.g., visitors)
                         // and adjust prediction for evening use.
+
+                        // TODO
+                        long z = AdjustLimit(BatteryAbsoluteMinimum+1, BatteryAbsoluteMinimum, dischargeAchievedYesterday, dischargeAchievedYesterday);
 
                         p.Action = new PeriodAction()
                         {
@@ -142,6 +145,8 @@ namespace Rwb.Luxopus.Jobs
                         }
 
                         // Power needed to satisfy daytime demand if there is not enough solar generation (e.g., ovening in winter).
+
+                        long zz = AdjustLimit(8, BatteryAbsoluteMinimum, batteryCharged, batteryMorningLow);
 
                         p.Action = new PeriodAction()
                         {
