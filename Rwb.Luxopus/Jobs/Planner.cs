@@ -126,7 +126,7 @@ namespace Rwb.Luxopus.Jobs
 
         protected async Task<decimal> GetSolcastTomorrowAsync(DateTime today)
         {
-            List<FluxTable> q = await InfluxQuery.QueryAsync(Query.SolcastTomorrow, today);
+            List<FluxTable> q = await InfluxQuery.QueryAsync(Query.SolcastToday, today.AddDays(1));
             return q[0].Records[0].GetValue<decimal>();
         }
     }

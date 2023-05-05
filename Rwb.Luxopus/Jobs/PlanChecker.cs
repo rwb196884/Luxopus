@@ -235,47 +235,47 @@ namespace Rwb.Luxopus.Jobs
                 {
                     HalfHourPlan? q = plan?.Plans.GetNext(p, Plan.DischargeToGridCondition);
                     int predicted = 0;
-                    if (q != null)
-                    {
-                        (DateTime _, double g) = (await Generation(t0)); // Generation is in W.
-                        predicted = Convert.ToInt32(Math.Ceiling(g * (t0.Hour < 13 ? 1.2 : 0.8)) * (q.Start - t0).TotalHours / 1000.0);
-                    }
+                    //if (q != null)
+                    //{
+                    //    (DateTime _, double g) = (await Generation(t0)); // Generation is in W.
+                    //    predicted = Convert.ToInt32(Math.Ceiling(g * (t0.Hour < 13 ? 1.2 : 0.8)) * (q.Start - t0).TotalHours / 1000.0);
+                    //}
 
                     if (predicted == 0)
                     {
                         // Default case.
                         if (battLevel > 80)
                         {
-                            requiredBattChargeRate = 25;
+                            requiredBattChargeRate = 17; // ~500W.
                             why = $"battery is getting full ({battLevel}%)";
                         }
                         else
                         {
                             if (t0.Hour < 14)
                             {
-                                requiredBattChargeRate = 50;
+                                requiredBattChargeRate = 33; // ~1000W.
                                 why = $"it's early but battery is low ({battLevel}%)";
                             }
                             else
                             {
-                                requiredBattChargeRate = 75;
+                                requiredBattChargeRate = 67; // ~2000W.
                                 why = $"it's late and battery is low ({battLevel}%)";
                             }
                         }
                     }
                     else
                     {
-                        // !
-                        int required = _Lux.BattToKwh(95 - battLevel);
-                        if (predicted < required)
-                        {
-                            requiredBattChargeRate = 75;
-                        }
-                        else
-                        {
-                            requiredBattChargeRate = (100 * required) / predicted;
-                        }
-                        why = $"predicted: {predicted} kWh but {required} kWh required to get from {battLevel}% to 95%";
+                        //// !
+                        //int required = _Lux.BattToKwh(95 - battLevel);
+                        //if (predicted < required)
+                        //{
+                        //    requiredBattChargeRate = 75;
+                        //}
+                        //else
+                        //{
+                        //    requiredBattChargeRate = (100 * required) / predicted;
+                        //}
+                        //why = $"predicted: {predicted} kWh but {required} kWh required to get from {battLevel}% to 95%";
                     }
                 }
             }
@@ -313,20 +313,6 @@ namespace Rwb.Luxopus.Jobs
                 _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
                 Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
             }
-        }
-
-        private async Task<(DateTime, double)> Generation(DateTime now)
-        {
-            string query = @$"
-from(bucket: ""solar"")
-  |> range(start: {now.AddHours(-2):yyyy-MM-ddTHH:00:00Z}, stop: now())
-  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-  |> filter(fn: (r) => r._value > 0)
-  |> median()
-  |> map(fn: (r) => ({{r with _time: {now:yyyy-MM-ddT00:00:00Z}}}))
-";
-            return (await _InfluxQuery.QueryAsync(query)).First().FirstOrDefault<double>();
-
         }
     }
 }

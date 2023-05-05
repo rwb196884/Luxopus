@@ -116,7 +116,7 @@ namespace Rwb.Luxopus.Services
         //DaytimeBuyMin,
 
         SolcastFactors,
-        SolcastTomorrow,
+        SolcastToday,
 
         /// <summary>
         /// Battery minimum between 16:00 and 19:00 yesterday.

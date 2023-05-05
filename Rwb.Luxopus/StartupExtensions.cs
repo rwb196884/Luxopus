@@ -42,6 +42,9 @@ namespace Rwb.Luxopus
                     services.Register<ISunService, SunService, SunSettings>(context);
                     services.Register<IOpenWeathermapService, OpenWeathermapService, OpenWeathermapSettings>(context);
 
+                    //services.Register<IBatteryService, BatteryService, BatterySettings>(context);
+                    //services.Register<IGenerationForecastService, GenerationForecastService, GenerationForecastSettings>(context);
+
                     // Main thingy.
                     services.AddScoped<Luxopus>();
 

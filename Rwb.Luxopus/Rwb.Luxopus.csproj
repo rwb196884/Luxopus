@@ -29,7 +29,7 @@
     <None Remove="InfluxQueries\MorningSellMax" />
     <None Remove="InfluxQueries\OvernightMin" />
     <None Remove="InfluxQueries\SolcastFactors" />
-    <None Remove="InfluxQueries\SolcastTomorrow" />
+    <None Remove="InfluxQueries\SolcastToday" />
     <None Remove="InfluxQueries\Sunrise" />
   </ItemGroup>
 
