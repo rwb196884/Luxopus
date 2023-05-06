@@ -57,6 +57,13 @@ namespace Rwb.Luxopus.Jobs
                 string p = GetProductOfTariff(t);
                 DateTime from = (await GetLatestPriceAsync(t)).AddMinutes(15);
                 DateTime to = DateTime.Now.Date.AddDays(1).AddHours(22);
+
+                if( from >= to || from.Date > DateTime.Now.Date)
+                {
+                    // No prices need getting.
+                    return;
+                }
+
                 IEnumerable<Price> prices = await _Octopus.GetElectricityPrices(p, t, from, to);
                 LineDataBuilder lines = new LineDataBuilder();
                 foreach (Price price in prices)

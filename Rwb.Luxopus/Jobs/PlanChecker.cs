@@ -21,39 +21,26 @@ namespace Rwb.Luxopus.Jobs
         private readonly ILuxService _Lux;
         private readonly IInfluxQueryService _InfluxQuery;
         private readonly IEmailService _Email;
+        //private readonly IBatteryService _Batt;
 
-        public PlanChecker(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery, IEmailService email) : base(logger)
+        public PlanChecker(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery, IEmailService email/*, IBatteryService batt*/) 
+            : base(logger)
         {
             _Plans = plans;
             _Lux = lux;
             _InfluxQuery = influxQuery;
             _Email = email;
+            //_Batt = batt;
         }
 
-        protected static int PercentPerHour(int batteryAmpHours, int batteryVoltage, int watts)
-        {
-            int battWattHours = batteryAmpHours * batteryVoltage;
-            decimal hours = Convert.ToDecimal(battWattHours) / Convert.ToDecimal(watts);
-            return Convert.ToInt32(Math.Ceiling(100M / hours));
-        }
-        protected static int PercentPerHour(int watts)
-        {
-            return PercentPerHour(_BatteryCapacityAmpHours, _BatteryVoltage, watts);
-        }
+        //private const int _MedianHousePowerWatts = 240;
 
-        protected static int MaxPercentPerHalfHour { get { return PercentPerHour(_BatteryCapacityAmpHours, _BatteryVoltage, _BatteryMaxPowerWatts) / 2; } }
-
-        private const int _MedianHousePowerWatts = 240;
-        private const int _BatteryCapacityAmpHours = 189;
-        private const int _BatteryVoltage = 55;
-        private const int _BatteryMaxPowerWatts = 3000;
-
-        protected static int PercentRequiredFromUntil(DateTime from, DateTime until)
-        {
-            decimal hours = Convert.ToDecimal(until.Subtract(from).TotalHours);
-            decimal percentPerHour = PercentPerHour(_MedianHousePowerWatts);
-            return Convert.ToInt32(Math.Ceiling(hours * percentPerHour));
-        }
+        //protected int PercentRequiredFromUntil(DateTime from, DateTime until)
+        //{
+        //    decimal hours = Convert.ToDecimal(until.Subtract(from).TotalHours);
+        //    decimal percentPerHour = _Batt.PercentForAnHour(_MedianHousePowerWatts);
+        //    return Convert.ToInt32(Math.Ceiling(hours * percentPerHour));
+        //}
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {

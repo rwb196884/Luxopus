@@ -28,9 +28,9 @@ namespace Rwb.Luxopus.Services
 
     public class BatterySettings : Settings
     {
-        public int BatteryCapacityAmpHours { get; set; } // 189
-        public int BatteryVoltage { get; set; } // 55
-        public int BatteryMaxPowerWatts { get; set; } // 3000
+        public int CapacityAmpHours { get; set; } // 189
+        public int Voltage { get; set; } // 55
+        public int MaxPowerWatts { get; set; } // 3000
     }
 
 
@@ -45,15 +45,15 @@ namespace Rwb.Luxopus.Services
 
         public int PercentForAnHour(int watts)
         {
-            return PercentPerHour(Settings.BatteryCapacityAmpHours, Settings.BatteryVoltage, watts);
+            return PercentPerHour(Settings.CapacityAmpHours, Settings.Voltage, watts);
         }
 
         public int Rate(int changePercent, double hours)
         {
-            int battWattHours = Settings.BatteryCapacityAmpHours * Settings.BatteryVoltage;
+            int battWattHours = Settings.CapacityAmpHours * Settings.Voltage;
             int changeWattHours = battWattHours * changePercent / 100;
             double changeWattHoursPerHour = changeWattHours / hours;
-            return Convert.ToInt32(Math.Round(changeWattHoursPerHour / Settings.BatteryMaxPowerWatts));
+            return Convert.ToInt32(Math.Round(changeWattHoursPerHour / Settings.MaxPowerWatts));
         }
 
         private static int PercentPerHour(int batteryAmpHours, int batteryVoltage, int watts)
