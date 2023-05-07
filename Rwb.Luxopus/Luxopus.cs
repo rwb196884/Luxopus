@@ -36,7 +36,7 @@ namespace Rwb.Luxopus
             _Scheduler = scheduler;
             _Scheduler.Next += _Scheduler_Next;
 
-            int h = DateTime.Now.Hour - DateTime.UtcNow.Hour; // https://github.com/thomasgalliker/NCrontab.Scheduler/issues/21
+            int h = (DateTime.Now.Hour - DateTime.UtcNow.Hour) % 24; // https://github.com/thomasgalliker/NCrontab.Scheduler/issues/21
 
             AddJob(luxMonitor, "*/8 * * * *"); // every 8 minutes.
             AddJob(luxDaily, "51 * * * *"); // at the end of every day. Try every hour because of time zone nuissance.
