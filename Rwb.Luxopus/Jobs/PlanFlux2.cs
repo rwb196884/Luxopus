@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using InfluxDB.Client.Core.Flux.Domain;
+using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
@@ -8,6 +9,26 @@ using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Jobs
 {
+    public class BatteryUsageProfile
+    {
+        private readonly IEnumerable<FluxTable> _Data;
+        public BatteryUsageProfile(IEnumerable<FluxTable> batteryUsageProfileQueryResult)
+        {
+            _Data = batteryUsageProfileQueryResult;
+        }
+        public double GetMean()
+        {
+            return _Data.Single(z => z.Records.Any(y => y.GetValue<string>("result") == "mean")).Records.First().GetValue<double>();
+        }
+
+        public double GetMean(DayOfWeek weekDay)
+        {
+            // Thankfully, WeekDay.Sunday is zero which coincides with InfluxDB.
+            return _Data.Single(z => z.Records.Any(y => y.GetValue<string>("result") == "daily-mean" && y.GetValue<long>("table") == (long)weekDay)).Records.First().GetValue<double>();
+        }
+    }
+
+
     /*
        https://forum.octopus.energy/t/using-the-flux-tariff-with-solar-with-battery-check-my-working/7510/22
 
@@ -38,8 +59,13 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            DateTime t0 = DateTime.UtcNow;
+            DateTime t0 = DateTime.UtcNow.AddDays(-1);
             Plan? current = PlanService.Load(t0);
+
+            List<FluxTable> bupQ = await InfluxQuery.QueryAsync(Query.BatteryUsageProfile, t0);
+            BatteryUsageProfile bup = new BatteryUsageProfile(bupQ);
+            double batteryUseProfileMean = bup.GetMean();
+            double batteryUseProfileDayMean = bup.GetMean(t0.DayOfWeek);
 
             DateTime start = t0.StartOfHalfHour().AddDays(-1);
             DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 21, 0, 0)).AddDays(1);
@@ -68,33 +94,18 @@ namespace Rwb.Luxopus.Jobs
                         (DateTime td, long dischargeAchievedYesterday) = (await InfluxQuery.QueryAsync(Query.DischargeAchievedYesterday, t0)).First().FirstOrDefault<long>();
                         (DateTime tm, long batteryLowBeforeChargingYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryLowBeforeCharging, t0)).First().FirstOrDefault<long>();
 
-                        long dischargeToGrid = dischargeAchievedYesterday;
-                        if (batteryLowBeforeChargingYesterday < BatteryAbsoluteMinimum)
+                        long dischargeToGrid = AdjustLimit(false, dischargeAchievedYesterday, batteryLowBeforeChargingYesterday, BatteryAbsoluteMinimum, DischargeAbsoluteMinimum);
+
+                        // TODO: user flag to keep back more. Use MQTT?
+
+                        // Adjust according to historical use data.
+                        if( dischargeToGrid < BatteryAbsoluteMinimum + batteryUseProfileMean)
                         {
-                            // If the battery got down to BatteryAbsoluteMinimum then we sold too much yesterday.
-                            dischargeToGrid += 1 + (BatteryAbsoluteMinimum - batteryLowBeforeChargingYesterday);
+                            dischargeToGrid = Convert.ToInt64(Math.Round(BatteryAbsoluteMinimum + batteryUseProfileMean));
                         }
-                        else if (batteryLowBeforeChargingYesterday > BatteryAbsoluteMinimum + 1)
+                        else if( dischargeToGrid < BatteryAbsoluteMinimum + batteryUseProfileDayMean)
                         {
-                            // Could sell more,
-                            dischargeToGrid -= (batteryLowBeforeChargingYesterday - BatteryAbsoluteMinimum - 1);
-                        }
-                        // If batteryMinimumYesterday == BatteryAbsoluteMinimum + 1 then we got it right.
-
-                        if (dischargeToGrid < DischargeAbsoluteMinimum)
-                        {
-                            dischargeToGrid = DischargeAbsoluteMinimum;
-                        }
-
-                        // TODO: look at this afternoon's house usage and work out if it's unusually high (e.g., visitors)
-                        // and adjust prediction for evening use.
-
-                        // TODO
-                        long z = AdjustLimit(false, dischargeAchievedYesterday, batteryLowBeforeChargingYesterday, BatteryAbsoluteMinimum, DischargeAbsoluteMinimum);
-
-                        if( z != dischargeToGrid)
-                        {
-                            Logger.LogCritical($"dischargeToGrid old: {dischargeToGrid}, new: {z}.");
+                            dischargeToGrid = Convert.ToInt64(Math.Round(BatteryAbsoluteMinimum + batteryUseProfileDayMean));
                         }
 
                         p.Action = new PeriodAction()

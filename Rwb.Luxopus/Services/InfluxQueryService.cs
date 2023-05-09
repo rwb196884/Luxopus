@@ -141,7 +141,12 @@ namespace Rwb.Luxopus.Services
         /// <summary>
         /// Battery maximum between -3:00 and 05:00 today.
         /// </summary>
-        BatteryGridChargeHigh
+        BatteryGridChargeHigh,
+
+        /// <summary>
+        /// Mean drop in battery & between 7pm and 1am the next day. The today is the day of the peak period (not the overnight low the next day). 
+        /// </summary>
+        BatteryUsageProfile
     }
 
     public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable

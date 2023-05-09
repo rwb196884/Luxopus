@@ -1,6 +1,6 @@
 import "date"
 
-t0 = date.add(d: -1d, to: today())
+t0 = today()
 tOvernightStart = date.add(d: 20h, to: t0)
 tOvernightEnd = date.add(d: 28h, to: t0)
 
