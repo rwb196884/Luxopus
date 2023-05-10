@@ -1,8 +1,8 @@
 import "date"
 
 t0 = today()
-tOvernightStart = date.add(d: 20h, to: t0)
-tOvernightEnd = date.add(d: 28h, to: t0)
+tOvernightStart = date.add(d: 1h, to: t0)
+tOvernightEnd = date.add(d: 3h, to: t0)
 
 from(bucket: "solar")
   |> range(start: tOvernightStart , stop: tOvernightEnd)
