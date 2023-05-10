@@ -59,7 +59,7 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            DateTime t0 = DateTime.UtcNow.AddDays(-1);
+            DateTime t0 = DateTime.UtcNow;
             Plan? current = PlanService.Load(t0);
 
             List<FluxTable> bupQ = await InfluxQuery.QueryAsync(Query.BatteryUsageProfile, t0);
