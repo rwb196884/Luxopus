@@ -99,13 +99,9 @@ namespace Rwb.Luxopus.Jobs
                         // TODO: user flag to keep back more. Use MQTT?
 
                         // Adjust according to historical use data.
-                        if( dischargeToGrid < BatteryAbsoluteMinimum + batteryUseProfileMean)
+                        if (dischargeToGrid < BatteryAbsoluteMinimum + batteryUseProfileMean)
                         {
                             dischargeToGrid = Convert.ToInt64(Math.Round(BatteryAbsoluteMinimum + batteryUseProfileMean));
-                        }
-                        else if( dischargeToGrid < BatteryAbsoluteMinimum + batteryUseProfileDayMean)
-                        {
-                            dischargeToGrid = Convert.ToInt64(Math.Round(BatteryAbsoluteMinimum + batteryUseProfileDayMean));
                         }
 
                         p.Action = new PeriodAction()
@@ -145,19 +141,19 @@ namespace Rwb.Luxopus.Jobs
                         (DateTime _, long batteryCharged) = (await InfluxQuery.QueryAsync(Query.BatteryGridChargeHigh, tt)).First().FirstOrDefault<long>();
 
                         long chargeFromGrid = batteryCharged; // Starting point: do the same as yesterday.
-                        if(batteryMorningLow < 8)
+                        if (batteryMorningLow < 8)
                         {
                             chargeFromGrid += (8 - batteryMorningLow);
                         }
-                        else if( batteryMorningLow > 13)
+                        else if (batteryMorningLow > 13)
                         {
                             chargeFromGrid = 9 + (batteryCharged - batteryMorningLow);
                         }
 
                         // Hack.
-                        if( chargeFromGrid > 20)
+                        if (chargeFromGrid > 20)
                         {
-                            chargeFromGrid = 20; 
+                            chargeFromGrid = 20;
                         }
 
                         long wantedResult = 8; // Plus power needed to satisfy daytime demand if there is not enough solar generation (e.g., ovening in winter).
