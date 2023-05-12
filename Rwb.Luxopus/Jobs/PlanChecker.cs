@@ -245,7 +245,7 @@ namespace Rwb.Luxopus.Jobs
                         double hoursToCharge = (q.Start - t0).TotalHours;
                         int b = _Batt.TransferKiloWattsToPercent(powerRequiredKwh / hoursToCharge);
                         requiredBattChargeRate = _Batt.RoundPercent(b);
-                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to 95% by {q.Start:HH:mm}.";
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {q.Start:HH:mm}.";
                     }
                     else
                     {

@@ -62,7 +62,7 @@ namespace Rwb.Luxopus.Services
 
         public int CapacityKiloWattHoursToPercent(double kiloWattHours)
         {
-            return Convert.ToInt32(Math.Round(kiloWattHours * 1000.0 / CapacityWh));
+            return Convert.ToInt32(Math.Round(kiloWattHours * 1000.0 * 100.0 / CapacityWh));
         }
 
         public double TransferPercentToKiloWatts(int percent)
@@ -72,7 +72,7 @@ namespace Rwb.Luxopus.Services
 
         public int TransferKiloWattsToPercent(double kiloWatts)
         {
-            return Convert.ToInt32(Math.Round(kiloWatts * 1000.0 / Settings.MaxPowerWatts));
+            return Convert.ToInt32(Math.Round(kiloWatts * 1000.0 * 100.0 / Settings.MaxPowerWatts));
         }
 
 
