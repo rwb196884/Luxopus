@@ -134,6 +134,11 @@ namespace Rwb.Luxopus.Services
         Sunrise,
 
         /// <summary>
+        /// Sunrise today.
+        /// </summary>
+        Sunset,
+
+        /// <summary>
         /// Battery minimum today between 05:00 and an hour after sunrise today.
         /// </summary>
         BatteryMorningLow,

@@ -21,16 +21,16 @@ namespace Rwb.Luxopus.Jobs
         private readonly ILuxService _Lux;
         private readonly IInfluxQueryService _InfluxQuery;
         private readonly IEmailService _Email;
-        //private readonly IBatteryService _Batt;
+        private readonly IBatteryService _Batt;
 
-        public PlanChecker(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery, IEmailService email/*, IBatteryService batt*/) 
+        public PlanChecker(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery, IEmailService email, IBatteryService batt) 
             : base(logger)
         {
             _Plans = plans;
             _Lux = lux;
             _InfluxQuery = influxQuery;
             _Email = email;
-            //_Batt = batt;
+            _Batt = batt;
         }
 
         //private const int _MedianHousePowerWatts = 240;
@@ -164,12 +164,25 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
+            int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
+
             if (!inEnabledWanted)
             {
                 if (inEnabled)
                 {
                     await _Lux.SetChargeFromGridLevelAsync(0);
                     actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}).");
+                }
+            }
+            else if(battLevel >= inBatteryLimitPercentWanted)
+            {
+                // Run from the battery if possible.
+                // If inEnabled then the inverter will power the house from the grid instead of from the battery
+                // even if the battery level is greater than the cutoff.
+                if (inEnabled)
+                {
+                    await _Lux.SetChargeFromGridLevelAsync(0);
+                    actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}). The battery level is {battLevel}% and the charge limit is {inBatteryLimitPercentWanted}%.");
                 }
             }
             else
@@ -195,6 +208,8 @@ namespace Rwb.Luxopus.Jobs
 
             // Batt charge.
             int requiredBattChargeRate = 97; // Correct for charge from grid.
+            (DateTime sunrise, long _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, p.Start)).First().FirstOrDefault<long>();
+            (DateTime sunset, long _) = (await _InfluxQuery.QueryAsync(Query.Sunset, p.Start)).First().FirstOrDefault<long>();
             string why = "default";
             if (inEnabledWanted && inStartWanted <= p.Start && inStopWanted > p.Start)
             {
@@ -208,10 +223,13 @@ namespace Rwb.Luxopus.Jobs
                 requiredBattChargeRate = 0;
                 why = "discharge to grid";
             }
+            else if (t0.TimeOfDay <= sunrise.TimeOfDay || t0.TimeOfDay >= sunset.TimeOfDay)
+            {
+                why = "default (it's dark)";
+            }
             else
             {
                 // Default: charging from solar. Throttle it down.
-                int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
                 if (battLevel > 95)
                 {
                     // High.
@@ -220,52 +238,23 @@ namespace Rwb.Luxopus.Jobs
                 }
                 else
                 {
+                    double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(95 - battLevel);
                     HalfHourPlan? q = plan?.Plans.GetNext(p, Plan.DischargeToGridCondition);
-                    int predicted = 0;
-                    //if (q != null)
-                    //{
-                    //    (DateTime _, double g) = (await Generation(t0)); // Generation is in W.
-                    //    predicted = Convert.ToInt32(Math.Ceiling(g * (t0.Hour < 13 ? 1.2 : 0.8)) * (q.Start - t0).TotalHours / 1000.0);
-                    //}
-
-                    if (predicted == 0)
+                    if (q != null)
                     {
-                        // Default case.
-                        if (battLevel > 80)
-                        {
-                            requiredBattChargeRate = 17; // ~500W.
-                            why = $"battery is getting full ({battLevel}%)";
-                        }
-                        else
-                        {
-                            if (t0.Hour < 14)
-                            {
-                                requiredBattChargeRate = 33; // ~1000W.
-                                why = $"it's early but battery is low ({battLevel}%)";
-                            }
-                            else
-                            {
-                                requiredBattChargeRate = 67; // ~2000W.
-                                why = $"it's late and battery is low ({battLevel}%)";
-                            }
-                        }
+                        double hoursToCharge = (q.Start - t0).TotalHours;
+                        int b = _Batt.TransferKiloWattsToPercent(powerRequiredKwh / hoursToCharge);
+                        requiredBattChargeRate = _Batt.RoundPercent(b);
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to 95% by {q.Start:HH:mm}.";
                     }
                     else
                     {
-                        //// !
-                        //int required = _Lux.BattToKwh(95 - battLevel);
-                        //if (predicted < required)
-                        //{
-                        //    requiredBattChargeRate = 75;
-                        //}
-                        //else
-                        //{
-                        //    requiredBattChargeRate = (100 * required) / predicted;
-                        //}
-                        //why = $"predicted: {predicted} kWh but {required} kWh required to get from {battLevel}% to 95%";
+                        requiredBattChargeRate = 50;
+                        why = $"no information (level is {battLevel}%)";
                     }
                 }
             }
+
 
             if (requiredBattChargeRate != battChargeRate)
             {

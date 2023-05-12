@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
-using System.Collections.Generic;
 
 namespace Rwb.Luxopus.Services
 {
@@ -10,21 +9,25 @@ namespace Rwb.Luxopus.Services
     /// </summary>
     public interface IBatteryService
     {
-        /// <summary>
-        /// Get the battery percent change for receiving/supplying power at a rate of <paramref name="watts"/> for one hour.
-        /// </summary>
-        /// <param name="watts"></param>
-        /// <returns></returns>
-        int PercentForAnHour(int watts);
+        double CapacityPercentToKiloWattHours(int percent);
 
-        /// <summary>
-        /// Get the battery charge rate in percent of maximum that is required to produce a change of <paramref name="changePercent"/> percent
-        /// over a duration of <paramref name="hours"/> hours.
-        /// </summary>
-        /// <param name="changePercent"></param>
-        /// <param name="hours"></param>
-        /// <returns></returns>
-        int Rate(int changePercent, double hours);
+        int CapacityKiloWattHoursToPercent(double kiloWattHours);
+        double TransferPercentToKiloWatts(int percent);
+
+        int TransferKiloWattsToPercent(double kiloWatts);
+
+        public int RoundPercent(int percent)
+        {
+            if( percent < 5) {  return 0;       }
+            else if( percent <= 10) { return 10; }
+            else if (percent <= 25) { return 25; }
+            else if (percent <= 33) { return 33; }
+            else if (percent <= 50) { return 50; }
+            else if (percent <= 67) { return 67; }
+            else if (percent <= 75) { return 75; }
+            else if (percent <= 80) { return 80; }
+            return 90;
+        }
     }
 
     public class BatterySettings : Settings
@@ -41,27 +44,58 @@ namespace Rwb.Luxopus.Services
 
         public override bool ValidateSettings()
         {
-            return true;
+            return Settings.CapacityAmpHours > 0 && Settings.Voltage > 0 && Settings.MaxPowerWatts > 0;
         }
 
-        public int PercentForAnHour(int watts)
+        private double CapacityWh
         {
-            return PercentPerHour(Settings.CapacityAmpHours, Settings.Voltage, watts);
+            get
+            {
+                return Convert.ToDouble(Settings.CapacityAmpHours * Settings.Voltage);
+            }
         }
 
-        public int Rate(int changePercent, double hours)
+        public double CapacityPercentToKiloWattHours(int percent)
         {
-            int battWattHours = Settings.CapacityAmpHours * Settings.Voltage;
-            int changeWattHours = battWattHours * changePercent / 100;
-            double changeWattHoursPerHour = changeWattHours / hours;
-            return Convert.ToInt32(Math.Round(changeWattHoursPerHour / Settings.MaxPowerWatts));
+            return CapacityWh * Convert.ToDouble(percent) / (100.0 * 1000.0);
         }
 
-        private static int PercentPerHour(int batteryAmpHours, int batteryVoltage, int watts)
+        public int CapacityKiloWattHoursToPercent(double kiloWattHours)
         {
-            int battWattHours = batteryAmpHours * batteryVoltage;
-            decimal hours = Convert.ToDecimal(battWattHours) / Convert.ToDecimal(watts);
-            return Convert.ToInt32(Math.Ceiling(100M / hours));
+            return Convert.ToInt32(Math.Round(kiloWattHours * 1000.0 / CapacityWh));
         }
+
+        public double TransferPercentToKiloWatts(int percent)
+        {
+            return Convert.ToDouble(Settings.MaxPowerWatts) * Convert.ToDouble(percent) / (100.0 * 1000.0);
+        }
+
+        public int TransferKiloWattsToPercent(double kiloWatts)
+        {
+            return Convert.ToInt32(Math.Round(kiloWatts * 1000.0 / Settings.MaxPowerWatts));
+        }
+
+
+
+
+        //public int PercentForAnHour(int watts)
+        //{
+        //    return PercentPerHour(Settings.CapacityAmpHours, Settings.Voltage, watts);
+        //}
+
+        //public int Rate(int changePercent, double hours)
+        //{
+        //    int battWattHours = Settings.CapacityAmpHours * Settings.Voltage;
+        //    int changeWattHours = battWattHours * changePercent / 100;
+        //    double changeWattHoursPerHour = changeWattHours / hours;
+        //    return Convert.ToInt32(Math.Round(changeWattHoursPerHour / Settings.MaxPowerWatts));
+        //}
+
+        //private static int PercentPerHour(int batteryAmpHours, int batteryVoltage, int watts)
+        //{
+        //    int battWattHours = batteryAmpHours * batteryVoltage;
+        //    decimal hours = Convert.ToDecimal(battWattHours) / Convert.ToDecimal(watts);
+        //    return Convert.ToInt32(Math.Ceiling(100M / hours));
+        //}
     }
 }
