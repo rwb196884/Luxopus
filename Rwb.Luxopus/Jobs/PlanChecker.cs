@@ -55,19 +55,19 @@ namespace Rwb.Luxopus.Jobs
                 // If there is plan then default configuration will be set.
             }
 
-            HalfHourPlan? p = plan?.Current;
+            HalfHourPlan? currentPeriod = plan?.Current;
 
-            if (p == null)
+            if (currentPeriod == null)
             {
                 Logger.LogError($"No current plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
-                p = new HalfHourPlan()
+                currentPeriod = new HalfHourPlan()
                 {
                     Action = new PeriodAction() // Use the default values.
                 };
             }
 
             // Look 8 hours ahead.
-            IEnumerable<HalfHourPlan> plansToCheck = plan?.Plans.Where(z => z.Start >= p.Start && z.Start < p.Start.AddHours(8)) ?? new List<HalfHourPlan>() { p };
+            IEnumerable<HalfHourPlan> plansToCheck = plan?.Plans.Where(z => z.Start >= currentPeriod.Start && z.Start < currentPeriod.Start.AddHours(8)) ?? new List<HalfHourPlan>() { currentPeriod };
 
             StringBuilder actions = new StringBuilder();
 
@@ -101,7 +101,7 @@ namespace Rwb.Luxopus.Jobs
                 // so in the first period in that gap the plan checker will set up for the next run.
 
                 // If we're discharging now and started already then no change is needed.
-                if (Plan.DischargeToGridCondition(p) && outStart <= p.Start && outStartWanted <= p.Start)
+                if (Plan.DischargeToGridCondition(currentPeriod) && outStart <= currentPeriod.Start && outStartWanted <= currentPeriod.Start)
                 {
                     // No need to change it.
                     outStartWanted = outStart;
@@ -157,7 +157,7 @@ namespace Rwb.Luxopus.Jobs
                 inStopWanted = (next?.Start ?? run.Last().Start.AddMinutes(30));
 
                 // If we're charging now and started already then no change is needed.
-                if (Plan.ChargeFromGridCondition(p) && inStart <= p.Start && inStartWanted <= p.Start)
+                if (Plan.ChargeFromGridCondition(currentPeriod) && inStart <= currentPeriod.Start && inStartWanted <= currentPeriod.Start)
                 {
                     // No need to change it.
                     inStartWanted = inStart;
@@ -207,21 +207,30 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Batt charge.
-            int requiredBattChargeRate = 97; // Correct for charge from grid.
-            (DateTime sunrise, long _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, p.Start)).First().FirstOrDefault<long>();
-            (DateTime sunset, long _) = (await _InfluxQuery.QueryAsync(Query.Sunset, p.Start)).First().FirstOrDefault<long>();
-            string why = "default";
-            if (inEnabledWanted && inStartWanted <= p.Start && inStopWanted > p.Start)
+            int requiredBattChargeRate = battChargeRate; // No change.
+            (DateTime sunrise, long _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
+            (DateTime sunset, long _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
+            string why = "no change";
+            if (inEnabledWanted && inStartWanted <= currentPeriod.Start && inStopWanted > currentPeriod.Start)
             {
                 // Charging from grid.
-                requiredBattChargeRate = 97;
-                why = "charge from grid";
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(inBatteryLimitPercentWanted - battLevel);
+                double hoursToCharge = (inStopWanted - (t0 > inStartWanted ? t0 : inStartWanted)).TotalHours;
+                int b = _Batt.TransferKiloWattsToPercent(powerRequiredKwh / hoursToCharge);
+                requiredBattChargeRate = _Batt.RoundPercent(b);
+                why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {q.Start:HH:mm}.";
             }
-            else if (outEnabledWanted && outStartWanted <= p.Start && outStopWanted > p.Start)
+            else if (outEnabledWanted && outStartWanted <= currentPeriod.Start && outStopWanted > currentPeriod.Start)
             {
                 // Discharging to grid.
                 requiredBattChargeRate = 0;
-                why = "discharge to grid";
+
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - outBatteryLimitPercentWanted);
+                double hoursToCharge = (outStopWanted - (t0 > outStartWanted ? t0 : outStartWanted)).TotalHours;
+                int b = _Batt.TransferKiloWattsToPercent(powerRequiredKwh / hoursToCharge);
+                requiredBattChargeRate = _Batt.RoundPercent(b);
+
+                why = $"discharge to grid (rate suggested is {requiredBattChargeRate}%)";
             }
             else if (t0.TimeOfDay <= sunrise.TimeOfDay || t0.TimeOfDay >= sunset.TimeOfDay)
             {
@@ -239,7 +248,7 @@ namespace Rwb.Luxopus.Jobs
                 else
                 {
                     double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(95 - battLevel);
-                    HalfHourPlan? q = plan?.Plans.GetNext(p, Plan.DischargeToGridCondition);
+                    HalfHourPlan? q = plan?.Plans.GetNext(currentPeriod, Plan.DischargeToGridCondition);
                     if (q != null)
                     {
                         double hoursToCharge = (q.Start - t0).TotalHours;
