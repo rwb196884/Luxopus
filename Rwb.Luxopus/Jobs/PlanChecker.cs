@@ -216,9 +216,10 @@ namespace Rwb.Luxopus.Jobs
                 // Charging from grid.
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(inBatteryLimitPercentWanted - battLevel);
                 double hoursToCharge = (inStopWanted - (t0 > inStartWanted ? t0 : inStartWanted)).TotalHours;
-                int b = _Batt.TransferKiloWattsToPercent(powerRequiredKwh / hoursToCharge);
+                double kW = powerRequiredKwh / hoursToCharge;
+                int b = _Batt.TransferKiloWattsToPercent(kW);
                 requiredBattChargeRate = _Batt.RoundPercent(b);
-                why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {q.Start:HH:mm}.";
+                why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {inStopWanted:HH:mm} (mean rate {kW:0.0}kW)";
             }
             else if (outEnabledWanted && outStartWanted <= currentPeriod.Start && outStopWanted > currentPeriod.Start)
             {
@@ -252,9 +253,10 @@ namespace Rwb.Luxopus.Jobs
                     if (q != null)
                     {
                         double hoursToCharge = (q.Start - t0).TotalHours;
-                        int b = _Batt.TransferKiloWattsToPercent(powerRequiredKwh / hoursToCharge);
-                        requiredBattChargeRate = _Batt.RoundPercent(b);
-                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {q.Start:HH:mm}.";
+                        double kW = powerRequiredKwh / hoursToCharge;
+                        int b = _Batt.TransferKiloWattsToPercent(kW);
+                        requiredBattChargeRate = _Batt.RoundPercent(b + 13 /* Add a bit in case it gets cloudy. */); 
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {q.Start:HH:mm} (mean rate {kW:0.0}kW)";
                     }
                     else
                     {
@@ -282,9 +284,9 @@ namespace Rwb.Luxopus.Jobs
             if (actions.Length > 0)
             {
                 actions.AppendLine();
+                actions.AppendLine($"  Battery: {battLevel}%");
                 actions.AppendLine($"   Charge: {inStartWanted:HH:mm} to {inStopWanted:HH:mm} limit {inBatteryLimitPercentWanted} rate {requiredBattChargeRate}");
                 actions.AppendLine($"Discharge: {outStartWanted:HH:mm} to {outStopWanted:HH:mm} limit {outBatteryLimitPercentWanted}");
-
                 if (plan != null)
                 {
                     actions.AppendLine();
