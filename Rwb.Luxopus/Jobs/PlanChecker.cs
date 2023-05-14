@@ -219,7 +219,7 @@ namespace Rwb.Luxopus.Jobs
                 double kW = powerRequiredKwh / hoursToCharge;
                 int b = _Batt.TransferKiloWattsToPercent(kW);
                 requiredBattChargeRate = _Batt.RoundPercent(b);
-                why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {inStopWanted:HH:mm} (mean rate {kW:0.0}kW)";
+                why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {inBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {inStopWanted:HH:mm} (mean rate {kW:0.0}kW)";
             }
             else if (outEnabledWanted && outStartWanted <= currentPeriod.Start && outStopWanted > currentPeriod.Start)
             {
@@ -229,7 +229,7 @@ namespace Rwb.Luxopus.Jobs
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - outBatteryLimitPercentWanted);
                 double hoursToCharge = (outStopWanted - (t0 > outStartWanted ? t0 : outStartWanted)).TotalHours;
                 int b = _Batt.TransferKiloWattsToPercent(powerRequiredKwh / hoursToCharge);
-                requiredBattChargeRate = _Batt.RoundPercent(b);
+                requiredBattChargeRate = _Batt.RoundPercent(b); // Actually discharge in this case.
 
                 why = $"discharge to grid (rate suggested is {requiredBattChargeRate}%)";
             }
@@ -249,19 +249,19 @@ namespace Rwb.Luxopus.Jobs
                 else
                 {
                     double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(95 - battLevel);
-                    HalfHourPlan? q = plan?.Plans.GetNext(currentPeriod, Plan.DischargeToGridCondition);
-                    if (q != null)
+                    HalfHourPlan? nextDischargePeriod = plan?.Plans.GetNext(currentPeriod, Plan.DischargeToGridCondition);
+                    if (nextDischargePeriod != null)
                     {
-                        double hoursToCharge = (q.Start - t0).TotalHours;
+                        double hoursToCharge = (nextDischargePeriod.Start - t0).TotalHours;
                         double kW = powerRequiredKwh / hoursToCharge;
                         int b = _Batt.TransferKiloWattsToPercent(kW);
                         requiredBattChargeRate = _Batt.RoundPercent(b + 13 /* Add a bit in case it gets cloudy. */); 
-                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {q.Start:HH:mm} (mean rate {kW:0.0}kW)";
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {nextDischargePeriod.Start:HH:mm} (mean rate {kW:0.0}kW)";
                     }
                     else
                     {
                         requiredBattChargeRate = 50;
-                        why = $"no information (level is {battLevel}%)";
+                        why = $"no information";
                     }
                 }
             }
@@ -300,6 +300,22 @@ namespace Rwb.Luxopus.Jobs
                 _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
                 Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
             }
+        }
+
+        private async Task<double> PredictAsync(DateTime now, DateTime until)
+        {
+            (DateTime sunrise, long _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, now)).First().FirstOrDefault<long>();
+            (DateTime sunset, long _) = (await _InfluxQuery.QueryAsync(Query.Sunset, now)).First().FirstOrDefault<long>();
+
+            double dayLength = (sunset - sunrise).TotalHours;
+            double generationToNow = 0;
+
+            // Generation profile.
+            // At k% of the way through the day v% of the generation has occurred.
+            Dictionary<int, int> generationProfile = new Dictionary<int, int>();
+
+
+            return await Task.FromResult<double>(0);
         }
     }
 }

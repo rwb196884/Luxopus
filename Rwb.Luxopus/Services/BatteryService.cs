@@ -16,18 +16,7 @@ namespace Rwb.Luxopus.Services
 
         int TransferKiloWattsToPercent(double kiloWatts);
 
-        public int RoundPercent(int percent)
-        {
-            if( percent < 5) {  return 0;       }
-            else if( percent <= 10) { return 10; }
-            else if (percent <= 25) { return 25; }
-            else if (percent <= 33) { return 33; }
-            else if (percent <= 50) { return 50; }
-            else if (percent <= 67) { return 67; }
-            else if (percent <= 75) { return 75; }
-            else if (percent <= 80) { return 80; }
-            return 90;
-        }
+        int RoundPercent(int percent);
     }
 
     public class BatterySettings : Settings
@@ -97,5 +86,18 @@ namespace Rwb.Luxopus.Services
         //    decimal hours = Convert.ToDecimal(battWattHours) / Convert.ToDecimal(watts);
         //    return Convert.ToInt32(Math.Ceiling(100M / hours));
         //}
+
+        public int RoundPercent(int percent)
+        {
+            if (percent < 5) { return 5; }
+            else if (percent <= 10) { return 10; }
+            else if (percent <= 25) { return 25; }
+            else if (percent <= 33) { return 33; }
+            else if (percent <= 50) { return 50; }
+            else if (percent <= 67) { return 67; }
+            else if (percent <= 75) { return 75; }
+            else if (percent <= 80) { return 80; }
+            return 90;
+        }
     }
 }
