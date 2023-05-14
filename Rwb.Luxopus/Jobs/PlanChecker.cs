@@ -218,6 +218,7 @@ namespace Rwb.Luxopus.Jobs
                 double hoursToCharge = (inStopWanted - (t0 > inStartWanted ? t0 : inStartWanted)).TotalHours;
                 double kW = powerRequiredKwh / hoursToCharge;
                 int b = _Batt.TransferKiloWattsToPercent(kW);
+                b = b < 0 ? 10 : b;
                 requiredBattChargeRate = _Batt.RoundPercent(b);
                 why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {inBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {inStopWanted:HH:mm} (mean rate {kW:0.0}kW)";
             }
@@ -229,6 +230,7 @@ namespace Rwb.Luxopus.Jobs
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - outBatteryLimitPercentWanted);
                 double hoursToCharge = (outStopWanted - (t0 > outStartWanted ? t0 : outStartWanted)).TotalHours;
                 int b = _Batt.TransferKiloWattsToPercent(powerRequiredKwh / hoursToCharge);
+                b = b < 0 ? 10 : b;
                 requiredBattChargeRate = _Batt.RoundPercent(b); // Actually discharge in this case.
 
                 why = $"discharge to grid (rate suggested is {requiredBattChargeRate}%)";
