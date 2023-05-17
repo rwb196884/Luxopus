@@ -68,7 +68,6 @@ namespace Rwb.Luxopus.Jobs
 
             List<FluxTable> bupQ = await InfluxQuery.QueryAsync(Query.BatteryUsageProfile, t0);
             BatteryUsageProfile bup = new BatteryUsageProfile(bupQ);
-            double batteryUseProfileMean = bup.GetMean();
             double batteryUseProfileDayMean = bup.GetMean(t0.DayOfWeek);
 
             DateTime start = t0.StartOfHalfHour().AddDays(-1);
@@ -103,9 +102,9 @@ namespace Rwb.Luxopus.Jobs
                         // TODO: user flag to keep back more. Use MQTT?
 
                         // Adjust according to historical use data.
-                        if (dischargeToGrid < BatteryAbsoluteMinimum + batteryUseProfileMean)
+                        if (dischargeToGrid < BatteryAbsoluteMinimum + batteryUseProfileDayMean)
                         {
-                            dischargeToGrid = Convert.ToInt64(Math.Round(BatteryAbsoluteMinimum + batteryUseProfileMean));
+                            dischargeToGrid = Convert.ToInt64(Math.Round(BatteryAbsoluteMinimum + batteryUseProfileDayMean));
                         }
 
                         p.Action = new PeriodAction()
