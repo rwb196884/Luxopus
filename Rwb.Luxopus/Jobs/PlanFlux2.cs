@@ -53,9 +53,13 @@ namespace Rwb.Luxopus.Jobs
         private const int BatteryAbsoluteMinimum = 5;
         private const int DischargeAbsoluteMinimum = 18;
 
-        public PlanFlux2(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email)
+        private IBatteryService _Batt;
+
+        public PlanFlux2(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, IBatteryService batt)
             : base(logger, influxQuery, plan, email)
-        { }
+        {
+            _Batt = batt;
+        }
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
@@ -140,28 +144,18 @@ namespace Rwb.Luxopus.Jobs
                         (DateTime _, long batteryMorningLow) = (await InfluxQuery.QueryAsync(Query.BatteryMorningLow, tt)).First().FirstOrDefault<long>();
                         (DateTime _, long batteryCharged) = (await InfluxQuery.QueryAsync(Query.BatteryGridChargeHigh, tt)).First().FirstOrDefault<long>();
 
-                        long chargeFromGrid = batteryCharged; // Starting point: do the same as yesterday.
-                        if (batteryMorningLow < 8)
-                        {
-                            chargeFromGrid += (8 - batteryMorningLow);
-                        }
-                        else if (batteryMorningLow > 13)
-                        {
-                            chargeFromGrid = 9 + (batteryCharged - batteryMorningLow);
-                        }
+                        // How much do we want?
+                        (DateTime startOfGeneration, long _) = (await InfluxQuery.QueryAsync(Query.StartOfGenerationYesterday, t0)).First().FirstOrDefault<long>();
+                        double hoursUntilGeneration = (startOfGeneration.AddDays(1).TimeOfDay - p.Start.TimeOfDay).TotalHours;
+                        double powerRequired = 0.2 * hoursUntilGeneration; // TODO: estimate demand that cannot be satisfied from generation.
+                        int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
+
+                        long chargeFromGrid = AdjustLimit(true, batteryCharged, batteryMorningLow, battRequired, 20);
 
                         // Hack.
                         if (chargeFromGrid > 20)
                         {
                             chargeFromGrid = 20;
-                        }
-
-                        long wantedResult = 8; // Plus power needed to satisfy daytime demand if there is not enough solar generation (e.g., ovening in winter).
-
-                        long zz = AdjustLimit(true, batteryCharged, batteryMorningLow, wantedResult, 20);
-                        if (zz != chargeFromGrid)
-                        {
-                            Logger.LogCritical($"chargeFromGrid old: {chargeFromGrid}, new: {zz}.");
                         }
 
                         p.Action = new PeriodAction()

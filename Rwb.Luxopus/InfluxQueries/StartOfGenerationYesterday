@@ -1,0 +1,7 @@
+import "date"
+t0 = today()
+from(bucket: "solar")
+  |> range(start: date.add(d: -1d, to: t0), stop: t0)
+  |> filter(fn: (r) => r["_measurement"] == "inverter" and r["_field"] == "generation" and r["_value"] > 300)
+  |> first()
+  |> yield()

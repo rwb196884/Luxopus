@@ -1,6 +1,8 @@
 import "date"
 import "join"
 
+// Battery usage (% points) between 19:00 and 02:00 the next morning.
+
 b = from(bucket: "solar")
   |> range(start: 2023-04-23T00:00:00Z, stop: today())
   |> filter(fn: (r) => r["_measurement"] == "inverter" and r["_field"] == "batt_level")

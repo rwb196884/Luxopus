@@ -151,7 +151,17 @@ namespace Rwb.Luxopus.Services
         /// <summary>
         /// Mean drop in battery & between 7pm and 1am the next day. The today is the day of the peak period (not the overnight low the next day). 
         /// </summary>
-        BatteryUsageProfile
+        BatteryUsageProfile,
+
+        /// <summary>
+        /// Earliest time at which generation exceeded 300W yesterday.
+        /// </summary>
+        StartOfGenerationYesterday,
+
+        /// <summary>
+        /// Latest time at which generation exceeded 300W yesterday.
+        /// </summary>
+        EndOfGenerationYesterday
     }
 
     public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable
@@ -271,11 +281,11 @@ from(bucket: ""{Settings.Bucket}"")
 
             if (typeof(T) == typeof(decimal))
             {
-                if(o.GetType() == typeof(decimal))
+                if (o.GetType() == typeof(decimal))
                 {
                     return (T)o;
                 }
-                else if(o.GetType() == typeof(double))
+                else if (o.GetType() == typeof(double))
                 {
                     return (T)(object)Convert.ToDecimal((double)(o));
                 }
