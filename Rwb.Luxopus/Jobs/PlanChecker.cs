@@ -23,7 +23,7 @@ namespace Rwb.Luxopus.Jobs
         private readonly IEmailService _Email;
         private readonly IBatteryService _Batt;
 
-        public PlanChecker(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery, IEmailService email, IBatteryService batt) 
+        public PlanChecker(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery, IEmailService email, IBatteryService batt)
             : base(logger)
         {
             _Plans = plans;
@@ -174,7 +174,7 @@ namespace Rwb.Luxopus.Jobs
                     actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}).");
                 }
             }
-            else if(battLevel >= inBatteryLimitPercentWanted)
+            else if (battLevel >= inBatteryLimitPercentWanted)
             {
                 // Run from the battery if possible.
                 // If inEnabled then the inverter will power the house from the grid instead of from the battery
@@ -244,44 +244,46 @@ namespace Rwb.Luxopus.Jobs
                 }
                 else
                 {
-                    double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(95 - battLevel);
-                    HalfHourPlan? nextDischargePeriod = plan?.Plans.GetNext(currentPeriod, Plan.DischargeToGridCondition);
-                    HalfHourPlan? nextChargePeriod = plan?.Plans.GetNext(currentPeriod, Plan.ChargeFromGridCondition);
-                    if(nextChargePeriod != null && (nextDischargePeriod == null || nextChargePeriod.Start < nextDischargePeriod.Start))
+                    if (plan?.Next != null && Plan.ChargeFromGridCondition(plan!.Next!))
                     {
-                        // Charge from grid happens next. Threfore keep any generation to prevent needing to charge.
-                        HalfHourPlan? r = plan?.Plans.GetNext(nextChargePeriod);
-                        double kwhNeeded = 0.25 * ((r?.Start ?? DateTime.Now.AddHours(3)) - t0).TotalHours;
-                        int percentToUse = _Batt.CapacityKiloWattHoursToPercent(kwhNeeded);
-                        int percentTarget = (nextChargePeriod?.Action?.ChargeFromGrid ?? 5) + percentToUse;
-                        if( battLevel >= percentTarget)
+                        // Keep what we need so that we don't have to buy.
+                        HalfHourPlan? afterCharge = plan.Plans.GetNext(plan.Next);
+
+                        double kwhForUse = 0.25 * ((afterCharge?.Start ?? DateTime.Now.AddHours(3)) - t0).TotalHours;
+                        int percentForUse = _Batt.CapacityKiloWattHoursToPercent(kwhForUse);
+                        int percentTarget = (plan.Next?.Action?.ChargeFromGrid ?? 5) + percentForUse;
+                        if (battLevel >= percentTarget)
                         {
+                            // Already got enough.
                             requiredBattChargeRate = 0;
-                            why = $"{kwhNeeded}kWh needed ({percentToUse}%) and charge target is {nextDischargePeriod.Action.ChargeFromGrid}%";
+                            why = $"{kwhForUse}kWh needed ({percentForUse}%) and charge target is {plan!.Next!.Action!.ChargeFromGrid}% but batter level is {battLevel}% > {percentTarget}%";
                         }
                         else
                         {
-                            powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(percentTarget - battLevel);
-                            DateTime until = r?.Start ?? DateTime.Now.AddHours(3);
-                            if( until > sunset) { until = sunset; }
+                            double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(percentTarget - battLevel);
+                            DateTime until = plan!.Next!.Start;
+                            if (until > sunset) { until = sunset; }
                             double hoursToCharge = (until - t0).TotalHours;
                             double kW = powerRequiredKwh / hoursToCharge;
                             int b = _Batt.TransferKiloWattsToPercent(kW);
                             requiredBattChargeRate = _Batt.RoundPercent(b);
-                            why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {percentTarget}% ({nextDischargePeriod.Action.ChargeFromGrid}% charge target plus {percentToUse}% for consumption) in {hoursToCharge:0.0} hours until {until:HH:mm} (mean rate {kW:0.0}kW)";
+                            why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {percentTarget}% ({plan!.Next!.Action!.ChargeFromGrid}% charge target plus {kwhForUse}kWh {percentForUse}% for consumption) in {hoursToCharge:0.0} hours until {until:HH:mm} (mean rate {kW:0.0}kW)";
                         }
                     }
-                    else if (nextDischargePeriod != null)
+                    else if (plan?.Next != null && Plan.DischargeToGridCondition(plan!.Next!))
                     {
-                        double hoursToCharge = (nextDischargePeriod.Start - t0).TotalHours;
+                        // Get fully charged before the discharge period.
+                        double hoursToCharge = (plan.Next.Start - t0).TotalHours;
+                        double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(95 - battLevel);
                         double kW = powerRequiredKwh / hoursToCharge;
                         int b = _Batt.TransferKiloWattsToPercent(kW);
                         int slap = hoursToCharge > 3 ? -8 : (hoursToCharge < 3 ? 8 : 0);
-                        requiredBattChargeRate = _Batt.RoundPercent(b + slap); 
-                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {nextDischargePeriod.Start:HH:mm} (mean rate {kW:0.0}kW)";
+                        requiredBattChargeRate = _Batt.RoundPercent(b + slap);
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW)";
                     }
                     else
                     {
+                        // ?
                         requiredBattChargeRate = 50;
                         why = $"no information";
                     }
