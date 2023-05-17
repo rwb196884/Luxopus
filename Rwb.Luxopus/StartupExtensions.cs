@@ -31,6 +31,7 @@ namespace Rwb.Luxopus
                     services.AddScheduler(configureOptions =>
                     {
                         configureOptions.DateTimeKind = DateTimeKind.Local;
+                        // https://github.com/thomasgalliker/NCrontab.Scheduler/issues/21
                     });
 
                     // Serivces.

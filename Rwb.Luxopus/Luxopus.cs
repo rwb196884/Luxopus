@@ -36,13 +36,10 @@ namespace Rwb.Luxopus
             _Scheduler = scheduler;
             _Scheduler.Next += _Scheduler_Next;
 
-            int h = (DateTime.Now.Hour - DateTime.UtcNow.Hour) % 24; // https://github.com/thomasgalliker/NCrontab.Scheduler/issues/21
-            if(h < 0) { h += 24; } // % doesn't work properly.
-
             AddJob(luxMonitor, "*/8 * * * *"); // every 8 minutes.
             AddJob(luxDaily, "51 * * * *"); // at the end of every day. Try every hour because of time zone nuissance.
             AddJob(octopusMeters, "53 16 * * *"); // will get yesterday's meters.
-            AddJob(octopusPrices, $"5,34 {16 - h},{17 - h} * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
+            AddJob(octopusPrices, $"5,34 16,17 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
             AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
             AddJob(sunPosition, "8 * * * *"); // Every 8 minutes.
             AddJob(sunrise, "0 10 * * *"); // Every day.
