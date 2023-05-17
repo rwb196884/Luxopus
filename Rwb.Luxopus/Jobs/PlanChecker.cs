@@ -226,17 +226,11 @@ namespace Rwb.Luxopus.Jobs
             {
                 // Discharging to grid.
                 requiredBattChargeRate = 0;
-
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - outBatteryLimitPercentWanted);
-                double hoursToCharge = (outStopWanted - (t0 > outStartWanted ? t0 : outStartWanted)).TotalHours;
-                int b = _Batt.TransferKiloWattsToPercent(powerRequiredKwh / hoursToCharge);
-                b = b < 0 ? 10 : b;
-                requiredBattChargeRate = _Batt.RoundPercent(b); // Actually discharge in this case.
-
-                why = $"discharge to grid (rate suggested is {requiredBattChargeRate}%)";
+                why = $"discharge to grid";
             }
             else if (t0.TimeOfDay <= sunrise.TimeOfDay || t0.TimeOfDay >= sunset.TimeOfDay)
             {
+                requiredBattChargeRate = 50;
                 why = "default (it's dark)";
             }
             else
@@ -251,14 +245,40 @@ namespace Rwb.Luxopus.Jobs
                 else
                 {
                     double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(95 - battLevel);
-                    HalfHourPlan? nextDischargePeriod = plan?.Plans.GetNext(currentPeriod, Plan.DischargeToGridCondition);
-                    if (nextDischargePeriod != null)
+                    HalfHourPlan? q = plan?.Plans.GetNext(currentPeriod, Plan.DischargeToGridCondition);
+                    HalfHourPlan? qq = plan?.Plans.GetNext(currentPeriod, Plan.ChargeFromGridCondition);
+                    if(qq != null && ( q == null || qq.Start < q.Start))
+                    {
+                        // Charge from grid happens next. Threfore keep any generation to prevent needing to charge.
+                        HalfHourPlan? r = plan?.Plans.GetNext(qq);
+                        double kwhNeeded = 0.25 * ((r?.Start ?? DateTime.Now.AddHours(3)) - t0).TotalHours;
+                        int percentToUse = _Batt.CapacityKiloWattHoursToPercent(kwhNeeded);
+                        int percentTarget = (q?.Action?.ChargeFromGrid ?? 5) + percentToUse;
+                        if( battLevel >= percentTarget)
+                        {
+                            requiredBattChargeRate = 0;
+                            why = $"{kwhNeeded}kWh needed ({percentToUse}%) and charge target is {q.Action.ChargeFromGrid}%";
+                        }
+                        else
+                        {
+                            powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(percentTarget - battLevel);
+                            DateTime until = r?.Start ?? DateTime.Now.AddHours(3);
+                            if( until > sunset) { until = sunset; }
+                            double hoursToCharge = (until - t0).TotalHours;
+                            double kW = powerRequiredKwh / hoursToCharge;
+                            int b = _Batt.TransferKiloWattsToPercent(kW);
+                            requiredBattChargeRate = _Batt.RoundPercent(b);
+                            why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {percentTarget}% ({q.Action.ChargeFromGrid}% charge target plus {percentToUse}% for consumption) in {hoursToCharge:0.0} hours until {until:HH:mm} (mean rate {kW:0.0}kW)";
+                        }
+                    }
+                    else if (q != null)
                     {
                         double hoursToCharge = (nextDischargePeriod.Start - t0).TotalHours;
                         double kW = powerRequiredKwh / hoursToCharge;
                         int b = _Batt.TransferKiloWattsToPercent(kW);
-                        requiredBattChargeRate = _Batt.RoundPercent(b + 13 /* Add a bit in case it gets cloudy. */); 
-                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {nextDischargePeriod.Start:HH:mm} (mean rate {kW:0.0}kW)";
+                        int slap = hoursToCharge > 3 ? -8 : (hoursToCharge < 3 ? 8 : 0);
+                        requiredBattChargeRate = _Batt.RoundPercent(b + slap); 
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to 95% in {hoursToCharge:0.0} hours until {q.Start:HH:mm} (mean rate {kW:0.0}kW)";
                     }
                     else
                     {
@@ -267,7 +287,6 @@ namespace Rwb.Luxopus.Jobs
                     }
                 }
             }
-
 
             if (requiredBattChargeRate != battChargeRate)
             {

@@ -28,7 +28,10 @@ namespace Rwb.Luxopus
             return builder.ConfigureServices((context, services) =>
                 {
                     // NCrontab is a singleton.
-                    services.AddScheduler();
+                    services.AddScheduler(configureOptions =>
+                    {
+                        configureOptions.DateTimeKind = DateTimeKind.Local;
+                    });
 
                     // Serivces.
                     services.Register<ILuxopusPlanService, LuxopusPlanService, LuxopusPlanSettings>(context);
