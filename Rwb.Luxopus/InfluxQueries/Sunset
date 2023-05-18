@@ -1,7 +1,7 @@
 import "date"
 
 from(bucket: "solar")
-  |> range(start: 2023-05-12T00:00:00Z, stop: date.add(d: 1d, to: 2023-05-12T00:00:00Z))
+  |> range(start: today(), stop: date.add(d: 1d, to: today()))
   |> filter(fn: (r) => r["_measurement"] == "sun" and r["_field"] == "risen" and r["_value"] == 0)
   |> first()
   |> yield()

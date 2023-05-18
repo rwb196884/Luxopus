@@ -46,7 +46,7 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            //DateTime t0 = new DateTime(2023, 03, 31, 18, 00, 00);
+            //DateTime t0 = new DateTime(2023, 05, 18, 19, 01, 00);
             DateTime t0 = DateTime.UtcNow;
             IEnumerable<Plan> ps = _Plans.LoadAll(t0);
 
@@ -242,7 +242,7 @@ namespace Rwb.Luxopus.Jobs
                 b = b < 0 ? 10 : b;
                 battDischargeToGridRateWanted = _Batt.RoundPercent(b);
                 requiredBattChargeRate = 0;
-                why = $"Discharge to grid: {powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {outBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {outStopWanted:HH:mm} (mean rate {kW:0.0}kW -> {battDischargeToGridRateWanted}%).";
+                why = $"Discharge to grid: {powerRequiredKwh:0.0}kWh needed to grid to get from {battLevel}% to {outBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {outStopWanted:HH:mm} (mean rate {kW:0.0}kW -> {battDischargeToGridRateWanted}%).";
             }
             else if (t0.TimeOfDay <= sunrise.TimeOfDay || t0.TimeOfDay >= sunset.TimeOfDay)
             {
@@ -283,7 +283,7 @@ namespace Rwb.Luxopus.Jobs
                             double kW = powerRequiredKwh / hoursToCharge;
                             int b = _Batt.TransferKiloWattsToPercent(kW);
                             requiredBattChargeRate = _Batt.RoundPercent(b);
-                            why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {percentTarget}% ({plan!.Next!.Action!.ChargeFromGrid}% charge target plus {kwhForUse}kWh {percentForUse}% for consumption) in {hoursToCharge:0.0} hours until {until:HH:mm} (mean rate {kW:0.0}kW).";
+                            why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {percentTarget}% ({plan!.Next!.Action!.ChargeFromGrid}% charge target plus {kwhForUse:0.0}kWh {percentForUse}% for consumption) in {hoursToCharge:0.0} hours until {until:HH:mm} (mean rate {kW:0.0}kW).";
                         }
                     }
                     else if (plan?.Next != null && Plan.DischargeToGridCondition(plan!.Next!))
