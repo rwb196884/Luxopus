@@ -242,7 +242,7 @@ namespace Rwb.Luxopus.Jobs
                 b = b < 0 ? 10 : b;
                 battDischargeToGridRateWanted = _Batt.RoundPercent(b);
                 requiredBattChargeRate = 0;
-                why = $"Discharge to grid: {powerRequiredKwh:0.0}kWh needed from grid to get from {inBatteryLimitPercentWanted}% to {battLevel}% in {hoursToCharge:0.0} hours until {outStopWanted:HH:mm} (mean rate {kW:0.0}kW -> {battDischargeToGridRateWanted}%).";
+                why = $"Discharge to grid: {powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {outBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {outStopWanted:HH:mm} (mean rate {kW:0.0}kW -> {battDischargeToGridRateWanted}%).";
             }
             else if (t0.TimeOfDay <= sunrise.TimeOfDay || t0.TimeOfDay >= sunset.TimeOfDay)
             {
