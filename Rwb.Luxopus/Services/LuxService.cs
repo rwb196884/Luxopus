@@ -35,8 +35,9 @@ namespace Rwb.Luxopus.Services
         (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetChargeFromGrid(Dictionary<string, string> settings);
         (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDischargeToGrid(Dictionary<string, string> settings);
         int GetBatteryChargeRate(Dictionary<string, string> settings);
-        //int GetBatteryDischargeRate(Dictionary<string, string> settings);
-        //int GetBatteryGridDischargeRate(Dictionary<string, string> settings);
+        int GetBatteryChargeFromGridRate(Dictionary<string, string> settings);
+        int GetBatteryDischargeRate(Dictionary<string, string> settings);
+        int GetBatteryDischargeToGridRate(Dictionary<string, string> settings);
 
         Task SetChargeFromGridStartAsync(DateTime start);
         Task SetChargeFromGridStopAsync(DateTime stop);
@@ -47,8 +48,9 @@ namespace Rwb.Luxopus.Services
         Task SetDischargeToGridLevelAsync(int batteryLimitPercent);
 
         Task SetBatteryChargeRateAsync(int batteryChargeRatePercent);
-        //Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent);
-        //Task SetBatteryGridDischargeRateAsync(int batteryDischargeRatePercent);
+        Task SetBatteryChargeFromGridRateAsync(int batteryChargeFromGridRatePercent);
+        Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent);
+        Task SetBatteryDischargeToGridRateAsync(int batteryChargeFromGridRatePercent);
 
         int KwhToBatt(int kWh);
         int BattToKwh(int batt);
@@ -313,15 +315,18 @@ namespace Rwb.Luxopus.Services
         {
             return int.Parse(settings["HOLD_CHARGE_POWER_PERCENT_CMD"]);
         }
-
-        public int GetBatteryGridDischargeRate(Dictionary<string, string> settings)
+        public int GetBatteryChargeFromGridRate(Dictionary<string, string> settings)
         {
-            //return int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"]);
-            return int.Parse(settings["HOLD_FORCED_DISCHG_POWER_CMD"]);
+            return int.Parse(settings["HOLD_AC_CHARGE_POWER_CMD"]);
         }
+
         public int GetBatteryDischargeRate(Dictionary<string, string> settings)
         {
             return int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"]);
+        }
+        public int GetBatteryDischargeToGridRate(Dictionary<string, string> settings)
+        {
+            return int.Parse(settings["HOLD_FORCED_DISCHG_POWER_CMD"]);
         }
 
         public async Task<int> GetBatteryLevelAsync()
@@ -379,14 +384,19 @@ namespace Rwb.Luxopus.Services
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_CHARGE_POWER_PERCENT_CMD", rate.ToString()));
         }
 
+        public async Task SetBatteryChargeFromGridRateAsync(int batteryChargeFromGridRatePercent)
+        {
+            int rate = batteryChargeFromGridRatePercent < 0 || batteryChargeFromGridRatePercent > 100 ? 90 : batteryChargeFromGridRatePercent;
+            await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_POWER_CMD", rate.ToString()));
+        }
         public async Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent)
         {
             int rate = batteryDischargeRatePercent < 0 || batteryDischargeRatePercent > 100 ? 90 : batteryDischargeRatePercent;
-            await PostAsync(UrlToWrite, GetHoldParams("HOLD_DISCHG_POWER_PERCENT_CMD", rate.ToString()));
+            await PostAsync(UrlToWrite, GetHoldParams("HOLD_DISCHG_POWER_PERCENT_CMD", rate.ToString())); // !
         }
-        public async Task SetBatteryGridDischargeRateAsync(int batteryDischargeRatePercent)
+        public async Task SetBatteryDischargeToGridRateAsync(int batteryChargeFromGridRatePercent)
         {
-            int rate = batteryDischargeRatePercent < 0 || batteryDischargeRatePercent > 100 ? 90 : batteryDischargeRatePercent;
+            int rate = batteryChargeFromGridRatePercent < 0 || batteryChargeFromGridRatePercent > 100 ? 90 : batteryChargeFromGridRatePercent;
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_POWER_CMD", rate.ToString())); // !
         }
 
