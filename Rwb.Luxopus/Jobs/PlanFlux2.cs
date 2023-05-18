@@ -4,6 +4,8 @@ using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,21 +13,34 @@ namespace Rwb.Luxopus.Jobs
 {
     public class BatteryUsageProfile
     {
-        private readonly IEnumerable<FluxTable> _Data;
-        public BatteryUsageProfile(IEnumerable<FluxTable> batteryUsageProfileQueryResult)
+        private readonly Dictionary<DayOfWeek, Dictionary<int, double>> _DailyHourly;
+
+        public BatteryUsageProfile(IEnumerable<FluxTable> hourly)
         {
-            _Data = batteryUsageProfileQueryResult;
-        }
-        public double GetMean()
-        {
-            return _Data.Single(z => z.Records.Any(y => y.GetValue<string>("result") == "mean")).Records.First().GetValue<double>();
+            _DailyHourly = hourly.Single().Records.GroupBy(z => z.GetValue<long>("d"))
+            .ToDictionary(
+                z => (DayOfWeek)Convert.ToInt32(z.Key), 
+                z => z.ToDictionary(
+                    y => Convert.ToInt32(y.GetValue<long>("h")), 
+                    y => y.GetValue<double>("_value")
+                )
+            );
         }
 
-        public double GetMean(DayOfWeek weekDay)
+        public double GetKwkh(DayOfWeek day, int hourFrom, int hourTo)
         {
-            // Thankfully, WeekDay.Sunday is zero which coincides with InfluxDB.
-            return _Data.Single(z => z.Records.Any(y => y.GetValue<string>("result") == "daily-mean" && y.GetValue<long>("table") == (long)weekDay)).Records.First().GetValue<double>();
+            if (hourFrom < hourTo)
+            {
+                return _DailyHourly
+                    .Single(z => z.Key == day).Value
+                    .Where(z => z.Key >= hourFrom && z.Key < hourTo).Select(z => z.Value).Sum() / 1000.0;
+            }
+            return _DailyHourly
+                .Single(z => z.Key == day).Value
+                .Where(z => z.Key >= hourFrom || z.Key < hourTo).Select(z => z.Value).Sum() / 1000.0;
         }
+
+        // TODO: disaggregate by day of week.
     }
 
 
@@ -63,12 +78,12 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            DateTime t0 = DateTime.UtcNow;
+            DateTime t0 = DateTime.UtcNow.AddHours(-3);
             Plan? current = PlanService.Load(t0);
+            StringBuilder notes = new StringBuilder();
 
-            List<FluxTable> bupQ = await InfluxQuery.QueryAsync(Query.BatteryUsageProfile, t0);
-            BatteryUsageProfile bup = new BatteryUsageProfile(bupQ);
-            double batteryUseProfileDayMean = bup.GetMean(t0.DayOfWeek);
+            List<FluxTable> bupH = await InfluxQuery.QueryAsync(Query.HourlyBatteryUse, t0);
+            BatteryUsageProfile bup = new BatteryUsageProfile(bupH);
 
             DateTime start = t0.StartOfHalfHour().AddDays(-1);
             DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 21, 0, 0)).AddDays(1);
@@ -98,13 +113,46 @@ namespace Rwb.Luxopus.Jobs
                         (DateTime tm, long batteryLowBeforeChargingYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryLowBeforeCharging, t0)).First().FirstOrDefault<long>();
 
                         long dischargeToGrid = AdjustLimit(false, dischargeAchievedYesterday, batteryLowBeforeChargingYesterday, BatteryAbsoluteMinimum, DischargeAbsoluteMinimum);
+                        notes.AppendLine($"       dischargeAchievedYesterday: {dischargeAchievedYesterday}");
+                        notes.AppendLine($"batteryLowBeforeChargingYesterday: {batteryLowBeforeChargingYesterday}");
+                        notes.AppendLine($"           BatteryAbsoluteMinimum: {BatteryAbsoluteMinimum}");
+                        notes.AppendLine($"         DischargeAbsoluteMinimum: {DischargeAbsoluteMinimum}");
+                        notes.AppendLine($"                      AdjustLimit: {dischargeToGrid}");
 
                         // TODO: user flag to keep back more. Use MQTT?
 
-                        // Adjust according to historical use data.
-                        if (dischargeToGrid < BatteryAbsoluteMinimum + batteryUseProfileDayMean)
+                        // How much do we need?
+                        // Batt absolute min plus use until ~~morning generation~~ the low.
+                        HalfHourPlan? dischargeEnd = plan.Plans.GetNext(p);
+                        HalfHourPlan? low = plan.Plans.GetNext(p, z => GetFluxCase(plan, z) == FluxCase.Low);
+                        if (dischargeEnd != null && low != null)
                         {
-                            dischargeToGrid = Convert.ToInt64(Math.Round(BatteryAbsoluteMinimum + batteryUseProfileDayMean));
+                            double hours = (low.Start - dischargeEnd.Start).TotalHours;
+                            double kWh = bup.GetKwkh(t0.DayOfWeek, dischargeEnd.Start.Hour, low.Start.Hour);
+                            int percentForUse = _Batt.CapacityKiloWattHoursToPercent(kWh);
+                            dischargeToGrid = BatteryAbsoluteMinimum + percentForUse;
+
+                            notes.AppendLine($"          hours: {hours:0.0}");
+                            notes.AppendLine($"            kWh: {kWh:0.0}");
+                            notes.AppendLine($"  percentForUse: {percentForUse}");
+                            notes.AppendLine($"dischargeToGrid: {dischargeToGrid}");
+                        }
+                        else
+                        {
+                            notes.AppendLine($"overnight low not found");
+                        }
+
+                        // Adjust according to historical use data.
+                        if (dischargeToGrid < BatteryAbsoluteMinimum + _Batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(t0.DayOfWeek, 19, 2)))
+                        {
+                            dischargeToGrid = Convert.ToInt64(Math.Round(BatteryAbsoluteMinimum + bup.GetKwkh(t0.DayOfWeek, 19, 2)));
+                            notes.AppendLine($"   BatteryAbsoluteMinimum: {BatteryAbsoluteMinimum}");
+                            notes.AppendLine($"              bup.GetKwkh: {bup.GetKwkh(t0.DayOfWeek, 19, 2):0.0}");
+                            notes.AppendLine($"          dischargeToGrid: {dischargeToGrid}");
+                        }
+                        else
+                        {
+                            notes.AppendLine($"bup.GetKwkh: {bup.GetKwkh(t0.DayOfWeek, 19, 2):0.0} (not used)");
                         }
 
                         p.Action = new PeriodAction()
@@ -145,11 +193,19 @@ namespace Rwb.Luxopus.Jobs
 
                         // How much do we want?
                         (DateTime startOfGeneration, long _) = (await InfluxQuery.QueryAsync(Query.StartOfGenerationYesterday, t0)).First().FirstOrDefault<long>();
-                        double hoursUntilGeneration = (startOfGeneration.AddDays(1).TimeOfDay - p.Start.TimeOfDay).TotalHours;
-                        double powerRequired = 0.2 * hoursUntilGeneration; // TODO: estimate demand that cannot be satisfied from generation.
+                        double powerRequired = bup.GetKwkh(t0.DayOfWeek, p.Start.Hour, startOfGeneration.Hour);
                         int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
 
                         long chargeFromGrid = AdjustLimit(true, batteryCharged, batteryMorningLow, battRequired, 20);
+                        notes.AppendLine($"Low: AdjustLimit    batteryCharged {batteryCharged}");
+                        notes.AppendLine($"Low: AdjustLimit batteryMorningLow {batteryMorningLow}");
+                        notes.AppendLine($"Low: AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
+                        notes.AppendLine($"Low: AdjustLimit     powerRequired {powerRequired} = bup.GetKwkh(t0.DayOfWeek, {p.Start.Hour}, {startOfGeneration.Hour})");
+                        notes.AppendLine($"Low: AdjustLimit      battRequired {battRequired}");
+                        notes.AppendLine($"Low: AdjustLimit    chargeFromGrid {chargeFromGrid}");
+
+                        //chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
+                        notes.AppendLine($"Low: chargeFromGrid {chargeFromGrid} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired}");
 
                         // Hack.
                         if (chargeFromGrid > 20)
@@ -169,7 +225,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             PlanService.Save(plan);
-            SendEmail(plan);
+            SendEmail(plan, notes.ToString());
         }
 
         private DateTime GenerationStartTomorrow(DateTime today)

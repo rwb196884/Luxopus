@@ -57,7 +57,7 @@ namespace Rwb.Luxopus.Jobs
             _Email = email;
         }
 
-        protected void SendEmail(Plan plan)
+        protected void SendEmail(Plan plan, string notes)
         {
             StringBuilder message = new StringBuilder();
             foreach (HalfHourPlan p in plan.Plans.OrderBy(z => z.Start))
@@ -65,8 +65,8 @@ namespace Rwb.Luxopus.Jobs
                 message.AppendLine(p.ToString());
             }
 
-            _Email.SendEmail($"Solar strategy ({this.GetType().Name}) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString());
-            Logger.LogInformation($"Planner '{this.GetType().Name}' creted new plan: " + Environment.NewLine + message.ToString());
+            _Email.SendEmail($"Solar strategy ({this.GetType().Name}) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString() + Environment.NewLine + Environment.NewLine + notes);
+            Logger.LogInformation($"Planner '{this.GetType().Name}' creted new plan: " + Environment.NewLine + message.ToString() + Environment.NewLine + notes);
         }
 
         /// <summary>

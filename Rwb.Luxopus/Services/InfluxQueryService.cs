@@ -148,10 +148,7 @@ namespace Rwb.Luxopus.Services
         /// </summary>
         BatteryGridChargeHigh,
 
-        /// <summary>
-        /// Mean drop in battery & between 7pm and 1am the next day. The today is the day of the peak period (not the overnight low the next day). 
-        /// </summary>
-        BatteryUsageProfile,
+        HourlyBatteryUse,
 
         /// <summary>
         /// Earliest time at which generation exceeded 300W yesterday.
@@ -179,6 +176,7 @@ namespace Rwb.Luxopus.Services
 
         private async Task<string> ReadFluxAsync(string name)
         {
+            Logger.LogInformation($"Executing influx query {name}");
             string resourceName = $"Rwb.Luxopus.InfluxQueries.{name}";
 
             using (Stream stream = Assembly.GetAssembly(GetType()).GetManifestResourceStream(resourceName))

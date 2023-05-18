@@ -168,7 +168,7 @@ Therefore the plan should be:
             // Buy at 20p with 90% efficiency each way leaves 0.81 units at 21p = 17p.
 
             PlanService.Save(plan);
-            SendEmail(plan);
+            SendEmail(plan, "");
 
             // 7PM: sell but keep enough to get to 2AM. Export generation.
             // 2AM: fill the battery.
