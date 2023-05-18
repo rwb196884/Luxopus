@@ -197,15 +197,15 @@ namespace Rwb.Luxopus.Jobs
                         int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
 
                         long chargeFromGrid = AdjustLimit(true, batteryCharged, batteryMorningLow, battRequired, 20);
-                        notes.AppendLine($"Low: AdjustLimit    batteryCharged {batteryCharged}");
-                        notes.AppendLine($"Low: AdjustLimit batteryMorningLow {batteryMorningLow}");
+                        notes.AppendLine($"Low: AdjustLimit    batteryCharged {batteryCharged}%");
+                        notes.AppendLine($"Low: AdjustLimit batteryMorningLow {batteryMorningLow}%");
                         notes.AppendLine($"Low: AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
-                        notes.AppendLine($"Low: AdjustLimit     powerRequired {powerRequired} = bup.GetKwkh(t0.DayOfWeek, {p.Start.Hour}, {startOfGeneration.Hour})");
-                        notes.AppendLine($"Low: AdjustLimit      battRequired {battRequired}");
-                        notes.AppendLine($"Low: AdjustLimit    chargeFromGrid {chargeFromGrid}");
+                        notes.AppendLine($"Low: AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {p.Start.Hour}, {startOfGeneration.Hour})");
+                        notes.AppendLine($"Low: AdjustLimit      battRequired {battRequired}%");
+                        notes.AppendLine($"Low: AdjustLimit    chargeFromGrid {chargeFromGrid}%");
 
                         //chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
-                        notes.AppendLine($"Low: chargeFromGrid {chargeFromGrid} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired}");
+                        notes.AppendLine($"Low: chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired}");
 
                         // Hack.
                         if (chargeFromGrid > 20)
