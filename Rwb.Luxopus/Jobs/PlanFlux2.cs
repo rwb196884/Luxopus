@@ -178,31 +178,31 @@ namespace Rwb.Luxopus.Jobs
                         };
                         break;
                     case FluxCase.Low:
-                        // Power needed to get to start of solar generation.
-                        (DateTime sunrise, long _) = (await InfluxQuery.QueryAsync(Query.Sunrise, p.Start)).First().FirstOrDefault<long>();
-                        HalfHourPlan? next = plan.Plans.GetNext(p);
-                        double hoursWhileSunrise = (sunrise - (next?.Start ?? p.Start.Date.AddHours(5 /* FLUX low usually ends at 5AM UTC */))).TotalHours;
-                        double nighttimeConsumption = 0.2; // TODO: query.
-                        double kWhNeeded = hoursWhileSunrise * nighttimeConsumption;
-                        // TODO: How long after sunrise does generation start? Depending on UVI/solcast?
-
                         // Hack: If adjust according to yesterday's battery morning low.
                         DateTime tt = t0.Hour < 10 ? t0.AddDays(-1) : t0;
                         (DateTime _, long batteryMorningLow) = (await InfluxQuery.QueryAsync(Query.BatteryMorningLow, tt)).First().FirstOrDefault<long>();
                         (DateTime _, long batteryCharged) = (await InfluxQuery.QueryAsync(Query.BatteryGridChargeHigh, tt)).First().FirstOrDefault<long>();
 
-                        // How much do we want?
-                        (DateTime startOfGeneration, long _) = (await InfluxQuery.QueryAsync(Query.StartOfGenerationYesterday, t0)).First().FirstOrDefault<long>();
-                        double powerRequired = bup.GetKwkh(t0.DayOfWeek, p.Start.Hour, startOfGeneration.Hour);
-                        int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
-
-                        long chargeFromGrid = AdjustLimit(true, batteryCharged, batteryMorningLow, battRequired, 20);
+                        // Compare to yesterday.
+                        long chargeFromGrid = AdjustLimit(true, batteryCharged, batteryMorningLow, BatteryAbsoluteMinimum + 1, 20);
                         notes.AppendLine($"Low: AdjustLimit    batteryCharged {batteryCharged}%");
                         notes.AppendLine($"Low: AdjustLimit batteryMorningLow {batteryMorningLow}%");
-                        notes.AppendLine($"Low: AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
-                        notes.AppendLine($"Low: AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {p.Start.Hour}, {startOfGeneration.Hour})");
-                        notes.AppendLine($"Low: AdjustLimit      battRequired {battRequired}%");
                         notes.AppendLine($"Low: AdjustLimit    chargeFromGrid {chargeFromGrid}%");
+                        notes.AppendLine();
+
+                        // Work it out properly?
+                        // How much do we want?
+                        HalfHourPlan? next = plan.Plans.GetNext(p);
+                        (DateTime startOfGeneration, long _) = (await InfluxQuery.QueryAsync(Query.StartOfGenerationYesterday, t0)).First().FirstOrDefault<long>();
+                        double powerRequired = 0.3;
+                        if ((next?.Start.Hour ?? p.Start.Hour + 3) < startOfGeneration.Hour)
+                        {
+                            bup.GetKwkh(t0.DayOfWeek, (next?.Start.Hour ?? p.Start.Hour + 3), startOfGeneration.Hour);
+                        }
+                        int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
+                        notes.AppendLine($"Low: AdjustLimit      battRequired {battRequired}%");
+                        notes.AppendLine($"Low: AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
+                        notes.AppendLine($"Low: AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour})");
 
                         //chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
                         notes.AppendLine($"Low: chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired}");
