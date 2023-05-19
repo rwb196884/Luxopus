@@ -113,11 +113,11 @@ namespace Rwb.Luxopus.Jobs
                         (DateTime tm, long batteryLowBeforeChargingYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryLowBeforeCharging, t0)).First().FirstOrDefault<long>();
 
                         long dischargeToGrid = AdjustLimit(false, dischargeAchievedYesterday, batteryLowBeforeChargingYesterday, BatteryAbsoluteMinimum, DischargeAbsoluteMinimum);
-                        notes.AppendLine($"       dischargeAchievedYesterday: {dischargeAchievedYesterday}");
-                        notes.AppendLine($"batteryLowBeforeChargingYesterday: {batteryLowBeforeChargingYesterday}");
-                        notes.AppendLine($"           BatteryAbsoluteMinimum: {BatteryAbsoluteMinimum}");
-                        notes.AppendLine($"         DischargeAbsoluteMinimum: {DischargeAbsoluteMinimum}");
-                        notes.AppendLine($"                      AdjustLimit: {dischargeToGrid}");
+                        notes.AppendLine($"Peak:        dischargeAchievedYesterday: {dischargeAchievedYesterday}");
+                        notes.AppendLine($"Peak: batteryLowBeforeChargingYesterday: {batteryLowBeforeChargingYesterday}");
+                        notes.AppendLine($"Peak:            BatteryAbsoluteMinimum: {BatteryAbsoluteMinimum}");
+                        notes.AppendLine($"Peak:          DischargeAbsoluteMinimum: {DischargeAbsoluteMinimum}");
+                        notes.AppendLine($"Peak:                       AdjustLimit: {dischargeToGrid} (not used)");
 
                         // TODO: user flag to keep back more. Use MQTT?
 
@@ -132,27 +132,14 @@ namespace Rwb.Luxopus.Jobs
                             int percentForUse = _Batt.CapacityKiloWattHoursToPercent(kWh);
                             dischargeToGrid = BatteryAbsoluteMinimum + percentForUse;
 
-                            notes.AppendLine($"          hours: {hours:0.0}");
-                            notes.AppendLine($"            kWh: {kWh:0.0}");
-                            notes.AppendLine($"  percentForUse: {percentForUse}");
-                            notes.AppendLine($"dischargeToGrid: {dischargeToGrid}");
+                            notes.AppendLine($"Peak:           hours: {hours:0.0}");
+                            notes.AppendLine($"Peak:             kWh: {kWh:0.0}");
+                            notes.AppendLine($"Peak:   percentForUse: {percentForUse}");
+                            notes.AppendLine($"Peak: dischargeToGrid: {dischargeToGrid}");
                         }
                         else
                         {
-                            notes.AppendLine($"overnight low not found");
-                        }
-
-                        // Adjust according to historical use data.
-                        if (dischargeToGrid < BatteryAbsoluteMinimum + _Batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(t0.DayOfWeek, 19, 2)))
-                        {
-                            dischargeToGrid = Convert.ToInt64(Math.Round(BatteryAbsoluteMinimum + bup.GetKwkh(t0.DayOfWeek, 19, 2)));
-                            notes.AppendLine($"   BatteryAbsoluteMinimum: {BatteryAbsoluteMinimum}");
-                            notes.AppendLine($"              bup.GetKwkh: {bup.GetKwkh(t0.DayOfWeek, 19, 2):0.0}");
-                            notes.AppendLine($"          dischargeToGrid: {dischargeToGrid}");
-                        }
-                        else
-                        {
-                            notes.AppendLine($"bup.GetKwkh: {bup.GetKwkh(t0.DayOfWeek, 19, 2):0.0} (not used)");
+                            notes.AppendLine($"Peak: overnight low not found");
                         }
 
                         p.Action = new PeriodAction()
