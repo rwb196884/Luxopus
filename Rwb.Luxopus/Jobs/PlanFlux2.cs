@@ -184,12 +184,12 @@ namespace Rwb.Luxopus.Jobs
                         double powerRequired = 0.3;
                         if ((next?.Start.Hour ?? p.Start.Hour + 3) < startOfGeneration.Hour)
                         {
-                            bup.GetKwkh(t0.DayOfWeek, (next?.Start.Hour ?? p.Start.Hour + 3), startOfGeneration.Hour);
+                            bup.GetKwkh(t0.DayOfWeek, (next?.Start.Hour ?? p.Start.Hour + 3), startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0));
                         }
                         int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
                         notes.AppendLine($"Low: AdjustLimit      battRequired {battRequired}%");
                         notes.AppendLine($"Low: AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
-                        notes.AppendLine($"Low: AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour})");
+                        notes.AppendLine($"Low: AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0)})");
 
                         //chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
                         notes.AppendLine($"Low: chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (not used)");
