@@ -132,14 +132,14 @@ namespace Rwb.Luxopus.Jobs
                             int percentForUse = _Batt.CapacityKiloWattHoursToPercent(kWh);
                             dischargeToGrid = BatteryAbsoluteMinimum + percentForUse;
 
-                            notes.AppendLine($"Peak:           hours: {hours:0.0}");
-                            notes.AppendLine($"Peak:             kWh: {kWh:0.0}");
+                            notes.AppendLine($"Peak:    hours to low: {hours:0.0}");
+                            notes.AppendLine($"Peak:     kWh for use: {kWh:0.0} = bup.GetKwkh({t0.DayOfWeek}, {dischargeEnd.Start.Hour}, {low.Start.Hour})");
                             notes.AppendLine($"Peak:   percentForUse: {percentForUse}");
-                            notes.AppendLine($"Peak: dischargeToGrid: {dischargeToGrid}");
+                            notes.AppendLine($"Peak: dischargeToGrid: {dischargeToGrid} (used)");
                         }
                         else
                         {
-                            notes.AppendLine($"Peak: overnight low not found");
+                            notes.AppendLine($"Peak: overnight low not found; AdjustLimit value is used.");
                         }
 
                         p.Action = new PeriodAction()
@@ -174,7 +174,7 @@ namespace Rwb.Luxopus.Jobs
                         long chargeFromGrid = AdjustLimit(true, batteryCharged, batteryMorningLow, BatteryAbsoluteMinimum + 1, 20);
                         notes.AppendLine($"Low: AdjustLimit    batteryCharged {batteryCharged}%");
                         notes.AppendLine($"Low: AdjustLimit batteryMorningLow {batteryMorningLow}%");
-                        notes.AppendLine($"Low: AdjustLimit    chargeFromGrid {chargeFromGrid}%");
+                        notes.AppendLine($"Low: AdjustLimit    chargeFromGrid {chargeFromGrid}% (used)");
                         notes.AppendLine();
 
                         // Work it out properly?
@@ -192,7 +192,7 @@ namespace Rwb.Luxopus.Jobs
                         notes.AppendLine($"Low: AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour})");
 
                         //chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
-                        notes.AppendLine($"Low: chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired}");
+                        notes.AppendLine($"Low: chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (not used)");
 
                         // Hack.
                         if (chargeFromGrid > 20)
