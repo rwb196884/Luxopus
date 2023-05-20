@@ -354,8 +354,11 @@ namespace Rwb.Luxopus.Services
         public async Task SetChargeFromGridLevelAsync(int batteryLimitPercent)
         {
             bool enable = batteryLimitPercent > 0 && batteryLimitPercent <= 100;
-            await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_AC_CHARGE", enable));
-            await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_SOC_LIMIT", batteryLimitPercent.ToString()));
+            await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_AC_CHARGE", enable)); // SetChargeFromGridEnabledAsync
+            if (enable)
+            {
+                await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_SOC_LIMIT", batteryLimitPercent.ToString()));
+            }
         }
 
         public async Task SetDischargeToGridStartAsync(DateTime start)
@@ -373,7 +376,7 @@ namespace Rwb.Luxopus.Services
         public async Task SetDischargeToGridLevelAsync(int batteryLimitPercent)
         {
             bool enable = batteryLimitPercent > 0 && batteryLimitPercent < 100;
-            await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_FORCED_DISCHG_EN", enable));
+            await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_FORCED_DISCHG_EN", enable)); // SetDischargeToGridEnabledAsync
             if (enable)
             {
                 await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_SOC_LIMIT", batteryLimitPercent.ToString()));

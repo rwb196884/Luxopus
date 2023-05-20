@@ -229,7 +229,7 @@ namespace Rwb.Luxopus.Jobs
                 int b = _Batt.TransferKiloWattsToPercent(kW);
                 b = b < 0 ? 10 : b;
                 battChargeFromGridRateWanted = _Batt.RoundPercent(b);
-                requiredBattChargeRate = battChargeFromGridRateWanted;
+                requiredBattChargeRate = battChargeFromGridRateWanted > requiredBattChargeRate ? battChargeFromGridRateWanted : requiredBattChargeRate;
                 why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {inBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {inStopWanted:HH:mm} (mean rate {kW:0.0}kW {battChargeFromGridRateWanted}%).";
             }
             else if (outEnabledWanted && outStartWanted <= currentPeriod.Start && outStopWanted > currentPeriod.Start)

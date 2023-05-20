@@ -17,6 +17,8 @@ namespace Rwb.Luxopus.Services
         int TransferKiloWattsToPercent(double kiloWatts);
 
         int RoundPercent(int percent);
+
+        (double powerKwh, double hours, double rateKw, int ratePercent) CalculateTransfer(int percentFrom, int percentTo, DateTime timeFrom, DateTime timeTo);
     }
 
     public class BatterySettings : Settings
@@ -86,6 +88,18 @@ namespace Rwb.Luxopus.Services
         //    decimal hours = Convert.ToDecimal(battWattHours) / Convert.ToDecimal(watts);
         //    return Convert.ToInt32(Math.Ceiling(100M / hours));
         //}
+
+        public (double powerKwh, double hours, double rateKw, int ratePercent) CalculateTransfer(int percentFrom, int percentTo, DateTime timeFrom, DateTime timeTo)
+        {
+            double powerRequiredKwh = CapacityPercentToKiloWattHours(percentTo - percentFrom);
+            powerRequiredKwh = (powerRequiredKwh < 0 ? -1 : 1) * powerRequiredKwh;
+            double hoursToCharge = (timeTo - timeFrom).TotalHours;
+            hoursToCharge = (hoursToCharge < 0 ? -1 : 0) * hoursToCharge;
+            double kW = powerRequiredKwh / hoursToCharge;
+            int b = TransferKiloWattsToPercent(kW);
+            b = b < 0 ? 10 : b;
+            return (powerRequiredKwh, hoursToCharge, kW, RoundPercent(b));
+        }
 
         public int RoundPercent(int percent)
         {
