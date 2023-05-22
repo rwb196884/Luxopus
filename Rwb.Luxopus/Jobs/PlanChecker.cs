@@ -80,7 +80,7 @@ namespace Rwb.Luxopus.Jobs
             // If not then what can we do about it?
 
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
-            while(settings.Any(z => z.Value == "DATAFRAME_TIMEOUT"))
+            while (settings.Any(z => z.Value == "DATAFRAME_TIMEOUT"))
             {
                 settings = await _Lux.GetSettingsAsync();
             }
@@ -220,9 +220,8 @@ namespace Rwb.Luxopus.Jobs
             (DateTime sunrise, long _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
             (DateTime sunset, long _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
             string why = "no change";
-            if (inEnabledWanted && inStartWanted <= currentPeriod.Start && inStopWanted > currentPeriod.Start)
+            if (inEnabledWanted && inStartWanted <= currentPeriod.Start && inStopWanted > currentPeriod.Start && battLevel < inBatteryLimitPercentWanted)
             {
-                // Charging from grid.
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(inBatteryLimitPercentWanted - battLevel);
                 double hoursToCharge = (inStopWanted - (t0 > inStartWanted ? t0 : inStartWanted)).TotalHours;
                 double kW = powerRequiredKwh / hoursToCharge;
@@ -232,7 +231,7 @@ namespace Rwb.Luxopus.Jobs
                 requiredBattChargeRate = battChargeFromGridRateWanted > requiredBattChargeRate ? battChargeFromGridRateWanted : requiredBattChargeRate;
                 why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {inBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {inStopWanted:HH:mm} (mean rate {kW:0.0}kW {battChargeFromGridRateWanted}%).";
             }
-            else if (outEnabledWanted && outStartWanted <= currentPeriod.Start && outStopWanted > currentPeriod.Start)
+            else if (outEnabledWanted && outStartWanted <= currentPeriod.Start && outStopWanted > currentPeriod.Start && battLevel > outBatteryLimitPercentWanted)
             {
                 // Discharging to grid.
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - outBatteryLimitPercentWanted);
@@ -328,7 +327,7 @@ namespace Rwb.Luxopus.Jobs
                 battRateChange = true;
             }
 
-            if(battRateChange)
+            if (battRateChange)
             {
                 actions.AppendLine(why);
             }
