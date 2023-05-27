@@ -11,18 +11,16 @@ getTime = (tables=<-, field = "") => {
 
 // PARAMETERS
 t0 = today()
-tMorningStart = date.add(d: 5h, to: t0)
 
 // QUERIES
-hourAfterSunrise = from(bucket: "solar")
-  |> range(start: today(), stop: date.add(d: 1d, to: today()))
+sunrise = from(bucket: "solar")
+  |> range(start: t0, stop: date.add(d: 6h, to: t0))
   |> filter(fn: (r) => r["_measurement"] == "sun" and r["_field"] == "risen" and r["_value"] == 1)
   |> first()
-  |> timeShift(duration: 1h)
   |> getTime()
 
 from(bucket: "solar")
-  |> range(start: tMorningStart , stop: hourAfterSunrise)
+  |> range(start: date.add(d: -2h, to: sunrise), stop: date.add(d: 1h, to: sunrise))
   |> filter(fn: (r) => r["_measurement"] == "inverter" and r["_field"] == "batt_level")
   |> min()
   |> yield()

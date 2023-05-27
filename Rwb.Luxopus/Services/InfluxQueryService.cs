@@ -35,7 +35,15 @@ namespace Rwb.Luxopus.Services
 
         public async Task<List<FluxTable>> QueryAsync(string flux)
         {
-            return await Client.GetQueryApi().QueryAsync(flux, Settings.Org);
+            try
+            {
+                return await Client.GetQueryApi().QueryAsync(flux, Settings.Org);
+            }
+            catch
+            {
+                Logger.LogCritical("Error with flux query " + flux);
+                throw;
+            }
         }
 
         public string Bucket { get { return Settings.Bucket; } }
