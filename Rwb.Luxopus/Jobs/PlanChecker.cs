@@ -46,11 +46,11 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            //DateTime t0 = new DateTime(2023, 05, 18, 19, 01, 00);
+            //DateTime t0 = new DateTime(2023, 05, 27, 03, 01, 00);
             DateTime t0 = DateTime.UtcNow;
             IEnumerable<Plan> ps = _Plans.LoadAll(t0);
 
-            Plan? plan = _Plans.Load(DateTime.UtcNow);
+            Plan? plan = _Plans.Load(t0);
             if (plan == null)
             {
                 Logger.LogError($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
@@ -179,8 +179,13 @@ namespace Rwb.Luxopus.Jobs
             {
                 if (inEnabled)
                 {
+                    actions.AppendLine("*1t");
                     await _Lux.SetChargeFromGridLevelAsync(0);
                     actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}).");
+                }
+                else
+                {
+                    actions.AppendLine("*1f");
                 }
             }
             else if (battLevel >= inBatteryLimitPercentWanted)
@@ -190,12 +195,18 @@ namespace Rwb.Luxopus.Jobs
                 // even if the battery level is greater than the cutoff.
                 if (inEnabled)
                 {
+                    actions.AppendLine("*2t");
                     await _Lux.SetChargeFromGridLevelAsync(0);
                     actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}). The battery level is {battLevel}% and the charge limit is {inBatteryLimitPercentWanted}%.");
+                }
+                else
+                {
+                    actions.AppendLine("*2f");
                 }
             }
             else
             {
+                actions.AppendLine("*3");
                 if (inStart.TimeOfDay != inStartWanted.TimeOfDay)
                 {
                     await _Lux.SetChargeFromGridStartAsync(inStartWanted);
