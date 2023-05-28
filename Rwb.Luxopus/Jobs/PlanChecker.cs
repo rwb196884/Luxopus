@@ -179,13 +179,8 @@ namespace Rwb.Luxopus.Jobs
             {
                 if (inEnabled)
                 {
-                    actions.AppendLine("*1t");
                     await _Lux.SetChargeFromGridLevelAsync(0);
                     actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}).");
-                }
-                else
-                {
-                    actions.AppendLine("*1f");
                 }
             }
             else if (battLevel >= inBatteryLimitPercentWanted)
@@ -195,18 +190,12 @@ namespace Rwb.Luxopus.Jobs
                 // even if the battery level is greater than the cutoff.
                 if (inEnabled)
                 {
-                    actions.AppendLine("*2t");
                     await _Lux.SetChargeFromGridLevelAsync(0);
                     actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}). The battery level is {battLevel}% and the charge limit is {inBatteryLimitPercentWanted}%.");
-                }
-                else
-                {
-                    actions.AppendLine("*2f");
                 }
             }
             else
             {
-                actions.AppendLine("*3");
                 if (inStart.TimeOfDay != inStartWanted.TimeOfDay)
                 {
                     await _Lux.SetChargeFromGridStartAsync(inStartWanted);
