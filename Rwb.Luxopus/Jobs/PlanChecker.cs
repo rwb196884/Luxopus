@@ -315,7 +315,7 @@ namespace Rwb.Luxopus.Jobs
 
             if (battChargeFromGridRateWanted != battChargeFromGridRate)
             {
-                await _Lux.SetBatteryChargeFromGridRateAsync(requiredBattChargeRate);
+                await _Lux.SetBatteryChargeFromGridRateAsync(battChargeFromGridRateWanted);
                 actions.AppendLine($"SetBatteryChargeFromGridRate({battChargeFromGridRateWanted}) was {battChargeFromGridRate}.");
                 battRateChange = true;
             }
