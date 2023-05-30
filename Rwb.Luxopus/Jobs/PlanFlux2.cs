@@ -109,8 +109,18 @@ namespace Rwb.Luxopus.Jobs
                          * 33/34 => 97% so: keep.
                          * Therefore we need to work out how much to keep to get to the nighttime low.
                          */
-                        (DateTime td, long dischargeAchievedYesterday) = (await InfluxQuery.QueryAsync(Query.DischargeAchievedYesterday, t0)).First().FirstOrDefault<long>();
-                        (DateTime tm, long batteryLowBeforeChargingYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryLowBeforeCharging, t0)).First().FirstOrDefault<long>();
+                        long dischargeAchievedYesterday = 20;
+                        long batteryLowBeforeChargingYesterday = BatteryAbsoluteMinimum;
+
+                        try
+                        {
+                            (_, dischargeAchievedYesterday) = (await InfluxQuery.QueryAsync(Query.DischargeAchievedYesterday, t0)).First().FirstOrDefault<long>();
+                            (_, batteryLowBeforeChargingYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryLowBeforeCharging, t0)).First().FirstOrDefault<long>();
+                        }
+                        catch( Exception e)
+                        {
+                            Logger.LogError(e, "Could not get battery discharge information for yesteray for making flux peak plan.");
+                        }
 
                         long dischargeToGrid = AdjustLimit(false, dischargeAchievedYesterday, batteryLowBeforeChargingYesterday, BatteryAbsoluteMinimum, DischargeAbsoluteMinimum);
                         notes.AppendLine($"Peak:        dischargeAchievedYesterday: {dischargeAchievedYesterday}");
@@ -167,8 +177,18 @@ namespace Rwb.Luxopus.Jobs
                     case FluxCase.Low:
                         // Hack: If adjust according to yesterday's battery morning low.
                         DateTime tt = t0.Hour < 10 ? t0.AddDays(-1) : t0;
-                        (DateTime _, long batteryMorningLow) = (await InfluxQuery.QueryAsync(Query.BatteryMorningLow, tt)).First().FirstOrDefault<long>();
-                        (DateTime _, long batteryCharged) = (await InfluxQuery.QueryAsync(Query.BatteryGridChargeHigh, tt)).First().FirstOrDefault<long>();
+                        long batteryMorningLow = BatteryAbsoluteMinimum;
+                        long batteryCharged = 20;
+
+                        try
+                        {
+                            (_, batteryMorningLow) = (await InfluxQuery.QueryAsync(Query.BatteryMorningLow, tt)).First().FirstOrDefault<long>();
+                            (_, batteryCharged) = (await InfluxQuery.QueryAsync(Query.BatteryGridChargeHigh, tt)).First().FirstOrDefault<long>();
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.LogError(e, "Could not get battery morning information for yesteray for making flux low plan.");
+                        }
 
                         // Compare to yesterday.
                         long chargeFromGrid = AdjustLimit(true, batteryCharged, batteryMorningLow, BatteryAbsoluteMinimum + 1, 20);
@@ -180,7 +200,17 @@ namespace Rwb.Luxopus.Jobs
                         // Work it out properly?
                         // How much do we want?
                         HalfHourPlan? next = plan.Plans.GetNext(p);
-                        (DateTime startOfGeneration, long _) = (await InfluxQuery.QueryAsync(Query.StartOfGenerationYesterday, t0)).First().FirstOrDefault<long>();
+
+                        DateTime startOfGeneration = DateTime.UtcNow.Date.AddHours(10).AddDays(-1);
+                        try
+                        {
+                            (startOfGeneration, _) = (await InfluxQuery.QueryAsync(Query.StartOfGenerationYesterday, t0)).First().FirstOrDefault<long>();
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.LogError(e, "Could not get start of generation yesterday for making flux low plan.");
+                        }
+
                         double powerRequired = 0.3;
                         if ((next?.Start.Hour ?? p.Start.Hour + 3) < startOfGeneration.Hour)
                         {
