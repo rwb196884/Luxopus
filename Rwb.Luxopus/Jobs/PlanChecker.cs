@@ -288,12 +288,26 @@ namespace Rwb.Luxopus.Jobs
                     else if (plan?.Next != null && Plan.DischargeToGridCondition(plan!.Next!))
                     {
                         // Get fully charged before the discharge period.
+
+                        // Plan A
                         double hoursToCharge = (plan.Next.Start - t0).TotalHours;
                         double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
-                        double kW = powerRequiredKwh / hoursToCharge;
+
+                        // Are we behind schedule?
+                        double extraPowerNeeded = 0.0;
+                        double powerAtPreviousRate = hoursToCharge * _Batt.TransferPercentToKiloWatts(battChargeRate);
+                        if(powerAtPreviousRate < powerRequiredKwh)
+                        {
+                            // We didn't get as much as we thought, so now we need to make up for it.
+                            extraPowerNeeded = 2 * (powerRequiredKwh - powerAtPreviousRate);
+                            // Two: one for the past period, and one for this period just in case.
+                        }
+
+                        double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                         int b = _Batt.TransferKiloWattsToPercent(kW);
-                        int slap = hoursToCharge > 3 ? -5 : (hoursToCharge < 3 ? 8 : 0);
-                        requiredBattChargeRate = _Batt.RoundPercent(b + slap);
+
+                        // Set the rate.
+                        requiredBattChargeRate = _Batt.RoundPercent(b);
                         why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
                     }
                     else
