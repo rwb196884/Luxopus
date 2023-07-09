@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Security;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -96,6 +97,16 @@ namespace Rwb.Luxopus.Services
         {
             _CookieContainer = new CookieContainer();
             _Handler = new HttpClientHandler() { CookieContainer = _CookieContainer };
+            _Handler.ServerCertificateCustomValidationCallback = (message, cert, chain, sslPolicyErrors) =>
+            {
+                if (sslPolicyErrors == SslPolicyErrors.None)
+                {
+                    return true;   //Is valid
+                }
+
+                Logger.LogError($"Ignoring invlaid SSL certificate for {cert.Subject}");
+                return true;
+            };
             _Client = new HttpClient(_Handler) { BaseAddress = new Uri(Settings.BaseAddress) };
             _InverterRuntimeCache = null;
         }
