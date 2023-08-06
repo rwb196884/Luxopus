@@ -1,0 +1,5 @@
+from(bucket: "zigbee")
+  |> range(start: -1mo, stop: now) 
+  |> filter(fn: (r) => r["_measurement"] == "occupancy" and r["_value"] == true) 
+  |> group(columns: ["_field"]) 
+  |> last()

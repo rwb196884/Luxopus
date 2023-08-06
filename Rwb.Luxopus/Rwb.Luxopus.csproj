@@ -28,6 +28,7 @@
     <None Remove="InfluxQueries\EndOfGenerationYesterday" />
     <None Remove="InfluxQueries\EveningSellMAx" />
     <None Remove="InfluxQueries\HourlyBatteryUse" />
+    <None Remove="InfluxQueries\LastOccupied" />
     <None Remove="InfluxQueries\MorningSellMax" />
     <None Remove="InfluxQueries\OvernightMin" />
     <None Remove="InfluxQueries\SolcastFactors" />

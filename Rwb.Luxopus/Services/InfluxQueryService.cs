@@ -166,7 +166,13 @@ namespace Rwb.Luxopus.Services
         /// <summary>
         /// Latest time at which generation exceeded 300W yesterday.
         /// </summary>
-        EndOfGenerationYesterday
+        EndOfGenerationYesterday,
+
+        /// <summary>
+        /// The latest time that any PIR sensor detected occupancy.
+        /// </summary>
+        LastOccupied
+
     }
 
     public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable
@@ -308,6 +314,7 @@ from(bucket: ""{Settings.Bucket}"")
             ));
         }
 
+        // What is default? It is (default(DateTime), default(T)).
         public static (DateTime, T) FirstOrDefault<T>(this FluxTable table)
         {
             if (table.Records.Count == 0)
