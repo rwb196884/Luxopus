@@ -2,7 +2,24 @@
 
 d=$(realpath "$0")
 wd=$(dirname "$d")
-echo "Luxopus is trying to run at: $wd"
+
+s=$(screen -ls | grep luxopus | wc -l)
+if [ ! $s -eq 0 ]; then
+	tc=$(grep TaskCanceled "${wd}/log/luxopus.log" | wc -l)
+	if [ $tc -gt 0 ]; then
+		echo "TaskCanceled errors: stopping..."
+		screen -S luxopus -p 0 -X stuff "^M"
+		while [ ! $s -eq 0 ]; do
+			sleep 3
+			s=$(screen -ls | grep luxopus | wc -l)
+		done
+		echo "  ...stopped."
+	else
+		exit
+	fi
+fi
+
+echo "Luxopus is starting at: $wd"
 
 if [ ! -d "${wd}/log" ]; then
 	echo "Creating log directory at ${wd}/log"
