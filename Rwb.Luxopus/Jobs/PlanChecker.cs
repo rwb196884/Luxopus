@@ -223,7 +223,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Batt charge.
-            int requiredBattChargeRate = battChargeRate; // No change.
+            int battChargeRateWanted = battChargeRate; // No change.
             (DateTime sunrise, long _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
             (DateTime sunset, long _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
             string why = "no change";
@@ -235,7 +235,7 @@ namespace Rwb.Luxopus.Jobs
                 int b = _Batt.TransferKiloWattsToPercent(kW);
                 b = b < 0 ? 10 : b;
                 battChargeFromGridRateWanted = _Batt.RoundPercent(b);
-                requiredBattChargeRate = battChargeFromGridRateWanted > requiredBattChargeRate ? battChargeFromGridRateWanted : requiredBattChargeRate;
+                battChargeRateWanted = battChargeFromGridRateWanted > battChargeRateWanted ? battChargeFromGridRateWanted : battChargeRateWanted;
                 why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {inBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {inStopWanted:HH:mm} (mean rate {kW:0.0}kW {battChargeFromGridRateWanted}%).";
             }
             else if (outEnabledWanted && outStartWanted <= currentPeriod.Start && outStopWanted > currentPeriod.Start && battLevel > outBatteryLimitPercentWanted)
@@ -247,12 +247,12 @@ namespace Rwb.Luxopus.Jobs
                 int b = _Batt.TransferKiloWattsToPercent(kW);
                 b = b < 0 ? 10 : b;
                 battDischargeToGridRateWanted = _Batt.RoundPercent(b);
-                requiredBattChargeRate = 0;
+                battChargeRateWanted = 0;
                 why = $"Discharge to grid: {powerRequiredKwh:0.0}kWh needed to grid to get from {battLevel}% to {outBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {outStopWanted:HH:mm} (mean rate {kW:0.0}kW -> {battDischargeToGridRateWanted}%).";
             }
             else if (t0.TimeOfDay <= sunrise.TimeOfDay || t0.TimeOfDay >= sunset.TimeOfDay)
             {
-                requiredBattChargeRate = 50;
+                battChargeRateWanted = 50;
                 why = "Default (it's dark).";
             }
             else
@@ -260,8 +260,13 @@ namespace Rwb.Luxopus.Jobs
                 // Default: charging from solar. Throttle it down.
                 if (battLevel >= _BatteryUpperLimit - 2 /* It will still get about 60W. */)
                 {
-                    // High.
-                    requiredBattChargeRate = 0;
+                    // Battery is full.
+                    // Set charge rate high and enable discharge to grid to absorb generation peaks then discharge them.
+                    battChargeRateWanted = 90;
+                    battDischargeToGridRateWanted = 71;
+                    outBatteryLimitPercentWanted = 95;
+                    outStartWanted = plan.Current.Start; // Needs to be constant in order not to spam changes.
+                    outStopWanted = plan.Next.Start;
                     why = $"Battery is full ({battLevel}%).";
                 }
                 else
@@ -277,7 +282,7 @@ namespace Rwb.Luxopus.Jobs
                         if (battLevel >= percentTarget)
                         {
                             // Already got enough.
-                            requiredBattChargeRate = 0;
+                            battChargeRateWanted = 0;
                             why = $"{kwhForUse}kWh needed ({percentForUse}%) and charge target is {plan!.Next!.Action!.ChargeFromGrid}% but batter level is {battLevel}% > {percentTarget}%.";
                         }
                         else
@@ -288,7 +293,7 @@ namespace Rwb.Luxopus.Jobs
                             double hoursToCharge = (until - t0).TotalHours;
                             double kW = powerRequiredKwh / hoursToCharge;
                             int b = _Batt.TransferKiloWattsToPercent(kW);
-                            requiredBattChargeRate = _Batt.RoundPercent(b);
+                            battChargeRateWanted = _Batt.RoundPercent(b);
                             why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {percentTarget}% ({plan!.Next!.Action!.ChargeFromGrid}% charge target plus {kwhForUse:0.0}kWh {percentForUse}% for consumption) in {hoursToCharge:0.0} hours until {until:HH:mm} (mean rate {kW:0.0}kW).";
                         }
                     }
@@ -314,23 +319,23 @@ namespace Rwb.Luxopus.Jobs
                         int b = _Batt.TransferKiloWattsToPercent(kW);
 
                         // Set the rate.
-                        requiredBattChargeRate = _Batt.RoundPercent(b);
+                        battChargeRateWanted = _Batt.RoundPercent(b);
                         why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
                     }
                     else
                     {
                         // ?
-                        requiredBattChargeRate = 50;
+                        battChargeRateWanted = 50;
                         why = $"No information.";
                     }
                 }
             }
 
             bool battRateChange = false;
-            if (requiredBattChargeRate != battChargeRate)
+            if (battChargeRateWanted != battChargeRate)
             {
-                await _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
-                actions.AppendLine($"SetBatteryChargeRate({requiredBattChargeRate}) was {battChargeRate}.");
+                await _Lux.SetBatteryChargeRateAsync(battChargeRateWanted);
+                actions.AppendLine($"SetBatteryChargeRate({battChargeRateWanted}) was {battChargeRate}.");
                 battRateChange = true;
             }
 

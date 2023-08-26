@@ -28,7 +28,8 @@ namespace Rwb.Luxopus
             PlanChecker planChecker,
             //PlanA planA
             //PlanZero planZero,
-            PlanFlux2 planFlux
+            PlanFlux2 planFlux,
+            GenerationLimiter generationLimiter
             )
         {
             _Logger = logger;
@@ -49,6 +50,7 @@ namespace Rwb.Luxopus
             //AddJob(planA, "34 16 * * *"); 
             //AddJob(planZero, "38 16 * * *");
             AddJob(planFlux, "38 16 * * *");
+            //AddJob(generationLimiter, "* 10-16 * * *");
 
             _StartupTasks = new List<Job>()
             {
