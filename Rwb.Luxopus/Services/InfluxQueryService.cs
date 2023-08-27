@@ -106,7 +106,7 @@ namespace Rwb.Luxopus.Services
         Task<List<FluxTable>> QueryAsync(string flux);
         Task<List<FluxTable>> QueryAsync(Query query, DateTime today);
 
-        Task<int> GetBatteryLevelAsync();
+        Task<int> GetBatteryLevelAsync(DateTime when);
         /// <summary>
         /// Get prices at <paramref name="day"/> through to the end of the next day.
         /// </summary>
@@ -204,17 +204,24 @@ namespace Rwb.Luxopus.Services
 
         public async Task<List<FluxTable>> QueryAsync(Query query, DateTime today)
         {
+
             string flux = await ReadFluxAsync(query.ToString());
             flux = flux.Replace("bucket: \"solar\"", $"bucket: \"{Settings.Bucket}\"");
             flux = flux.Replace("today()", $"{today.ToString("yyyy-MM-dd")}T00:00:00Z");
             return await QueryAsync(flux);
         }
 
-        public async Task<int> GetBatteryLevelAsync()
+        public async Task<int> GetBatteryLevelAsync(DateTime when)
         {
             string flux = $@"
+import ""date""
+
+t0 = {when:yyyy-MM-ddTHH:mm:00}Z
+tStart = date.add(d: -1h, to: t0)
+tEnd = date.add(d: 1m, to: t0)
+
 from(bucket:""{Settings.Bucket}"")
-  |> range(start: -15m, stop: now())
+  |> range(start: tStart, stop: tEnd)
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""batt_level"")
   |> last()
 ";

@@ -134,7 +134,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Battery: current level.
-            int b = await InfluxQuery.GetBatteryLevelAsync();
+            int b = await InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
             if( b < 0) { b = 90; }
 
             // Battery: level change per kWh.

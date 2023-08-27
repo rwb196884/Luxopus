@@ -63,7 +63,7 @@ namespace Rwb.Luxopus
                     services.AddScoped<Openweathermap>();
 
                     services.AddScoped<PlanChecker>();
-                    services.AddScoped<GenerationLimiter>();
+                    services.AddScoped<Burst>();
 
                     //services.AddScoped<PlanZero>();
                     //services.AddScoped<PlanA>();

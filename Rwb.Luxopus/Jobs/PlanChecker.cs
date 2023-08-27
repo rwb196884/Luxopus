@@ -116,41 +116,13 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
-            if (!outEnabledWanted)
+            if (outEnabledWanted)
             {
-                if (outEnabled)
-                {
-                    await _Lux.SetDischargeToGridLevelAsync(100);
-                    actions.AppendLine($"SetDischargeToGridLevelAsync(100) to disable was {outBatteryLimitPercent} (enabled: {outEnabled}).");
-                }
-            }
-            else
-            {
-                // Lux serivce returns the first time in the future that the out will start.
-                // But the start of the current plan period may be in the past.
-                if (outStart.TimeOfDay != outStartWanted.TimeOfDay)
-                {
-                    await _Lux.SetDischargeToGridStartAsync(outStartWanted);
-                    actions.AppendLine($"SetDischargeToGridStartAsync({outStartWanted.ToString("dd MMM HH:mm")}) was {outStart.ToString("dd MMM HH:mm")}.");
-                }
-
-                if (outStop.TimeOfDay != outStopWanted.TimeOfDay)
-                {
-                    await _Lux.SetDischargeToGridStopAsync(outStopWanted);
-                    actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("dd MMM HH:mm")}) was {outStop.ToString("dd MMM HH:mm")}.");
-                }
-
                 (DateTime lastOccupied, bool wasOccupied) = (await _InfluxQuery.QueryAsync(Query.LastOccupied, DateTime.UtcNow)).Single().FirstOrDefault<bool>();
                 if (wasOccupied && lastOccupied < DateTime.Now.AddHours(-3) && outBatteryLimitPercentWanted > 7)
                 {
                     actions.AppendLine($"DischargeToGridLevel overridden from plan of {outBatteryLimitPercentWanted}% to 7% because house not occupied since {lastOccupied.ToString("yyyy-MM-dd HH:mm")}.");
                     outBatteryLimitPercentWanted = 7;
-                }
-
-                if (!outEnabled || (outBatteryLimitPercentWanted < 100 && outBatteryLimitPercent != outBatteryLimitPercentWanted))
-                {
-                    await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
-                    actions.AppendLine($"SetDischargeToGridLevelAsync({outBatteryLimitPercentWanted}) was {outBatteryLimitPercent} (enabled: {outEnabledWanted} was {outEnabled}).");
                 }
             }
 
@@ -180,7 +152,7 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
-            int battLevel = await _InfluxQuery.GetBatteryLevelAsync();
+            int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
 
             if (!inEnabledWanted)
             {
@@ -263,6 +235,7 @@ namespace Rwb.Luxopus.Jobs
                     // Battery is full.
                     // Set charge rate high and enable discharge to grid to absorb generation peaks then discharge them.
                     battChargeRateWanted = 90;
+                    outEnabledWanted = true;
                     battDischargeToGridRateWanted = 71;
                     outBatteryLimitPercentWanted = 95;
                     outStartWanted = plan.Current.Start; // Needs to be constant in order not to spam changes.
@@ -283,7 +256,7 @@ namespace Rwb.Luxopus.Jobs
                         {
                             // Already got enough.
                             battChargeRateWanted = 0;
-                            why = $"{kwhForUse}kWh needed ({percentForUse}%) and charge target is {plan!.Next!.Action!.ChargeFromGrid}% but batter level is {battLevel}% > {percentTarget}%.";
+                            why = $"{kwhForUse}kWh needed ({percentForUse}%) and charge target is {plan!.Next!.Action!.ChargeFromGrid}% but battery level is {battLevel}% > {percentTarget}%.";
                         }
                         else
                         {
@@ -300,6 +273,14 @@ namespace Rwb.Luxopus.Jobs
                     else if (plan?.Next != null && Plan.DischargeToGridCondition(plan!.Next!))
                     {
                         // Get fully charged before the discharge period.
+                        DateTime tBattChargeFrom = plan.Current.Start < sunrise ? sunrise : plan.Current.Start;
+
+                        int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
+                        int battLevelNow = Convert.ToInt32(
+                            Convert.ToDouble(100 - battLevelStart)
+                            * (DateTime.UtcNow.Subtract(tBattChargeFrom).TotalMinutes + 30)
+                            / plan.Next.Start.Subtract(tBattChargeFrom).TotalMinutes
+                            );
 
                         // Plan A
                         double hoursToCharge = (plan.Next.Start - t0).TotalHours;
@@ -308,11 +289,15 @@ namespace Rwb.Luxopus.Jobs
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;
                         double powerAtPreviousRate = hoursToCharge * _Batt.TransferPercentToKiloWatts(battChargeRate);
-                        if(powerAtPreviousRate < powerRequiredKwh)
+                        if (powerAtPreviousRate < powerRequiredKwh)
                         {
                             // We didn't get as much as we thought, so now we need to make up for it.
                             extraPowerNeeded = 2 * (powerRequiredKwh - powerAtPreviousRate);
                             // Two: one for the past period, and one for this period just in case.
+                        }
+                        else if (battLevel < battLevelNow)
+                        {
+                            extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelNow - battLevel);
                         }
 
                         double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
@@ -320,7 +305,8 @@ namespace Rwb.Luxopus.Jobs
 
                         // Set the rate.
                         battChargeRateWanted = _Batt.RoundPercent(b);
-                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
+                        string s = battLevelNow != battLevel ? $" (should be {battLevelNow}%)" : "";
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
                     }
                     else
                     {
@@ -331,43 +317,66 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
-            bool battRateChange = false;
+            // Charge from solar.
             if (battChargeRateWanted != battChargeRate)
             {
                 await _Lux.SetBatteryChargeRateAsync(battChargeRateWanted);
                 actions.AppendLine($"SetBatteryChargeRate({battChargeRateWanted}) was {battChargeRate}.");
-                battRateChange = true;
             }
 
             if (battChargeFromGridRateWanted != battChargeFromGridRate)
             {
                 await _Lux.SetBatteryChargeFromGridRateAsync(battChargeFromGridRateWanted);
                 actions.AppendLine($"SetBatteryChargeFromGridRate({battChargeFromGridRateWanted}) was {battChargeFromGridRate}.");
-                battRateChange = true;
             }
 
             if (battDischargeToGridRateWanted != battDischargeToGridRate)
             {
                 await _Lux.SetBatteryDischargeToGridRateAsync(battDischargeToGridRateWanted);
                 actions.AppendLine($"SetBatteryDischargeToGridRate({battDischargeToGridRateWanted}) was {battDischargeToGridRate}.");
-                battRateChange = true;
             }
 
-            if (battRateChange)
+            // Discharge to grid.
+            if (!outEnabledWanted)
             {
-                actions.AppendLine(why);
+                if (outEnabled)
+                {
+                    await _Lux.SetDischargeToGridLevelAsync(100);
+                    actions.AppendLine($"SetDischargeToGridLevelAsync(100) to disable was {outBatteryLimitPercent} (enabled: {outEnabled}).");
+                }
             }
+            else
+            {
+                // Lux serivce returns the first time in the future that the out will start.
+                // But the start of the current plan period may be in the past.
+                if (outStart.TimeOfDay != outStartWanted.TimeOfDay)
+                {
+                    await _Lux.SetDischargeToGridStartAsync(outStartWanted);
+                    actions.AppendLine($"SetDischargeToGridStartAsync({outStartWanted.ToString("dd MMM HH:mm")}) was {outStart.ToString("dd MMM HH:mm")}.");
+                }
 
-            // Batt discharge.
-            //if (battGridDischargeRate != (p?.Action?.BatteryGridDischargeRate ?? 97))
-            //{
-            //    await _Lux.SetBatteryGridDischargeRateAsync(p.Action?.BatteryGridDischargeRate ?? 97);
-            //    actions.AppendLine($"SetBatteryDischargeRate({p.Action?.BatteryGridDischargeRate ?? 97}) was {battGridDischargeRate}.");
-            //}
+                if (outStop.TimeOfDay != outStopWanted.TimeOfDay)
+                {
+                    await _Lux.SetDischargeToGridStopAsync(outStopWanted);
+                    actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("dd MMM HH:mm")}) was {outStop.ToString("dd MMM HH:mm")}.");
+                }
+
+
+                if (!outEnabled || (outBatteryLimitPercentWanted < 100 && outBatteryLimitPercent != outBatteryLimitPercentWanted))
+                {
+                    await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
+                    actions.AppendLine($"SetDischargeToGridLevelAsync({outBatteryLimitPercentWanted}) was {outBatteryLimitPercent} (enabled: {outEnabledWanted} was {outEnabled}).");
+                }
+            }
 
             // Report any changes.
             if (actions.Length > 0)
             {
+                if (why != null)
+                {
+                    actions.AppendLine(why);
+                }
+
                 actions.AppendLine();
                 actions.AppendLine($"  Battery: {battLevel}%");
                 actions.AppendLine($"   Charge: {inStartWanted:HH:mm} to {inStopWanted:HH:mm} limit {inBatteryLimitPercentWanted} rate {battChargeFromGridRateWanted}");

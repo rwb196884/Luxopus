@@ -66,7 +66,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             _Email.SendEmail($"Solar strategy ({this.GetType().Name}) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString() + Environment.NewLine + Environment.NewLine + notes);
-            Logger.LogInformation($"Planner '{this.GetType().Name}' creted new plan: " + Environment.NewLine + message.ToString() + Environment.NewLine + notes);
+            Logger.LogInformation($"Planner '{this.GetType().Name}' created new plan: " + Environment.NewLine + message.ToString() + Environment.NewLine + notes);
         }
 
         /// <summary>

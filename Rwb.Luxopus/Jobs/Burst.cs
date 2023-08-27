@@ -13,10 +13,10 @@ namespace Rwb.Luxopus.Jobs
 
     /// <summary>
     /// <para>
-    /// Check that plans are running. Simple version: look only at the current period.
+    /// Absorb bursts of production.
     /// </para>
     /// </summary>
-    public class GenerationLimiter : Job
+    public class Burst : Job
     {
         private readonly ILuxopusPlanService _Plans;
         private readonly ILuxService _Lux;
@@ -27,7 +27,7 @@ namespace Rwb.Luxopus.Jobs
         private const int _BatteryUpperLimit = 97;
         private const int _InverterLimit = 3700;
 
-        public GenerationLimiter(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery, IEmailService email, IBatteryService batt)
+        public Burst(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery, IEmailService email, IBatteryService batt)
             : base(logger)
         {
             _Plans = plans;
@@ -36,15 +36,6 @@ namespace Rwb.Luxopus.Jobs
             _Email = email;
             _Batt = batt;
         }
-
-        //private const int _MedianHousePowerWatts = 240;
-
-        //protected int PercentRequiredFromUntil(DateTime from, DateTime until)
-        //{
-        //    decimal hours = Convert.ToDecimal(until.Subtract(from).TotalHours);
-        //    decimal percentPerHour = _Batt.PercentForAnHour(_MedianHousePowerWatts);
-        //    return Convert.ToInt32(Math.Ceiling(hours * percentPerHour));
-        //}
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
@@ -58,6 +49,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 Logger.LogError($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
                 // If there is plan then default configuration will be set.
+                return;
             }
 
             HalfHourPlan? currentPeriod = plan?.Current;
@@ -65,13 +57,10 @@ namespace Rwb.Luxopus.Jobs
             if (currentPeriod == null || currentPeriod.Action == null)
             {
                 Logger.LogError($"No current plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
-                currentPeriod = new HalfHourPlan()
-                {
-                    Action = new PeriodAction() // Use the default values.
-                };
+                return;
             }
 
-            if ( currentPeriod.Action.ChargeFromGrid > 0 || currentPeriod.Action.DischargeToGrid < 100)
+            if (currentPeriod.Action.ChargeFromGrid > 0 || currentPeriod.Action.DischargeToGrid < 100)
             {
                 return;
             }
@@ -84,8 +73,6 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // We're good to go...
-            (DateTime _, long batteryLowBeforeCharging) = (await _InfluxQuery.QueryAsync(Query.BatteryLowBeforeCharging, t0)).First().FirstOrDefault<long>();
-
             StringBuilder actions = new StringBuilder();
 
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
@@ -94,11 +81,22 @@ namespace Rwb.Luxopus.Jobs
                 settings = await _Lux.GetSettingsAsync();
             }
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
+            int battChargeRateWanted = battChargeRate; // No change.
 
-            // Batt charge.
-            int requiredBattChargeRate = battChargeRate; // No change.
+            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDischargeToGrid(settings);
+            DateTime outStartWanted = outStart;
+            DateTime outStopWanted = outStop;
+            int outBatteryLimitPercentWanted = outBatteryLimitPercent;
 
             string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
+
+            DateTime tBattChargeFrom = plan.Current.Start < sunrise ? sunrise : plan.Current.Start;
+
+            int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
+            double battLevelNow = 
+                Convert.ToDouble(100 - battLevelStart) 
+                * (DateTime.UtcNow.Subtract(tBattChargeFrom).TotalMinutes + 30)
+                / plan.Next.Start.Subtract(tBattChargeFrom).TotalMinutes;
 
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {
@@ -111,21 +109,27 @@ namespace Rwb.Luxopus.Jobs
 
                 if (inverterOutput > 3600)
                 {
-                    if( generation - 50 > battCharge + inverterOutput)
+                    // Out put could be seturated: swich to burst mode.
+                    // We don't know what could be generated so we guess +8.
+                    battChargeRateWanted = battChargeRate < 71 ? 71 : battChargeRate + 8;
+                    if (battChargeRateWanted > 97)
                     {
-                        // We don't know what could be generated so we guess +8.
-                        requiredBattChargeRate = battChargeRate + 8;
+                        battChargeRateWanted = 97;
                     }
-                    else
+                    outStartWanted = plan.Current.Start;
+                    outStopWanted = plan.Next.Start;
+                    outBatteryLimitPercentWanted = Convert.ToInt32(Math.Max(battLevel, battLevelNow)) + 5;
+                    if(outBatteryLimitPercentWanted > 95)
                     {
-                        requiredBattChargeRate = _Batt.TransferKiloWattsToPercent((generation - 3600.0)/1000.0);
+                        outBatteryLimitPercentWanted = 95;
                     }
 
-                    actions.AppendLine($"Inverter output is {inverterOutput}W; changing battery charge rate from {battChargeRate}% to {requiredBattChargeRate}%.");
+                    actions.AppendLine($"Set generation burst mode with export battery level limit of {outBatteryLimitPercentWanted}%.");
                 }
-                else
+                else if (outEnabled) // If not enabled then we weren't allowing burst.
                 {
-                    int battMaxW = generation - 3600;
+                    // Revert from burst mode.
+                    outBatteryLimitPercentWanted = 100;
 
                     // Set standard schedule.
                     // Get fully charged before the discharge period.
@@ -133,32 +137,51 @@ namespace Rwb.Luxopus.Jobs
                     // Plan A
                     double hoursToCharge = (plan!.Next!.Start - t0).TotalHours;
                     double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
-
-                    // Are we behind schedule?
-                    double extraPowerNeeded = 0.0;
-                    double powerAtPreviousRate = hoursToCharge * _Batt.TransferPercentToKiloWatts(battChargeRate);
-                    if (powerAtPreviousRate < powerRequiredKwh)
-                    {
-                        // We didn't get as much as we thought, so now we need to make up for it.
-                        extraPowerNeeded = 2 * (powerRequiredKwh - powerAtPreviousRate);
-                        // Two: one for the past period, and one for this period just in case.
-                    }
-
-                    double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
+                    double kW = (powerRequiredKwh * 1.2) / hoursToCharge;
                     int b = _Batt.TransferKiloWattsToPercent(kW);
 
                     // Set the rate.
-                    requiredBattChargeRate = _Batt.RoundPercent(b);
-                    actions.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).");
+                    battChargeRateWanted = _Batt.RoundPercent(b);
+
+                    actions.AppendLine($"Disable generation busrt mode. {powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).");
+                }
+                else
+                {
+                    return;
                 }
             }
 
-            // Report any changes.
-            if (requiredBattChargeRate != battChargeRate)
+            bool changes = false;
+
+            if (outStart != outStartWanted)
             {
-                _Lux.SetBatteryChargeRateAsync(requiredBattChargeRate);
-                //_Email.SendEmail($"GenerationLimiter {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
-                Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
+                await _Lux.SetDischargeToGridStartAsync(outStartWanted);
+                changes = true;
+            }
+
+            if (outStop != outStopWanted)
+            {
+                await _Lux.SetDischargeToGridStopAsync(outStopWanted);
+                changes = true;
+            }
+
+            if (outEnabled && outBatteryLimitPercent != outBatteryLimitPercentWanted)
+            {
+                await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
+                changes = true;
+            }
+
+            if (battChargeRateWanted != battChargeRate)
+            {
+                await _Lux.SetBatteryChargeRateAsync(battChargeRateWanted);
+                changes = true;
+            }
+
+            // Report any changes.
+            if (changes)
+            {
+                //_Email.SendEmail($"Burst {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
+                Logger.LogInformation("Burst made changes: " + Environment.NewLine + actions.ToString());
             }
         }
     }
