@@ -234,10 +234,10 @@ namespace Rwb.Luxopus.Jobs
                 {
                     // Battery is full.
                     // Set charge rate high and enable discharge to grid to absorb generation peaks then discharge them.
-                    battChargeRateWanted = 90;
+                    battChargeRateWanted = 72;
                     outEnabledWanted = true;
-                    battDischargeToGridRateWanted = 71;
-                    outBatteryLimitPercentWanted = 95;
+                    battDischargeToGridRateWanted = 72;
+                    outBatteryLimitPercentWanted = _BatteryUpperLimit;
                     outStartWanted = plan.Current.Start; // Needs to be constant in order not to spam changes.
                     outStopWanted = plan.Next.Start;
                     why = $"Battery is full ({battLevel}%).";
@@ -282,8 +282,45 @@ namespace Rwb.Luxopus.Jobs
                             / plan.Next.Start.Subtract(tBattChargeFrom).TotalMinutes
                             );
 
-                        // Plan A
-                        double hoursToCharge = (plan.Next.Start - t0).TotalHours;
+                        // Override for high generation.
+                        (DateTime _, long generationMax) = (await _InfluxQuery.QueryAsync(@$"
+from(bucket: ""solar"")
+  |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
+  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+  |> max()")).First().FirstOrDefault<long>();
+                        if (generationMax > 2000)
+                        {
+                            outEnabledWanted = true;
+                            battDischargeToGridRateWanted = 1; // We don't really want to discharge.
+                            if (outStartWanted > plan.Current.Start)
+                            {
+                                outStartWanted = plan.Current.Start;
+                            }
+                            if (outStopWanted < plan.Next.Start)
+                            {
+                                outStopWanted = plan.Next.Start;
+                            }
+
+                            if (battLevel >= _BatteryUpperLimit)
+                            {
+                                outBatteryLimitPercentWanted = _BatteryUpperLimit;
+                            }
+                            else if (battLevel > battLevelNow)
+                            {
+                                outBatteryLimitPercentWanted = (battLevel + 3) > _BatteryUpperLimit ? _BatteryUpperLimit : (battLevel + 3);
+                            }
+                            else
+                            {
+                                outBatteryLimitPercentWanted = (battLevelNow + 3) > 95 ? 95 : (battLevelNow + 3);
+                            }
+
+                            battChargeRateWanted = 71;// Special value signals this case. Yuck.
+                            why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}%.";
+                        }
+                        else
+                        {
+                            // Plan A
+                            double hoursToCharge = (plan.Next.Start - t0).TotalHours;
                         double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
 
                         // Are we behind schedule?
@@ -303,10 +340,11 @@ namespace Rwb.Luxopus.Jobs
                         double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                         int b = _Batt.TransferKiloWattsToPercent(kW);
 
-                        // Set the rate.
-                        battChargeRateWanted = _Batt.RoundPercent(b);
-                        string s = battLevelNow != battLevel ? $" (should be {battLevelNow}%)" : "";
-                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
+                            // Set the rate.
+                            battChargeRateWanted = _Batt.RoundPercent(b);
+                            string s = battLevelNow != battLevel ? $" (should be {battLevelNow}%)" : "";
+                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
+                        }
                     }
                     else
                     {
@@ -316,6 +354,8 @@ namespace Rwb.Luxopus.Jobs
                     }
                 }
             }
+
+            // A P P L Y   S E T T I N G S
 
             // Charge from solar.
             if (battChargeRateWanted != battChargeRate)

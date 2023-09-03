@@ -37,7 +37,7 @@ namespace Rwb.Luxopus
             _Scheduler = scheduler;
             _Scheduler.Next += _Scheduler_Next;
 
-            AddJob(luxMonitor, "*/8 * * * *"); // every 8 minutes.
+            AddJob(luxMonitor, "* * * * *"); // every minute -- the most that cron will allow.
             AddJob(luxDaily, "51 * * * *"); // at the end of every day. Try every hour because of time zone nuissance.
             AddJob(octopusMeters, "53 16 * * *"); // will get yesterday's meters.
             AddJob(octopusPrices, $"5,34 16,17 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
@@ -50,7 +50,7 @@ namespace Rwb.Luxopus
             //AddJob(planA, "34 16 * * *"); 
             //AddJob(planZero, "38 16 * * *");
             AddJob(planFlux, "38 16 * * *");
-            AddJob(burst, "*/2 10-16 * * *");
+            //AddJob(burst, "*/2 10-16 * * *");
 
             _StartupTasks = new List<Job>()
             {
