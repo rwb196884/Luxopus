@@ -292,11 +292,11 @@ from(bucket: ""solar"")
                         {
                             outEnabledWanted = true;
                             battDischargeToGridRateWanted = 1; // We don't really want to discharge.
-                            if (outStartWanted > plan.Current.Start)
+                            if (outStartWanted.TimeOfDay > plan.Current.Start.TimeOfDay)
                             {
                                 outStartWanted = plan.Current.Start;
                             }
-                            if (outStopWanted < plan.Next.Start)
+                            if (outStopWanted.TimeOfDay < plan.Next.Start.TimeOfDay)
                             {
                                 outStopWanted = plan.Next.Start;
                             }
