@@ -224,7 +224,10 @@ namespace Rwb.Luxopus.Jobs
             }
             else if (t0.TimeOfDay <= sunrise.TimeOfDay || t0.TimeOfDay >= sunset.TimeOfDay)
             {
-                battChargeRateWanted = 50;
+                if (battChargeFromGridRateWanted < 80)
+                {
+                    battChargeRateWanted = 50;
+                }
                 why = "Default (it's dark).";
             }
             else
