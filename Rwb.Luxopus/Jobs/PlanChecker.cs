@@ -325,11 +325,7 @@ from(bucket: ""solar"")
                         }
                         else if(generationMax > 3000)
                         {
-                            if(battChargeRateWanted < 41)
-                            {
-                                battChargeRateWanted = 41;
-                                why = $"Generation peak of {generationMax} > 3000. Generation could be limited; set battery charge rate to {battChargeRateWanted}%.";
-                            }
+                            // The Burst job will be handling it.
                         }
                         else
                         {
