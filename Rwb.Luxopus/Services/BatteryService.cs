@@ -25,7 +25,7 @@ namespace Rwb.Luxopus.Services
     {
         public int CapacityAmpHours { get; set; } // 189
         public int Voltage { get; set; } // 55
-        public int MaxPowerWatts { get; set; } // 3000
+        public int MaxPowerWatts { get; set; } // 4000
     }
 
 

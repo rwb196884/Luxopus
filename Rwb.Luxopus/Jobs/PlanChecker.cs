@@ -283,15 +283,18 @@ namespace Rwb.Luxopus.Jobs
                             );
 
                         // Override for high generation.
-                        (DateTime _, long generationMax) = (await _InfluxQuery.QueryAsync(@$"
+                        // This doesn't work: when the battery gets to the limit the inverter prevents generation again.
+                        // Fucking chinese shit.
+                        (DateTime _, long generationMax) = //(DateTime.Now, 0);
+                            (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
   |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")).First().FirstOrDefault<long>();
-                        if (generationMax > 2000)
+                        if (false && generationMax > 2000)
                         {
                             outEnabledWanted = true;
-                            battDischargeToGridRateWanted = 1; // We don't really want to discharge.
+                            battDischargeToGridRateWanted = 70; // Allow extra to be discharged.
                             if (outStartWanted.TimeOfDay > plan.Current.Start.TimeOfDay)
                             {
                                 outStartWanted = plan.Current.Start;
@@ -314,8 +317,19 @@ from(bucket: ""solar"")
                                 outBatteryLimitPercentWanted = (battLevelNow + 3) > 95 ? 95 : (battLevelNow + 3);
                             }
 
-                            battChargeRateWanted = 71;// Special value signals this case. Yuck.
+                            battChargeRateWanted = generationMax > 5500 ? 71 : 41;// Special value signals this case. Yuck. Seems to translate to about 1640W.
+                            // Max generation witnessed was 6.2kW on 2023-02-20 but can only invert 3.6 therefore at most 2.8kW to battery.
+                            // Battery charge at 100% seems to be about 4kW.
+                            // Therefore battery charge rate should be at most 70%.
                             why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}%.";
+                        }
+                        else if(generationMax > 3000)
+                        {
+                            if(battChargeRateWanted < 41)
+                            {
+                                battChargeRateWanted = 41;
+                                why = $"Generation peak of {generationMax} > 3000. Generation could be limited; set battery charge rate to {battChargeRateWanted}%.";
+                            }
                         }
                         else
                         {
