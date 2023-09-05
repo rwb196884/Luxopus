@@ -50,14 +50,14 @@ namespace Rwb.Luxopus
             //AddJob(planA, "34 16 * * *"); 
             //AddJob(planZero, "38 16 * * *");
             AddJob(planFlux, "38 16 * * *");
-            AddJob(burst, "* 9-15 * * *");
+            AddJob(burst, "* 8-15 * * *");
 
             _StartupTasks = new List<Job>()
             {
                 planFlux,
                 burst,
-                //planZero,
                 planChecker,
+                //planZero,
                 //octopusMeters,
                 //octopusPrices,
                 ////solcast, // severely rate lmited.
@@ -85,11 +85,6 @@ namespace Rwb.Luxopus
             {
                 _Logger.LogInformation($"Running startup job {j.GetType().Name}.");
                 j.RunAsync(CancellationToken.None).Wait();
-            }
-            while (true)
-            {
-                _StartupTasks[1].RunAsync(CancellationToken.None).Wait();
-                Thread.Sleep(1000 * 21);
             }
 
             _Logger.LogInformation("Luxopus is starting scheduler.");

@@ -276,7 +276,7 @@ namespace Rwb.Luxopus.Jobs
                         DateTime tBattChargeFrom = plan.Current.Start < sunrise ? sunrise : plan.Current.Start;
 
                         int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
-                        int battLevelNow = Convert.ToInt32(
+                        int battLevelTarget = Convert.ToInt32(
                             Convert.ToDouble(100 - battLevelStart)
                             * (DateTime.UtcNow.Subtract(tBattChargeFrom).TotalMinutes + 30)
                             / plan.Next.Start.Subtract(tBattChargeFrom).TotalMinutes
@@ -308,13 +308,13 @@ from(bucket: ""solar"")
                             {
                                 outBatteryLimitPercentWanted = _BatteryUpperLimit;
                             }
-                            else if (battLevel > battLevelNow)
+                            else if (battLevel > battLevelTarget)
                             {
                                 outBatteryLimitPercentWanted = (battLevel + 3) > _BatteryUpperLimit ? _BatteryUpperLimit : (battLevel + 3);
                             }
                             else
                             {
-                                outBatteryLimitPercentWanted = (battLevelNow + 3) > 95 ? 95 : (battLevelNow + 3);
+                                outBatteryLimitPercentWanted = (battLevelTarget + 3) > 95 ? 95 : (battLevelTarget + 3);
                             }
 
                             // Let the Burst job sort out the batt charge rate.
@@ -340,9 +340,9 @@ from(bucket: ""solar"")
                                 extraPowerNeeded = 2 * (powerRequiredKwh - powerAtPreviousRate);
                                 // Two: one for the past period, and one for this period just in case.
                             }
-                            else if (battLevel < battLevelNow)
+                            else if (battLevel < battLevelTarget)
                             {
-                                extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelNow - battLevel);
+                                extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
                             }
 
                             double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
@@ -350,7 +350,7 @@ from(bucket: ""solar"")
 
                             // Set the rate.
                             battChargeRateWanted = _Batt.RoundPercent(b);
-                            string s = battLevelNow != battLevel ? $" (should be {battLevelNow}%)" : "";
+                            string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
                             why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
                         }
                     }
@@ -409,7 +409,6 @@ from(bucket: ""solar"")
                     actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("dd MMM HH:mm")}) was {outStop.ToString("dd MMM HH:mm")}.");
                 }
 
-
                 if (!outEnabled || (outBatteryLimitPercentWanted < 100 && outBatteryLimitPercent != outBatteryLimitPercentWanted))
                 {
                     await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
@@ -439,7 +438,7 @@ from(bucket: ""solar"")
                         pp = plan.Plans.GetNext(pp);
                     }
                 }
-                _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
+                _Email.SendEmail($"PlanChecker at UTC {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
                 Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
             }
         }
