@@ -55,6 +55,7 @@ namespace Rwb.Luxopus
             _StartupTasks = new List<Job>()
             {
                 planFlux,
+                burst,
                 //planZero,
                 planChecker,
                 //octopusMeters,
@@ -84,6 +85,11 @@ namespace Rwb.Luxopus
             {
                 _Logger.LogInformation($"Running startup job {j.GetType().Name}.");
                 j.RunAsync(CancellationToken.None).Wait();
+            }
+            while (true)
+            {
+                _StartupTasks[1].RunAsync(CancellationToken.None).Wait();
+                Thread.Sleep(1000 * 21);
             }
 
             _Logger.LogInformation("Luxopus is starting scheduler.");

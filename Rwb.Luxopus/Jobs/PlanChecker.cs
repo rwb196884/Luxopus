@@ -291,7 +291,7 @@ from(bucket: ""solar"")
   |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")).First().FirstOrDefault<long>();
-                        if (false && generationMax > 2000)
+                        if (generationMax > 2000)
                         {
                             outEnabledWanted = true;
                             battDischargeToGridRateWanted = 70; // Allow extra to be discharged.
@@ -317,38 +317,36 @@ from(bucket: ""solar"")
                                 outBatteryLimitPercentWanted = (battLevelNow + 3) > 95 ? 95 : (battLevelNow + 3);
                             }
 
-                            battChargeRateWanted = generationMax > 5500 ? 71 : 41;// Special value signals this case. Yuck. Seems to translate to about 1640W.
+                            // Let the Burst job sort out the batt charge rate.
+
+                            //battChargeRateWanted = generationMax > 5500 ? 71 : 41;// Special value signals this case. Yuck. Seems to translate to about 1640W.
                             // Max generation witnessed was 6.2kW on 2023-02-20 but can only invert 3.6 therefore at most 2.8kW to battery.
                             // Battery charge at 100% seems to be about 4kW.
                             // Therefore battery charge rate should be at most 70%.
                             why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}%.";
                         }
-                        else if(generationMax > 3000)
-                        {
-                            // The Burst job will be handling it.
-                        }
                         else
                         {
                             // Plan A
                             double hoursToCharge = (plan.Next.Start - t0).TotalHours;
-                        double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
+                            double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
 
-                        // Are we behind schedule?
-                        double extraPowerNeeded = 0.0;
-                        double powerAtPreviousRate = hoursToCharge * _Batt.TransferPercentToKiloWatts(battChargeRate);
-                        if (powerAtPreviousRate < powerRequiredKwh)
-                        {
-                            // We didn't get as much as we thought, so now we need to make up for it.
-                            extraPowerNeeded = 2 * (powerRequiredKwh - powerAtPreviousRate);
-                            // Two: one for the past period, and one for this period just in case.
-                        }
-                        else if (battLevel < battLevelNow)
-                        {
-                            extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelNow - battLevel);
-                        }
+                            // Are we behind schedule?
+                            double extraPowerNeeded = 0.0;
+                            double powerAtPreviousRate = hoursToCharge * _Batt.TransferPercentToKiloWatts(battChargeRate);
+                            if (powerAtPreviousRate < powerRequiredKwh)
+                            {
+                                // We didn't get as much as we thought, so now we need to make up for it.
+                                extraPowerNeeded = 2 * (powerRequiredKwh - powerAtPreviousRate);
+                                // Two: one for the past period, and one for this period just in case.
+                            }
+                            else if (battLevel < battLevelNow)
+                            {
+                                extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelNow - battLevel);
+                            }
 
-                        double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
-                        int b = _Batt.TransferKiloWattsToPercent(kW);
+                            double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
+                            int b = _Batt.TransferKiloWattsToPercent(kW);
 
                             // Set the rate.
                             battChargeRateWanted = _Batt.RoundPercent(b);
