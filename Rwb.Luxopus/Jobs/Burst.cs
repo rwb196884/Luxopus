@@ -127,9 +127,9 @@ namespace Rwb.Luxopus.Jobs
 
                 if (generation > 3600)
                 {
-                    outBatteryLimitPercentWanted = 99;
+                   outBatteryLimitPercentWanted = 99;
                     // Manage the limit.
-                    if( inverterOutput < 3200)
+                    if( inverterOutput < 3300)
                     {
                         // Can export more.
                         battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation - 3600) / 1000.0);
@@ -153,14 +153,21 @@ namespace Rwb.Luxopus.Jobs
                         actionInfo.AppendLine($"{generation}W + 200W - {inverterOutput}W = {forBatt}W -> {battChargeRateWanted}%");
                     }
                 }
-                else if (generation > 2700 && inverterOutput > 3000 && inverterOutput < 3700)
+                else if (generation > 2700 && inverterOutput > 3200 && inverterOutput < 3700)
                 {
                     // Generation could be limited.
                     battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation + 200 - 3600) / 1000.0);
                     if(battChargeRateWanted <= battChargeRate)
                     {
                         battChargeRateWanted = battChargeRate + 5;
+                        actionInfo.AppendLine($"Generation {generation} > 2700 and 3200 < inverterOutput:{inverterOutput} < 3700 therefore generation could be limited.");
                     }
+                }
+                else if ( t0.Hour <= 10 && generationMax > 1000)
+                {
+                    // It's early and it looks like it's going to be a good day.
+                    // So keep the battery empty to make space for later.
+                    battChargeRateWanted = 8;
                 }
                 else
                 {
@@ -170,16 +177,9 @@ namespace Rwb.Luxopus.Jobs
 
                     // Are we behind schedule?
                     double extraPowerNeeded = 0.0;
-                    double powerAtPreviousRate = hoursToCharge * _Batt.TransferPercentToKiloWatts(battChargeRate);
-                    if (powerAtPreviousRate < powerRequiredKwh)
+                    if (battLevel < battLevelTarget)
                     {
-                        // We didn't get as much as we thought, so now we need to make up for it.
-                        extraPowerNeeded = 2 * (powerRequiredKwh - powerAtPreviousRate);
-                        // Two: one for the past period, and one for this period just in case.
-                    }
-                    else if (battLevel < battLevelTarget)
-                    {
-                        extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(Convert.ToInt32(battLevelTarget) - battLevel);
+                        extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
                     }
 
                     double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
@@ -188,16 +188,18 @@ namespace Rwb.Luxopus.Jobs
                     // Set the rate.
                     battChargeRateWanted = _Batt.RoundPercent(b);
                     string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                    actions.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).");
+                    actionInfo.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).");
                 }
             }
 
             if (battChargeRateWanted > 71)
             {
+                actionInfo.AppendLine($"Battery charge rate wanted {battChargeRateWanted} reduced to 71%.");
                 battChargeRateWanted = 71;
             }
             else if( battChargeRateWanted < 5)
             {
+                actionInfo.AppendLine($"Battery charge rate wanted {battChargeRateWanted} increased to 5%.");
                 battChargeRateWanted = 5;
             }
 
@@ -217,7 +219,7 @@ namespace Rwb.Luxopus.Jobs
             if (actions.Length > 0)
             {
                 // spammy _Email.SendEmail($"Burst at UTC {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString() + Environment.NewLine + actionInfo.ToString());
-                Logger.LogInformation("Burst made changes: " + Environment.NewLine + actions.ToString());
+               Logger.LogInformation("Burst made changes: " + Environment.NewLine + actions.ToString());
             }
         }
     }

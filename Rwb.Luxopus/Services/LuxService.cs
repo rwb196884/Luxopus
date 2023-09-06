@@ -107,7 +107,10 @@ namespace Rwb.Luxopus.Services
                 Logger.LogError($"Ignoring invlaid SSL certificate for {cert.Subject}");
                 return true;
             };
-            _Client = new HttpClient(_Handler) { BaseAddress = new Uri(Settings.BaseAddress) };
+            _Client = new HttpClient(_Handler) { 
+                BaseAddress = new Uri(Settings.BaseAddress),
+                Timeout = TimeSpan.FromSeconds(15)
+            };
             _InverterRuntimeCache = null;
         }
 
@@ -152,16 +155,28 @@ namespace Rwb.Luxopus.Services
         {
             FormUrlEncodedContent content = new FormUrlEncodedContent(formData);
             HttpResponseMessage r = null;
+            int tries = 0;
             while (true)
             {
-                r = await _Client.PostAsync(path, content);
-                if (r.StatusCode == HttpStatusCode.Unauthorized)
+                try
                 {
-                    await LoginAsync();
+                    tries++;
+                    r = await _Client.PostAsync(path, content);
+                    if (r.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        await LoginAsync();
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
-                else
+                catch( Exception e)
                 {
-                    break;
+                    if(!e.Message.Contains("Timeout") || tries >= 8)
+                    {
+                        throw;
+                    }
                 }
             }
             r.EnsureSuccessStatusCode();
