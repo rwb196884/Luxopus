@@ -50,14 +50,14 @@ namespace Rwb.Luxopus
             //AddJob(planA, "34 16 * * *"); 
             //AddJob(planZero, "38 16 * * *");
             AddJob(planFlux, "38 16 * * *");
-            //AddJob(burst, "*/2 10-16 * * *");
+            AddJob(burst, "* 8-15 * * *");
 
             _StartupTasks = new List<Job>()
             {
                 planFlux,
-                //planZero,
+                burst,
                 planChecker,
-                luxMonitor,
+                //planZero,
                 //octopusMeters,
                 //octopusPrices,
                 ////solcast, // severely rate lmited.

@@ -25,7 +25,8 @@ namespace Rwb.Luxopus.Jobs
         private readonly IBatteryService _Batt;
 
         private const int _BatteryUpperLimit = 97;
-        private const int _InverterLimit = 3700;
+        private const int _InverterLimit = 3600;
+        private const int _BatteryChargeMaxRate = 4000;
 
         public Burst(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery, IEmailService email, IBatteryService batt)
             : base(logger)
@@ -39,7 +40,7 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            // Suggested cron: * 10-16 * * *
+            // Suggested cron: * 9-15 * * *
 
             DateTime t0 = DateTime.UtcNow;
             IEnumerable<Plan> ps = _Plans.LoadAll(t0);
@@ -72,8 +73,20 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
 
+            (DateTime _, long generationMax) = (await _InfluxQuery.QueryAsync(@$"
+            from(bucket: ""solar"")
+              |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
+              |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+              |> max()")).First().FirstOrDefault<long>();
+
+            if(generationMax < 2500)
+            {
+                return;
+            }
+
             // We're good to go...
             StringBuilder actions = new StringBuilder();
+            StringBuilder actionInfo = new StringBuilder();
 
             Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
             while (settings.Any(z => z.Value == "DATAFRAME_TIMEOUT"))
@@ -84,8 +97,6 @@ namespace Rwb.Luxopus.Jobs
             int battChargeRateWanted = battChargeRate; // No change.
 
             (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDischargeToGrid(settings);
-            DateTime outStartWanted = outStart;
-            DateTime outStopWanted = outStop;
             int outBatteryLimitPercentWanted = outBatteryLimitPercent;
 
             string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
@@ -93,10 +104,11 @@ namespace Rwb.Luxopus.Jobs
             DateTime tBattChargeFrom = plan.Current.Start < sunrise ? sunrise : plan.Current.Start;
 
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
-            double battLevelNow = 
-                Convert.ToDouble(100 - battLevelStart) 
+            int battLevelTarget = Convert.ToInt32(
+                Convert.ToDouble(100 - battLevelStart)
                 * (DateTime.UtcNow.Subtract(tBattChargeFrom).TotalMinutes + 30)
-                / plan.Next.Start.Subtract(tBattChargeFrom).TotalMinutes;
+                / plan.Next.Start.Subtract(tBattChargeFrom).TotalMinutes
+                );
 
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {
@@ -106,82 +118,108 @@ namespace Rwb.Luxopus.Jobs
                 int inverterOutput = r.Single(z => z.Name == "pinv").Value.GetInt32();
                 int battLevel = r.Single(z => z.Name == "soc").Value.GetInt32();
                 int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
+                //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
 
-                if (inverterOutput > 3600)
+                actionInfo.AppendLine($"Generation: {generation}W");
+                actionInfo.AppendLine($"Inverter output: {inverterOutput}W");
+                actionInfo.AppendLine($"Battery level: {battLevel}%");
+                actionInfo.AppendLine($"Battery level target: {battLevelTarget}%");
+
+                if (generation > 3600)
                 {
-                    // Out put could be seturated: swich to burst mode.
-                    // We don't know what could be generated so we guess +8.
-                    battChargeRateWanted = battChargeRate < 71 ? 71 : battChargeRate + 8;
-                    if (battChargeRateWanted > 97)
+                   outBatteryLimitPercentWanted = 99;
+                    // Manage the limit.
+                    if( inverterOutput < 3300)
                     {
-                        battChargeRateWanted = 97;
+                        // Can export more.
+                        battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation - 3600) / 1000.0);
+                        // It seems to over-estimate. In this case we expect to decrease.
+                        if(battChargeRateWanted >= battChargeRate)
+                        {
+                            battChargeRateWanted = battChargeRate - 5;
+                            actionInfo.AppendLine($"Battery charge rate {battChargeRateWanted}% = {battChargeRate}% - 5%.");
+                        }
+                        else
+                        {
+                            actionInfo.AppendLine($"Battery charge rate: {generation}W - 3600W -> {battChargeRateWanted}%.");
+                        }
                     }
-                    outStartWanted = plan.Current.Start;
-                    outStopWanted = plan.Next.Start;
-                    outBatteryLimitPercentWanted = Convert.ToInt32(Math.Max(battLevel, battLevelNow)) + 5;
-                    if(outBatteryLimitPercentWanted > 95)
+                    else if( inverterOutput > 3500)
                     {
-                        outBatteryLimitPercentWanted = 95;
-                    }
+                        int battChargeActual = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(battCharge) / 1000.0);
+                        int forBatt = 200 + generation - inverterOutput;
+                        battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(forBatt) / 1000.0);
 
-                    actions.AppendLine($"Set generation burst mode with export battery level limit of {outBatteryLimitPercentWanted}%.");
+                        actionInfo.AppendLine($"{generation}W + 200W - {inverterOutput}W = {forBatt}W -> {battChargeRateWanted}%");
+                    }
                 }
-                else if (outEnabled) // If not enabled then we weren't allowing burst.
+                else if (generation > 2700 && inverterOutput > 3200 && inverterOutput < 3700)
                 {
-                    // Revert from burst mode.
-                    outBatteryLimitPercentWanted = 100;
-
-                    // Set standard schedule.
-                    // Get fully charged before the discharge period.
-
+                    // Generation could be limited.
+                    battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation + 200 - 3600) / 1000.0);
+                    if(battChargeRateWanted <= battChargeRate)
+                    {
+                        battChargeRateWanted = battChargeRate + 5;
+                        actionInfo.AppendLine($"Generation {generation} > 2700 and 3200 < inverterOutput:{inverterOutput} < 3700 therefore generation could be limited.");
+                    }
+                }
+                else if ( t0.Hour <= 10 && generationMax > 1000)
+                {
+                    // It's early and it looks like it's going to be a good day.
+                    // So keep the battery empty to make space for later.
+                    battChargeRateWanted = 8;
+                }
+                else
+                {
                     // Plan A
-                    double hoursToCharge = (plan!.Next!.Start - t0).TotalHours;
+                    double hoursToCharge = (plan.Next.Start - t0).TotalHours;
                     double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
-                    double kW = (powerRequiredKwh * 1.2) / hoursToCharge;
+
+                    // Are we behind schedule?
+                    double extraPowerNeeded = 0.0;
+                    if (battLevel < battLevelTarget)
+                    {
+                        extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
+                    }
+
+                    double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                     int b = _Batt.TransferKiloWattsToPercent(kW);
 
                     // Set the rate.
                     battChargeRateWanted = _Batt.RoundPercent(b);
-
-                    actions.AppendLine($"Disable generation busrt mode. {powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).");
-                }
-                else
-                {
-                    return;
+                    string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
+                    actionInfo.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).");
                 }
             }
 
-            bool changes = false;
-
-            if (outStart != outStartWanted)
+            if (battChargeRateWanted > 71)
             {
-                await _Lux.SetDischargeToGridStartAsync(outStartWanted);
-                changes = true;
+                actionInfo.AppendLine($"Battery charge rate wanted {battChargeRateWanted} reduced to 71%.");
+                battChargeRateWanted = 71;
             }
-
-            if (outStop != outStopWanted)
+            else if( battChargeRateWanted < 5)
             {
-                await _Lux.SetDischargeToGridStopAsync(outStopWanted);
-                changes = true;
-            }
-
-            if (outEnabled && outBatteryLimitPercent != outBatteryLimitPercentWanted)
-            {
-                await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
-                changes = true;
+                actionInfo.AppendLine($"Battery charge rate wanted {battChargeRateWanted} increased to 5%.");
+                battChargeRateWanted = 5;
             }
 
             if (battChargeRateWanted != battChargeRate)
             {
                 await _Lux.SetBatteryChargeRateAsync(battChargeRateWanted);
-                changes = true;
+                actions.AppendLine($"SetBatteryChargeRate({battChargeRateWanted}) was {battChargeRate}.");
+            }
+
+            if (outEnabled && outBatteryLimitPercentWanted < 100 && outBatteryLimitPercent != outBatteryLimitPercentWanted)
+            {
+                await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
+                actions.AppendLine($"SetDischargeToGridLevelAsync({outBatteryLimitPercentWanted}) was {outBatteryLimitPercent}.");
             }
 
             // Report any changes.
-            if (changes)
+            if (actions.Length > 0)
             {
-                //_Email.SendEmail($"Burst {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
-                Logger.LogInformation("Burst made changes: " + Environment.NewLine + actions.ToString());
+                // spammy _Email.SendEmail($"Burst at UTC {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString() + Environment.NewLine + actionInfo.ToString());
+               Logger.LogInformation("Burst made changes: " + Environment.NewLine + actions.ToString());
             }
         }
     }

@@ -279,22 +279,26 @@ namespace Rwb.Luxopus.Jobs
                         DateTime tBattChargeFrom = plan.Current.Start < sunrise ? sunrise : plan.Current.Start;
 
                         int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
-                        int battLevelNow = Convert.ToInt32(
+                        int battLevelTarget = Convert.ToInt32(
                             Convert.ToDouble(100 - battLevelStart)
                             * (DateTime.UtcNow.Subtract(tBattChargeFrom).TotalMinutes + 30)
                             / plan.Next.Start.Subtract(tBattChargeFrom).TotalMinutes
                             );
 
                         // Override for high generation.
-                        (DateTime _, long generationMax) = (await _InfluxQuery.QueryAsync(@$"
+                        // This doesn't work: when the battery gets to the limit the inverter prevents generation again.
+                        // Fucking chinese shit.
+                        (DateTime _, long generationMax) = //(DateTime.Now, 0);
+                            (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
   |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")).First().FirstOrDefault<long>();
-                        if (generationMax > 2000)
+
+                        if (generationMax > 2000 && DateTime.UtcNow < plan.Next.Start.AddHours(-1))
                         {
                             outEnabledWanted = true;
-                            battDischargeToGridRateWanted = 1; // We don't really want to discharge.
+                            battDischargeToGridRateWanted = 70; // Allow extra to be discharged.
                             if (outStartWanted.TimeOfDay > plan.Current.Start.TimeOfDay)
                             {
                                 outStartWanted = plan.Current.Start;
@@ -308,45 +312,57 @@ from(bucket: ""solar"")
                             {
                                 outBatteryLimitPercentWanted = _BatteryUpperLimit;
                             }
-                            else if (battLevel > battLevelNow)
+                            else if (battLevel > battLevelTarget)
                             {
                                 outBatteryLimitPercentWanted = (battLevel + 3) > _BatteryUpperLimit ? _BatteryUpperLimit : (battLevel + 3);
                             }
                             else
                             {
-                                outBatteryLimitPercentWanted = (battLevelNow + 3) > 95 ? 95 : (battLevelNow + 3);
+                                outBatteryLimitPercentWanted = (battLevelTarget + 3) > 95 ? 95 : (battLevelTarget + 3);
                             }
 
-                            battChargeRateWanted = 71;// Special value signals this case. Yuck.
+                            // Let the Burst job sort out the batt charge rate.
+
+                            //battChargeRateWanted = generationMax > 5500 ? 71 : 41;// Special value signals this case. Yuck. Seems to translate to about 1640W.
+                            // Max generation witnessed was 6.2kW on 2023-02-20 but can only invert 3.6 therefore at most 2.8kW to battery.
+                            // Battery charge at 100% seems to be about 4kW.
+                            // Therefore battery charge rate should be at most 70%.
                             why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}%.";
                         }
                         else
                         {
-                            // Plan A
-                            double hoursToCharge = (plan.Next.Start - t0).TotalHours;
-                        double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
+                            // TODO
+                            // If it's early and it looks like it's going to be a good day
+                            // then keep the battery empty.
 
-                        // Are we behind schedule?
-                        double extraPowerNeeded = 0.0;
-                        double powerAtPreviousRate = hoursToCharge * _Batt.TransferPercentToKiloWatts(battChargeRate);
-                        if (powerAtPreviousRate < powerRequiredKwh)
-                        {
-                            // We didn't get as much as we thought, so now we need to make up for it.
-                            extraPowerNeeded = 2 * (powerRequiredKwh - powerAtPreviousRate);
-                            // Two: one for the past period, and one for this period just in case.
-                        }
-                        else if (battLevel < battLevelNow)
-                        {
-                            extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelNow - battLevel);
-                        }
+                            if (t0.Hour <= 10 && generationMax > 1000)
+                            {
+                                battChargeRateWanted = 8;
+                                why = "Keep battery empty in anticipation of high generation later today.";
+                            }
+                            else
+                            {
+                                // Plan A
+                                outEnabledWanted = false;
+                                inEnabledWanted = false;
+                                double hoursToCharge = (plan.Next.Start - t0).TotalHours;
+                                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
 
-                        double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
-                        int b = _Batt.TransferKiloWattsToPercent(kW);
+                                // Are we behind schedule?
+                                double extraPowerNeeded = 0.0;
+                                if (battLevel < battLevelTarget)
+                                {
+                                    extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
+                                }
 
-                            // Set the rate.
-                            battChargeRateWanted = _Batt.RoundPercent(b);
-                            string s = battLevelNow != battLevel ? $" (should be {battLevelNow}%)" : "";
-                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
+                                double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
+                                int b = _Batt.TransferKiloWattsToPercent(kW);
+
+                                // Set the rate.
+                                battChargeRateWanted = _Batt.RoundPercent(b);
+                                string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
+                                why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
+                            }
                         }
                     }
                     else
@@ -404,7 +420,6 @@ from(bucket: ""solar"")
                     actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted.ToString("dd MMM HH:mm")}) was {outStop.ToString("dd MMM HH:mm")}.");
                 }
 
-
                 if (!outEnabled || (outBatteryLimitPercentWanted < 100 && outBatteryLimitPercent != outBatteryLimitPercentWanted))
                 {
                     await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
@@ -434,7 +449,7 @@ from(bucket: ""solar"")
                         pp = plan.Plans.GetNext(pp);
                     }
                 }
-                _Email.SendEmail($"PlanChecker {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
+                _Email.SendEmail($"PlanChecker at UTC {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
                 Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
             }
         }
