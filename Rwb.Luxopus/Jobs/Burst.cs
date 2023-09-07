@@ -141,8 +141,6 @@ namespace Rwb.Luxopus.Jobs
 
                 // Set the rate.
                 int battChargeRatePlan = _Batt.RoundPercent(b);
-                string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                actionInfo.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).");
 
                 if (generation > 3600)
                 {
@@ -192,6 +190,8 @@ namespace Rwb.Luxopus.Jobs
                 if (battChargeRateWanted < battChargeRatePlan)
                 {
                     battChargeRateWanted = battChargeRatePlan;
+                    string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
+                    actionInfo.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).");
                 }
             }
 
