@@ -134,6 +134,23 @@ namespace Rwb.Luxopus.Jobs
                 actionInfo.AppendLine($"Battery level: {battLevel}%");
                 actionInfo.AppendLine($"Battery level target: {battLevelTarget}%");
 
+                // Plan A
+                double hoursToCharge = (plan.Next.Start - t0).TotalHours;
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
+
+                // Are we behind schedule?
+                double extraPowerNeeded = 0.0;
+                if (battLevel < battLevelTarget)
+                {
+                    extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
+                }
+
+                double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
+                int b = _Batt.TransferKiloWattsToPercent(kW);
+
+                // Set the rate.
+                int battChargeRatePlan = _Batt.RoundPercent(b);
+
                 if (generation > 3600)
                 {
                    outBatteryLimitPercentWanted = 99;
@@ -178,24 +195,10 @@ namespace Rwb.Luxopus.Jobs
                     // So keep the battery empty to make space for later.
                     battChargeRateWanted = 8;
                 }
-                else
+
+                if (battChargeRateWanted < battChargeRatePlan)
                 {
-                    // Plan A
-                    double hoursToCharge = (plan.Next.Start - t0).TotalHours;
-                    double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
-
-                    // Are we behind schedule?
-                    double extraPowerNeeded = 0.0;
-                    if (battLevel < battLevelTarget)
-                    {
-                        extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
-                    }
-
-                    double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
-                    int b = _Batt.TransferKiloWattsToPercent(kW);
-
-                    // Set the rate.
-                    battChargeRateWanted = _Batt.RoundPercent(b);
+                    battChargeRateWanted = battChargeRatePlan;
                     string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
                     actionInfo.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).");
                 }
