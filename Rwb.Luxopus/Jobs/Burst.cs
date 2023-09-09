@@ -18,6 +18,7 @@ namespace Rwb.Luxopus.Jobs
     /// </summary>
     public class Burst : Job
     {
+        private readonly IBurstLogService _BurstLog;
         private readonly ILuxopusPlanService _Plans;
         private readonly ILuxService _Lux;
         private readonly IInfluxQueryService _InfluxQuery;
@@ -28,9 +29,17 @@ namespace Rwb.Luxopus.Jobs
         private const int _InverterLimit = 3600;
         private const int _BatteryChargeMaxRate = 4000;
 
-        public Burst(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery, IEmailService email, IBatteryService batt)
+        public Burst(
+            ILogger<LuxMonitor> logger, 
+            IBurstLogService burstLog,
+            ILuxopusPlanService plans, 
+            ILuxService lux, 
+            IInfluxQueryService influxQuery, 
+            IEmailService email, 
+            IBatteryService batt)
             : base(logger)
         {
+            _BurstLog = burstLog;
             _Plans = plans;
             _Lux = lux;
             _InfluxQuery = influxQuery;
@@ -218,6 +227,7 @@ namespace Rwb.Luxopus.Jobs
             // Report any changes.
             if (actions.Length > 0)
             {
+                _BurstLog.Write(actions.ToString() + Environment.NewLine + actionInfo.ToString());
                 // spammy _Email.SendEmail($"Burst at UTC {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString() + Environment.NewLine + actionInfo.ToString());
                Logger.LogInformation("Burst made changes: " + Environment.NewLine + actions.ToString());
             }

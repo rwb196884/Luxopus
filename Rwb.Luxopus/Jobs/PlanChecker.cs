@@ -22,10 +22,19 @@ namespace Rwb.Luxopus.Jobs
         private readonly IInfluxQueryService _InfluxQuery;
         private readonly IEmailService _Email;
         private readonly IBatteryService _Batt;
+        private readonly IBurstLogService _BurstLog;
 
         private const int _BatteryUpperLimit = 97;
 
-        public PlanChecker(ILogger<LuxMonitor> logger, ILuxopusPlanService plans, ILuxService lux, IInfluxQueryService influxQuery, IEmailService email, IBatteryService batt)
+        public PlanChecker(
+            ILogger<LuxMonitor> logger,
+            ILuxopusPlanService plans,
+            ILuxService lux,
+            IInfluxQueryService influxQuery,
+            IEmailService email,
+            IBatteryService batt,
+            IBurstLogService burstLog
+            )
             : base(logger)
         {
             _Plans = plans;
@@ -33,6 +42,7 @@ namespace Rwb.Luxopus.Jobs
             _InfluxQuery = influxQuery;
             _Email = email;
             _Batt = batt;
+            _BurstLog = burstLog;
         }
 
         //private const int _MedianHousePowerWatts = 240;
@@ -427,8 +437,11 @@ from(bucket: ""solar"")
                 }
             }
 
+            string burstLog = _BurstLog.Read();
+            _BurstLog.Clear();
+
             // Report any changes.
-            if (actions.Length > 0)
+            if (actions.Length > 0 || burstLog.Length > 0)
             {
                 if (why != null)
                 {
@@ -449,7 +462,15 @@ from(bucket: ""solar"")
                         pp = plan.Plans.GetNext(pp);
                     }
                 }
-                _Email.SendEmail($"PlanChecker at UTC {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
+
+                if(burstLog.Length > 0)
+                {
+                    actions.AppendLine();
+                    actions.AppendLine("Burst log");
+                    actions.AppendLine(burstLog);
+                }
+
+                _Email.SendEmail($"PlanChecker at UTC {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString() );
                 Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
             }
         }
