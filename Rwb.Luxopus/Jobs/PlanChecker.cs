@@ -345,8 +345,9 @@ from(bucket: ""solar"")
                             // If it's early and it looks like it's going to be a good day
                             // then keep the battery empty.
 
-                            if (t0.Hour <= 10 && generationMax > 1000)
+                            if (t0.Hour <= 9 && generationMax > 1500 && battLevel > 20)
                             {
+                                // At 9am median generation is 1500.
                                 battChargeRateWanted = 8;
                                 why = "Keep battery empty in anticipation of high generation later today.";
                             }
