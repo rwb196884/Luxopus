@@ -224,7 +224,7 @@ namespace Rwb.Luxopus.Jobs
                         //chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
                         notes.AppendLine($"Low: chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (not used)");
 
-                        DateTime tForecast = t0;
+                        DateTime tForecast = p.Start;
                         if( tForecast.Hour > 12)
                         {
                             tForecast = tForecast.AddDays(1);
