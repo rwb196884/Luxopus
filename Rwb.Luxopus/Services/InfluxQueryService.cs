@@ -171,8 +171,12 @@ namespace Rwb.Luxopus.Services
         /// <summary>
         /// The latest time that any PIR sensor detected occupancy.
         /// </summary>
-        LastOccupied
+        LastOccupied,
 
+        /// <summary>
+        /// Cloud cover (%) forecast for tomorrow.
+        /// </summary>
+        Cloud
     }
 
     public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable

@@ -1,0 +1,6 @@
+from(bucket: "solar")
+  |> range(start: today(), stop: 2d)
+  |> filter(fn: (r) => r["_measurement"] == "weather")
+  |> filter(fn: (r) => r["_field"] == "cloud")
+  |> aggregateWindow(every: 1d, fn: mean)
+  |> first()

@@ -20,7 +20,7 @@ sunrise = from(bucket: "solar")
   |> getTime()
 
 from(bucket: "solar")
-  |> range(start: date.add(d: -2h, to: sunrise), stop: date.add(d: 1h, to: sunrise))
+  |> range(start: date.add(d: -2h, to: sunrise), stop: date.add(d: 2h, to: sunrise))
   |> filter(fn: (r) => r["_measurement"] == "inverter" and r["_field"] == "batt_level")
   |> min()
   |> yield()

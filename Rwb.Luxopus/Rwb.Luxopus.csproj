@@ -22,6 +22,7 @@
     <None Remove="InfluxQueries\BatteryGridChargeHigh" />
     <None Remove="InfluxQueries\BatteryMinimumYesterday" />
     <None Remove="InfluxQueries\BatteryMorningLow" />
+    <None Remove="InfluxQueries\Cloud" />
     <None Remove="InfluxQueries\DaytimeBuyMin" />
     <None Remove="InfluxQueries\DaytimeSellMedian" />
     <None Remove="InfluxQueries\DischargeAchievedYesterday" />

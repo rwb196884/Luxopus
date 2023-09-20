@@ -152,6 +152,13 @@ namespace Rwb.Luxopus.Jobs
                             notes.AppendLine($"Peak: overnight low not found; AdjustLimit value is used.");
                         }
 
+                        (_, double cloudForecast) = (await InfluxQuery.QueryAsync(Query.Cloud, t0)).First().FirstOrDefault<double>();
+                        if(cloudForecast > 90 && dischargeToGrid < 20)
+                        {
+                            notes.AppendLine($"Cloud forecast of {cloudForecast:##0}% therefore discharge of {dischargeToGrid} increased to 21.");
+                            dischargeToGrid = 21;
+                        }
+
                         p.Action = new PeriodAction()
                         {
                             ChargeFromGrid = 0,

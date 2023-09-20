@@ -189,18 +189,19 @@ namespace Rwb.Luxopus.Jobs
                         actionInfo.AppendLine($"Generation {generation} > 2700 and 3200 < inverterOutput:{inverterOutput} < 3700 therefore generation could be limited.");
                     }
                 }
-                else if ( t0.Hour <= 10 && generationMax > 1000)
+                else if ( t0.Hour <= 10 && generationMax > 1000 && battLevel > battLevelTarget - 5)
                 {
                     // It's early and it looks like it's going to be a good day.
                     // So keep the battery empty to make space for later.
                     battChargeRateWanted = 8;
+                    actionInfo.AppendLine($"Generation peak of {generationMax} before 11AM UTC suggests that it could be a good day. Battery level {battLevel} below target of {battLevelTarget} therefore keep some space.");
                 }
 
                 if (battChargeRateWanted < battChargeRatePlan)
                 {
                     battChargeRateWanted = battChargeRatePlan;
                     string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                    actionInfo.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).");
+                    actionInfo.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRatePlan}%).");
                 }
             }
 
