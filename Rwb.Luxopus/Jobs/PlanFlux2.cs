@@ -152,13 +152,6 @@ namespace Rwb.Luxopus.Jobs
                             notes.AppendLine($"Peak: overnight low not found; AdjustLimit value is used.");
                         }
 
-                        (_, double cloudForecast) = (await InfluxQuery.QueryAsync(Query.Cloud, t0)).First().FirstOrDefault<double>();
-                        if(cloudForecast > 90 && dischargeToGrid < 20)
-                        {
-                            notes.AppendLine($"Cloud forecast of {cloudForecast:##0}% therefore discharge of {dischargeToGrid} increased to 21.");
-                            dischargeToGrid = 21;
-                        }
-
                         p.Action = new PeriodAction()
                         {
                             ChargeFromGrid = 0,
@@ -231,10 +224,23 @@ namespace Rwb.Luxopus.Jobs
                         //chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
                         notes.AppendLine($"Low: chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (not used)");
 
-                        // Hack.
-                        if (chargeFromGrid > 20)
+                        DateTime tForecast = t0;
+                        if( tForecast.Hour > 12)
                         {
-                            chargeFromGrid = 20;
+                            tForecast = tForecast.AddDays(1);
+                        }
+                        (_, double cloudForecast) = (await InfluxQuery.QueryAsync(Query.Cloud, tForecast)).First().FirstOrDefault<double>();
+                        if (cloudForecast > 90 && chargeFromGrid < 21)
+                        {
+                            // If we think there won't be much generation then buy enough to get through the day.
+                            notes.AppendLine($"Cloud forecast of {cloudForecast:##0}% therefore charge to {chargeFromGrid} increased to 34.");
+                            dischargeToGrid = 34;
+                        }
+                        else if (chargeFromGrid > 21)
+                        {
+                            notes.AppendLine($"Charge from grid of {chargeFromGrid} overridden to 21.");
+                            chargeFromGrid = 21;
+                            // Hack.
                         }
 
                         p.Action = new PeriodAction()
