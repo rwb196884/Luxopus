@@ -153,7 +153,6 @@ namespace Rwb.Luxopus.Jobs
 
                 if (generation > 3600)
                 {
-                   outBatteryLimitPercentWanted = 99;
                     // Manage the limit.
                     if( inverterOutput < 3300)
                     {
