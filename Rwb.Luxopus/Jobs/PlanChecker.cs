@@ -209,6 +209,7 @@ namespace Rwb.Luxopus.Jobs
             (DateTime sunrise, long _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
             (DateTime sunset, long _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
             string why = "no change";
+
             if (inEnabledWanted && inStartWanted <= currentPeriod.Start && inStopWanted > currentPeriod.Start && battLevel < inBatteryLimitPercentWanted)
             {
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(inBatteryLimitPercentWanted - battLevel);
@@ -324,7 +325,7 @@ from(bucket: ""solar"")
                             }
                             else if (battLevel > battLevelTarget)
                             {
-                                outBatteryLimitPercentWanted = (battLevel + 3) > _BatteryUpperLimit ? _BatteryUpperLimit : (battLevel + 3);
+                                outBatteryLimitPercentWanted = (battLevel + 3) > _BatteryUpperLimit ? _BatteryUpperLimit : (battLevelTarget + 3);
                             }
                             else
                             {
@@ -337,7 +338,7 @@ from(bucket: ""solar"")
                             // Max generation witnessed was 6.2kW on 2023-02-20 but can only invert 3.6 therefore at most 2.8kW to battery.
                             // Battery charge at 100% seems to be about 4kW.
                             // Therefore battery charge rate should be at most 70%.
-                            why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}%.";
+                            why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}% (expected {battLevelTarget}%).";
                         }
                         else
                         {

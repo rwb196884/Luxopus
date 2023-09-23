@@ -194,7 +194,8 @@ namespace Rwb.Luxopus.Jobs
                     // It's early and it looks like it's going to be a good day.
                     // So keep the battery empty to make space for later.
                     battChargeRateWanted = 8;
-                    actionInfo.AppendLine($"Generation peak of {generationMax} before 11AM UTC suggests that it could be a good day. Battery level {battLevel} below target of {battLevelTarget} therefore keep some space.");
+                    actionInfo.AppendLine($"Generation peak of {generationMax} before 11AM UTC suggests that it could be a good day. Battery level {battLevel}, target of {battLevelTarget} therefore keep some space.");
+                    outBatteryLimitPercentWanted = battLevelTarget - 5;
                 }
 
                 if (battChargeRateWanted < battChargeRatePlan)
