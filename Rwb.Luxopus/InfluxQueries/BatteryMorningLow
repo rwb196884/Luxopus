@@ -14,7 +14,7 @@ t0 = today()
 
 // QUERIES
 sunrise = from(bucket: "solar")
-  |> range(start: t0, stop: date.add(d: 6h, to: t0))
+  |> range(start: t0, stop: date.add(d: 9h, to: t0))
   |> filter(fn: (r) => r["_measurement"] == "sun" and r["_field"] == "risen" and r["_value"] == 1)
   |> first()
   |> getTime()
