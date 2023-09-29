@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Rwb.Luxopus.Jobs
 {
@@ -41,6 +42,11 @@ namespace Rwb.Luxopus.Jobs
                     int sunrise = day.First(z => z.Name == "sunrise").Value.GetInt32();
                     int sunset = day.First(z => z.Name == "sunset").Value.GetInt32();
                     lines.Add("weather", "daylen", Math.Round(Convert.ToDecimal(sunset - sunrise) / 3600M, 2), t);
+
+                    JsonElement.ObjectEnumerator w = day.First(z => z.Name == "weather").Value.EnumerateArray().First().EnumerateObject();
+                    int weatherId = w.First(z => z.Name == "id").Value.GetInt32();
+                    string weatherDescription = w.First(z => z.Name == "main").Value.GetString();
+                    lines.Add("weather", new Dictionary<string, string>() { { "description", weatherDescription } }, "forecast", weatherId, t);
                 }
             }
             await _InfluxWrite.WriteAsync(lines);
