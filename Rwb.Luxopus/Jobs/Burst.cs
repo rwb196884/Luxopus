@@ -30,7 +30,7 @@ namespace Rwb.Luxopus.Jobs
         private const int _BatteryChargeMaxRate = 4000;
 
         public Burst(
-            ILogger<LuxMonitor> logger, 
+            ILogger<Burst> logger, 
             IBurstLogService burstLog,
             ILuxopusPlanService plans, 
             ILuxService lux, 
