@@ -252,8 +252,8 @@ namespace Rwb.Luxopus.Jobs
                     outEnabledWanted = true;
                     battDischargeToGridRateWanted = 72;
                     outBatteryLimitPercentWanted = _BatteryUpperLimit;
-                    outStartWanted = plan.Current.Start; // Needs to be constant in order not to spam changes.
-                    outStopWanted = plan.Next.Start;
+                    outStartWanted = currentPeriod.Start; // Needs to be constant in order not to spam changes.
+                    outStopWanted = plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30);
                     why = $"Battery is full ({battLevel}%).";
                 }
                 else
@@ -287,9 +287,9 @@ namespace Rwb.Luxopus.Jobs
                     else if (plan?.Next != null && Plan.DischargeToGridCondition(plan!.Next!))
                     {
                         // Get fully charged before the discharge period.
-                        DateTime tBattChargeFrom = plan.Current.Start < sunrise ? sunrise : plan.Current.Start;
+                        DateTime tBattChargeFrom = currentPeriod.Start < sunrise ? sunrise : currentPeriod.Start;
 
-                        int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
+                        int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(currentPeriod.Start);
                         DateTime nextPlanCheck = DateTime.UtcNow.Minute > 30  //Check if mins are greater than 30
                           ? DateTime.UtcNow.AddHours(1).AddMinutes(-DateTime.UtcNow.Minute) // After half past so go to the next hour.
                           : DateTime.UtcNow.AddMinutes(30 - DateTime.UtcNow.Minute); // Before half past so go to half past.
@@ -305,21 +305,21 @@ namespace Rwb.Luxopus.Jobs
                         (DateTime _, long generationMax) = //(DateTime.Now, 0);
                             (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
-  |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
+  |> range(start: {currentPeriod.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")).First().FirstOrDefault<long>();
 
-                        if (generationMax > 2000 && DateTime.UtcNow < plan.Next.Start.AddHours(-1))
+                        if (generationMax > 2000 && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
                         {
                             outEnabledWanted = true;
                             battDischargeToGridRateWanted = 70; // Allow extra to be discharged.
-                            if (outStartWanted.TimeOfDay > plan.Current.Start.TimeOfDay)
+                            if (outStartWanted.TimeOfDay > currentPeriod.Start.TimeOfDay)
                             {
-                                outStartWanted = plan.Current.Start;
+                                outStartWanted = currentPeriod.Start;
                             }
-                            if (outStopWanted.TimeOfDay < plan.Next.Start.TimeOfDay)
+                            if (outStopWanted.TimeOfDay < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).TimeOfDay)
                             {
-                                outStopWanted = plan.Next.Start;
+                                outStopWanted = (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30));
                             }
 
                             if (battLevel >= _BatteryUpperLimit)
@@ -360,7 +360,7 @@ from(bucket: ""solar"")
                                 // Plan A
                                 outEnabledWanted = false;
                                 inEnabledWanted = false;
-                                double hoursToCharge = (plan.Next.Start - t0).TotalHours;
+                                double hoursToCharge = ((plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)) - t0).TotalHours;
                                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
 
                                 // Are we behind schedule?
@@ -382,7 +382,7 @@ from(bucket: ""solar"")
                     }
                     else
                     {
-                        // ?
+                        // No plan. Set defaults.
                         battChargeRateWanted = 50;
                         why = $"No information.";
                     }
@@ -460,7 +460,7 @@ from(bucket: ""solar"")
                 if (plan != null)
                 {
                     actions.AppendLine();
-                    HalfHourPlan? pp = plan.Current;
+                    HalfHourPlan? pp = currentPeriod;
                     while (pp != null)
                     {
                         actions.AppendLine(pp.ToString());
