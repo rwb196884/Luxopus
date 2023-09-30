@@ -229,18 +229,24 @@ namespace Rwb.Luxopus.Jobs
                         {
                             tForecast = tForecast.AddDays(1);
                         }
-                        (_, double cloudForecast) = (await InfluxQuery.QueryAsync(Query.Cloud, tForecast)).First().FirstOrDefault<double>();
-                        if (cloudForecast > 90 && chargeFromGrid < 21)
+                        try
                         {
-                            // If we think there won't be much generation then buy enough to get through the day.
-                            notes.AppendLine($"Cloud forecast of {cloudForecast:##0}% therefore charge to {chargeFromGrid} increased to 34.");
-                            dischargeToGrid = 34;
+                            (_, double cloudForecast) = (await InfluxQuery.QueryAsync(Query.Cloud, tForecast)).First().FirstOrDefault<double>();
+                            if (cloudForecast > 90 && chargeFromGrid < 21)
+                            {
+                                // If we think there won't be much generation then buy enough to get through the day.
+                                notes.AppendLine($"Cloud forecast of {cloudForecast:##0}% therefore charge to {chargeFromGrid} increased to 34.");
+                                dischargeToGrid = 34;
+                            }
+                            else if (chargeFromGrid > 21)
+                            {
+                                notes.AppendLine($"Charge from grid of {chargeFromGrid} overridden to 21.");
+                                chargeFromGrid = 21;
+                                // Hack.
+                            }
                         }
-                        else if (chargeFromGrid > 21)
-                        {
-                            notes.AppendLine($"Charge from grid of {chargeFromGrid} overridden to 21.");
-                            chargeFromGrid = 21;
-                            // Hack.
+                        catch( Exception e) {
+                            Logger.LogError(e, "Failed to execute cloud query.");
                         }
 
                         p.Action = new PeriodAction()
