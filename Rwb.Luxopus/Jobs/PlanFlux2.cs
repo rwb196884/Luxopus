@@ -211,10 +211,12 @@ namespace Rwb.Luxopus.Jobs
                             Logger.LogError(e, "Could not get start of generation yesterday for making flux low plan.");
                         }
 
-                        double powerRequired = 0.3;
+                        // Night time power use is generally below 200w.
+                        // Aim for end of flux low to 10AM.
+                        double powerRequired = 0.2 * (10 - (next?.Start.Hour ?? p.Start.Hour + 3));
                         if ((next?.Start.Hour ?? p.Start.Hour + 3) < startOfGeneration.Hour)
                         {
-                            bup.GetKwkh(t0.DayOfWeek, (next?.Start.Hour ?? p.Start.Hour + 3), startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0));
+                            powerRequired = bup.GetKwkh(t0.DayOfWeek, (next?.Start.Hour ?? p.Start.Hour + 3), startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0));
                         }
                         int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
                         notes.AppendLine($"Low: AdjustLimit      battRequired {battRequired}%");
