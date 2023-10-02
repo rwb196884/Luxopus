@@ -206,8 +206,18 @@ namespace Rwb.Luxopus.Jobs
 
             // Batt charge.
             int battChargeRateWanted = battChargeRate; // No change.
-            (DateTime sunrise, long _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
-            (DateTime sunset, long _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
+            DateTime sunrise = DateTime.Now.AddMinutes(-30);
+            DateTime sunset = DateTime.Now.AddMinutes(30);
+            try
+            {
+                long _;
+                (sunrise, _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
+                (sunset, _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
+            }
+            catch (Exception e)
+            {
+                Logger.LogError(e, "Failed to query for sunrise and sunset.");
+            }
             string why = "no change";
 
             if (inEnabledWanted && inStartWanted <= currentPeriod.Start && inStopWanted > currentPeriod.Start && battLevel < inBatteryLimitPercentWanted)
@@ -296,7 +306,7 @@ namespace Rwb.Luxopus.Jobs
                         int battLevelTarget = battLevelStart + Convert.ToInt32(
                             Convert.ToDouble(100 - battLevelStart)
                             * nextPlanCheck.Subtract(tBattChargeFrom).TotalMinutes
-                          / plan.Next.Start.Subtract(tBattChargeFrom).TotalMinutes 
+                          / plan.Next.Start.Subtract(tBattChargeFrom).TotalMinutes
                             );
 
                         // Override for high generation.
@@ -468,14 +478,14 @@ from(bucket: ""solar"")
                     }
                 }
 
-                if(burstLog.Length > 0)
+                if (burstLog.Length > 0)
                 {
                     actions.AppendLine();
                     actions.AppendLine("Burst log");
                     actions.AppendLine(burstLog);
                 }
 
-                _Email.SendEmail($"PlanChecker at UTC {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString() );
+                _Email.SendEmail($"PlanChecker at UTC {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
                 Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
             }
         }
