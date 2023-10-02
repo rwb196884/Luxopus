@@ -194,7 +194,7 @@ namespace Rwb.Luxopus.Jobs
                         long chargeFromGrid = AdjustLimit(true, batteryCharged, batteryMorningLow, BatteryAbsoluteMinimum + 1, 20);
                         notes.AppendLine($"Low: AdjustLimit    batteryCharged {batteryCharged}%");
                         notes.AppendLine($"Low: AdjustLimit batteryMorningLow {batteryMorningLow}%");
-                        notes.AppendLine($"Low: AdjustLimit    chargeFromGrid {chargeFromGrid}% (used)");
+                        notes.AppendLine($"Low: AdjustLimit    chargeFromGrid {chargeFromGrid}% (not used)");
                         notes.AppendLine();
 
                         // Work it out properly?
@@ -223,8 +223,8 @@ namespace Rwb.Luxopus.Jobs
                         notes.AppendLine($"Low: AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
                         notes.AppendLine($"Low: AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0)})");
 
-                        //chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
-                        notes.AppendLine($"Low: chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (not used)");
+                        chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
+                        notes.AppendLine($"Low: chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (used)");
 
                         DateTime tForecast = p.Start;
                         if( tForecast.Hour > 12)
