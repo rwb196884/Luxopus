@@ -297,6 +297,10 @@ from(bucket: ""{Settings.Bucket}"")
         public static T GetValue<T>(this FluxRecord record, string column = "_value")
         {
             object o = record.GetValueByKey(column);
+            if(o == null)
+            {
+                throw new NullReferenceException($"Column {column} is not present in result table.");
+            }
             if (o.GetType() == typeof(Instant) && typeof(T) == typeof(DateTime))
             {
                 return (T)(object)((Instant)o).ToDateTimeUtc();
@@ -317,10 +321,10 @@ from(bucket: ""{Settings.Bucket}"")
             return (T)o;
         }
 
-        public static IEnumerable<(DateTime, T)> GetValues<T>(this FluxTable table)
+        public static IEnumerable<(DateTime?, T)> GetValues<T>(this FluxTable table)
         {
             return table.Records.Select(z => (
-                z.GetValue<DateTime>("_time"),
+                z.GetValue<DateTime?>("_time"),
                 z.GetValue<T>("_value")
             ));
         }
