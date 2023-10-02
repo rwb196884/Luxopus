@@ -321,10 +321,10 @@ from(bucket: ""{Settings.Bucket}"")
             return (T)o;
         }
 
-        public static IEnumerable<(DateTime?, T)> GetValues<T>(this FluxTable table)
+        public static IEnumerable<(DateTime, T)> GetValues<T>(this FluxTable table)
         {
             return table.Records.Select(z => (
-                z.GetValue<DateTime?>("_time"),
+                z.GetValue<DateTime>("_time"),
                 z.GetValue<T>("_value")
             ));
         }
