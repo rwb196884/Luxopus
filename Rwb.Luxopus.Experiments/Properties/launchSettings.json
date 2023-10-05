@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "Experiments (work)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "rwb"
+      }
+    },
+    "Experiments (laptop)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "laptop"
+      }
+    }
+  }
+}

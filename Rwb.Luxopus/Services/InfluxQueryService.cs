@@ -174,9 +174,11 @@ namespace Rwb.Luxopus.Services
         LastOccupied,
 
         /// <summary>
-        /// Cloud cover (%) forecast for tomorrow.
+        /// Weather data forecast for tomorrow: cloud, daylen, forecast, lux, uvi.
         /// </summary>
-        Cloud
+        Weather,
+
+        PredictionData
     }
 
     public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable
@@ -299,6 +301,10 @@ from(bucket: ""{Settings.Bucket}"")
             object o = record.GetValueByKey(column);
             if(o == null)
             {
+                if( default(T) == null)
+                {
+                    return default(T);
+                }
                 throw new NullReferenceException($"Column {column} is not present in result table.");
             }
             if (o.GetType() == typeof(Instant) && typeof(T) == typeof(DateTime))

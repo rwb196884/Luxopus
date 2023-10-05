@@ -69,11 +69,17 @@ namespace Rwb.Luxopus.Jobs
         private const int DischargeAbsoluteMinimum = 18;
 
         private IBatteryService _Batt;
+        private IOpenWeathermapService _Weather;
 
-        public PlanFlux2(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, IBatteryService batt)
+        public PlanFlux2(ILogger<LuxMonitor> logger, 
+            IInfluxQueryService influxQuery, 
+            ILuxopusPlanService plan, IEmailService email, 
+            IBatteryService batt,
+            IOpenWeathermapService weather)
             : base(logger, influxQuery, plan, email)
         {
             _Batt = batt;
+            _Weather= weather;
         }
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
@@ -233,11 +239,19 @@ namespace Rwb.Luxopus.Jobs
                         }
                         try
                         {
-                            (_, double cloudForecast) = (await InfluxQuery.QueryAsync(Query.Cloud, tForecast)).First().FirstOrDefault<double>();
-                            if (cloudForecast > 90 && chargeFromGrid < 21)
+                            FluxRecord weather = (await InfluxQuery.QueryAsync(Query.Weather, tForecast)).First().Records.Single();
+                            double cloud = weather.GetValue<double>("cloud");
+                            double daylen = weather.GetValue<double>("daylen");
+                            int forecast = Convert.ToInt32(weather.GetValue<double>("forecast"));
+                            double uvi = weather.GetValue<double>("uvi");
+                            double solcast = weather.GetValue<double>("solcast");
+
+                            notes.AppendLine($"Weather: cloud: {cloud:0} | daylen: {daylen:0} | forecast: {_Weather.GetForecastDescription(forecast)} | uvi: {uvi: 0.0} | solcast: {solcast:#,##0}");
+
+                            if (cloud > 90 && chargeFromGrid < 21)
                             {
                                 // If we think there won't be much generation then buy enough to get through the day.
-                                notes.AppendLine($"Cloud forecast of {cloudForecast:##0}% therefore charge to {chargeFromGrid} increased to 34.");
+                                notes.AppendLine($"Cloud forecast of {cloud:##0}% therefore charge to {chargeFromGrid} increased to 34.");
                                 dischargeToGrid = 34;
                             }
                             else if (chargeFromGrid > 21)

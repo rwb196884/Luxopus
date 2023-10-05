@@ -1,0 +1,21 @@
+import "date"
+
+weather = from(bucket: "solar")
+  |> range(start: 2023-10-06T00:00:00Z, stop: date.add(d: 1d, to: 2023-10-06T00:00:00Z))
+  |> filter(fn: (r) => r["_measurement"] == "weather" )
+  |> keep(columns: ["_time", "_field", "_value"])
+  |> group(columns: ["_field"])
+  |> mean()
+  |> map(fn: (r) => ({r with _time: 2023-10-06T00:00:00Z}))
+
+solcast = from(bucket: "solar")
+  |> range(start: 2023-10-06T00:00:00Z, stop: date.add(d: 1d, to: 2023-10-06T00:00:00Z))
+  |> filter(fn: (r) => r["_measurement"] == "solcast" and r["_field"] == "forecast")
+  |> keep(columns: ["_time", "_field", "_value"])
+  |> window(every: 1d)
+  |> integral(unit: 30s, interpolate: "linear")
+  |> map(fn: (r) => ({_field: "solcast", _time: r._start, _value: r._value}))
+
+union(tables: [weather, solcast])
+  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+  |> yield()

@@ -300,9 +300,7 @@ namespace Rwb.Luxopus.Jobs
                         DateTime tBattChargeFrom = currentPeriod.Start < sunrise ? sunrise : currentPeriod.Start;
 
                         int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(currentPeriod.Start);
-                        DateTime nextPlanCheck = DateTime.UtcNow.Minute > 30  //Check if mins are greater than 30
-                          ? DateTime.UtcNow.AddHours(1).AddMinutes(-DateTime.UtcNow.Minute) // After half past so go to the next hour.
-                          : DateTime.UtcNow.AddMinutes(30 - DateTime.UtcNow.Minute); // Before half past so go to half past.
+                        DateTime nextPlanCheck = DateTime.UtcNow.AddMinutes(21); // Just before.
                         int battLevelTarget = battLevelStart + Convert.ToInt32(
                             Convert.ToDouble(100 - battLevelStart)
                             * nextPlanCheck.Subtract(tBattChargeFrom).TotalMinutes
