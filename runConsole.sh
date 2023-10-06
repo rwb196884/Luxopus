@@ -15,6 +15,7 @@ if [ ! $s -eq 0 ]; then
 		done
 		echo "  ...stopped."
 	else
+		#echo "Already running"
 		exit
 	fi
 fi
