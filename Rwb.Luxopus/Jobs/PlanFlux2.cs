@@ -252,7 +252,7 @@ namespace Rwb.Luxopus.Jobs
                             {
                                 // If we think there won't be much generation then buy enough to get through the day.
                                 notes.AppendLine($"Cloud forecast of {cloud:##0}% therefore charge to {chargeFromGrid} increased to 34.");
-                                dischargeToGrid = 34;
+                                chargeFromGrid = 34;
                             }
                             else if (chargeFromGrid > 21)
                             {
