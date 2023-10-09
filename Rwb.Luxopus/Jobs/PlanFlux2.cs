@@ -267,11 +267,48 @@ namespace Rwb.Luxopus.Jobs
                             }
 
                             // !
-                            //double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
-                            //double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction / 10);
-                            //double chargeLimitFromPrediction = 95 - battPrediction + battRequired;
-                            //notes.AppendLine($"Predicted generation of {generationPrediction / 10.0:0.0}kW ({battPrediction:0}%). Charge to {chargeLimitFromPrediction:0}% = 95 - {battPrediction:0}% + {battRequired:0}%.");
+                            HalfHourPlan? peak = plan.Plans.FirstOrDefault(z => z.Start > p.Start && GetFluxCase(plan, z) == FluxCase.Peak);
+                            if (next != null && peak != null)
+                            {
+                                double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
+                                double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
+                                
+                                powerRequired = bup.GetKwkh(p.Start.DayOfWeek, startOfGeneration.Hour, peak.Start.Hour);
+                                battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
 
+                                notes.AppendLine($"Predicted generation of {generationPrediction:0.0}kW ({battPrediction:0}%). Predicted use {powerRequired:0.0}kW ({battRequired:0}%).");
+
+                                double powerAvailableForBatt = generationPrediction - powerRequired;
+                                if (powerAvailableForBatt < 0)
+                                {
+                                    // Not enough generation. Charge to 90%.
+                                    notes.AppendLine("  Generation too low: charge to 68%. (Maybe increase to 90%?)");
+                                    chargeFromGrid = 68;
+                                }
+                                else
+                                {
+                                    double predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt);
+                                    if(predictedGenerationToBatt > 90)
+                                    {
+                                        notes.AppendLine("  Generation high.");
+                                        if(chargeFromGrid > 11)
+                                        {
+                                            notes.AppendLine($"      Charge from grid overidden from {chargeFromGrid:0}% to 11%.");
+                                            chargeFromGrid = 11;
+                                        }
+                                    }
+                                    else if( predictedGenerationToBatt < 10 )
+                                    {
+                                        notes.AppendLine("  Generation low: charge to 69%. (Maybe increase to 90%?)");
+                                        chargeFromGrid = 69;
+                                    }
+                                    else
+                                    {
+                                        notes.AppendLine($"  Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
+                                        chargeFromGrid = 98 - Convert.ToInt32(predictedGenerationToBatt);
+                                    }
+                                }
+                            }
                         }
                         catch ( Exception e) {
                             Logger.LogError(e, "Failed to execute cloud query.");
@@ -360,7 +397,7 @@ namespace Rwb.Luxopus.Jobs
             double elevation = Math.Floor(weather.GetValue<double>("elevation"));
 
             double[] prediction = regression.Transform(new double[] { cloud, daylen, elevation, uvi });
-            return prediction[0];
+            return prediction[0] / 10.0;
         }
         #endregion
     }
