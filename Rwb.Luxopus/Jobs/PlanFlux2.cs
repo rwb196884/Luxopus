@@ -267,10 +267,10 @@ namespace Rwb.Luxopus.Jobs
                             }
 
                             // !
-                            double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
-                            double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction / 10);
-                            double chargeLimitFromPrediction = 95 - battPrediction + battRequired;
-                            notes.AppendLine($"Predicted generation of {generationPrediction / 10.0:0.0}kW ({battPrediction:0}%). Charge to {chargeLimitFromPrediction:0}% = 95 - {battPrediction:0}% + {battRequired:0}%.");
+                            //double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
+                            //double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction / 10);
+                            //double chargeLimitFromPrediction = 95 - battPrediction + battRequired;
+                            //notes.AppendLine($"Predicted generation of {generationPrediction / 10.0:0.0}kW ({battPrediction:0}%). Charge to {chargeLimitFromPrediction:0}% = 95 - {battPrediction:0}% + {battRequired:0}%.");
 
                         }
                         catch ( Exception e) {
