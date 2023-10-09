@@ -32,6 +32,7 @@
     <None Remove="InfluxQueries\MorningSellMax" />
     <None Remove="InfluxQueries\OvernightMin" />
     <None Remove="InfluxQueries\PredictionData" />
+    <None Remove="InfluxQueries\PredictionData2" />
     <None Remove="InfluxQueries\SolcastFactors" />
     <None Remove="InfluxQueries\SolcastToday" />
     <None Remove="InfluxQueries\StartOfGenerationYesterday" />
@@ -41,6 +42,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Accord" Version="3.8.0" />
+    <PackageReference Include="Accord.MachineLearning" Version="3.8.0" />
+    <PackageReference Include="Accord.Neuro" Version="3.8.0" />
+    <PackageReference Include="Accord.Statistics" Version="3.8.0" />
     <PackageReference Include="CoordinateSharp" Version="2.18.1.1" />
     <PackageReference Include="InfluxDB.Client" Version="4.12.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />

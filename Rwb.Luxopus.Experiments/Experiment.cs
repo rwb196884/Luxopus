@@ -3,6 +3,7 @@ using Accord.MachineLearning.Bayes;
 using Accord.Neuro;
 using Accord.Neuro.Learning;
 using Accord.Statistics.Distributions.Univariate;
+using Accord.Statistics.Models.Regression.Linear;
 using InfluxDB.Client.Core.Flux.Domain;
 using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Jobs;
@@ -61,9 +62,42 @@ namespace Rwb.Luxopus.Experiments
             public double[] Output { get { return new[] { Convert.ToDouble(Generation.Value) }; } }
         }
 
+        class Datum2
+        {
+            public DateTime Time;
+            public double? Cloud;
+            public double? Daylen;
+            public double? Elevation;
+            public long? Generation;
+            public double? Uvi;
+
+            public bool IsComplete
+            {
+                get
+                {
+                    return Cloud.HasValue && Daylen.HasValue
+                        && Elevation.HasValue && Generation.HasValue && Uvi.HasValue;
+                }
+            }
+
+            public double[] Input
+            {
+                get
+                {
+                    return new[]
+            {
+                Convert.ToDouble(Cloud.Value), Convert.ToDouble(Daylen.Value), Convert.ToDouble(Elevation.Value), Convert.ToDouble(Uvi.Value)
+            };
+                }
+            }
+
+            public double[] Output { get { return new[] { Convert.ToDouble(Generation.Value) }; } }
+        }
+
         public async Task RunAsync()
         {
-            await RunNeuralNetAsync();
+            //await RunNeuralNetAsync();
+            await RunLinearRegressionAsync();
         }
 
         private async Task<List<Datum>> LoadData()
@@ -82,16 +116,30 @@ namespace Rwb.Luxopus.Experiments
             }).ToList();
         }
 
+        private async Task<List<Datum2>> LoadData2()
+        {
+            FluxTable fluxData = (await _InfluxQuery.QueryAsync(Query.PredictionData2, DateTime.Now)).Single();
+            return fluxData.Records.Select(z => new Datum2()
+            {
+                Time = z.GetValue<DateTime>("_time"),
+                Cloud = z.GetValue<double?>("cloud"),
+                Daylen = z.GetValue<double?>("daylen"),
+                Elevation = z.GetValue<double?>("elevation"),
+                Generation = z.GetValue<long?>("generation"),
+                Uvi = z.GetValue<double?>("uvi"),
+            }).ToList();
+        }
+
         public async Task RunNeuralNetAsync()
         {
-            List<Datum> data = await LoadData();
+            List<Datum2> data = await LoadData2();
             ActivationNetwork network = new ActivationNetwork(new SigmoidFunction(),
-                5, // inputs: cloud, daylen, elevation, solcast, uvi
-                10, 
+                4, // inputs: cloud, daylen, elevation, uvi
+                16, 
                 1);
             BackPropagationLearning teacher = new BackPropagationLearning(network);
 
-            IEnumerable<Datum> trainingData = data.Where(z => z.IsComplete && z.Time < new DateTime(2023, 9, 1));
+            IEnumerable<Datum2> trainingData = data.Where(z => z.IsComplete && z.Time < new DateTime(2023, 9, 1));
             double[][] inputs = trainingData.Select(z => z.Input).ToArray();
             double[][] outputs = trainingData.Select(z => z.Output).ToArray();
             double error = double.MaxValue;
@@ -103,11 +151,45 @@ namespace Rwb.Luxopus.Experiments
                 _Logger.LogDebug($"Learning iteration {iteration} has error {error:#,##0.000}");
             }
 
-            foreach (Datum testDatum in data.Where(z => z.IsComplete && z.Time >= new DateTime(2023, 9, 1)))
+            foreach (Datum2 testDatum in data.Where(z => z.IsComplete && z.Time >= new DateTime(2023, 9, 1)))
             {
                 double[] output = network.Compute(testDatum.Input);
                 _Logger.LogDebug($"Prediction: {output[0]:#,##0}, Actual: {testDatum.Output[0]:#,##0}");
             }
+        }
+
+        public async Task RunLinearRegressionAsync()
+        {
+            List<Datum2> data = await LoadData2();
+            OrdinaryLeastSquares ols = new OrdinaryLeastSquares();
+            IEnumerable<Datum2> trainingData = data.Where(z => z.IsComplete /*&& z.Time < new DateTime(2023, 9, 1)*/);
+            double[][] inputs = trainingData.Select(z => z.Input).ToArray();
+            double[][] outputs = trainingData.Select(z => z.Output).ToArray();
+            MultivariateLinearRegression regression = ols.Learn(inputs, outputs);
+            double errorPlus = 0;
+            int nPlus = 0;
+            double errorMinus = 0;
+            int nMinus = 0;
+            IEnumerable<Datum2> testData = data.Where(z => z.IsComplete /*&& z.Time >= new DateTime(2023, 9, 1)*/);
+            foreach (Datum2 testDatum in testData)
+            {
+                double[] output = regression.Transform(testDatum.Input);
+                if (output[0] > testDatum.Output[0])
+                {
+                    errorPlus += output[0] - testDatum.Output[0];
+                    nPlus++;
+                }
+                else if(output[0] < testDatum.Output[0])
+                {
+                    errorMinus += testDatum.Output[0] - output[0];
+                    nMinus++;
+                }
+               // _Logger.LogDebug($"Prediction: {output[0]:#,##0}, Actual: {testDatum.Output[0]:#,##0}");
+            }
+            _Logger.LogDebug($"Error over: {100 * nPlus / testData.Count()} mean {errorPlus / Convert.ToDouble(nPlus):0.0}");
+            // 60%, 64
+            _Logger.LogDebug($"Error under: {100 * nMinus / testData.Count()} mean {errorPlus / Convert.ToDouble(errorMinus):0.0}");
+            // 39%, 2
         }
 
         public async Task RunNaiveBayesAsync()

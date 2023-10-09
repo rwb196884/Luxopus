@@ -1,4 +1,5 @@
-﻿using InfluxDB.Client.Core.Flux.Domain;
+﻿using Accord.Statistics.Models.Regression.Linear;
+using InfluxDB.Client.Core.Flux.Domain;
 using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
 using System;
@@ -251,6 +252,10 @@ namespace Rwb.Luxopus.Jobs
                             if (cloud > 90 && chargeFromGrid < 21)
                             {
                                 // If we think there won't be much generation then buy enough to get through the day.
+                                // Buy ~17 and sell ~26
+                                // therefore want to get the battey full by the end of the day.
+                                // When cloud > 90 median generation is about 16kWH, mean 17kWH.
+                                // Battery capacity is about 8kWH.
                                 notes.AppendLine($"Cloud forecast of {cloud:##0}% therefore charge to {chargeFromGrid} increased to 34.");
                                 chargeFromGrid = 34;
                             }
@@ -260,8 +265,15 @@ namespace Rwb.Luxopus.Jobs
                                 chargeFromGrid = 21;
                                 // Hack.
                             }
+
+                            // !
+                            double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
+                            double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction / 10);
+                            double chargeLimitFromPrediction = 95 - battPrediction + battRequired;
+                            notes.AppendLine($"Predicted generation of {generationPrediction / 10.0:0.0}kW ({battPrediction:0}%). Charge to {chargeLimitFromPrediction:0}% = 95 - {battPrediction:0}% + {battRequired:0}%.");
+
                         }
-                        catch( Exception e) {
+                        catch ( Exception e) {
                             Logger.LogError(e, "Failed to execute cloud query.");
                         }
 
@@ -285,5 +297,71 @@ namespace Rwb.Luxopus.Jobs
             // TODO: query.
             return today.Date.AddDays(1).AddHours(10);
         }
+
+        #region RegressionModel
+        class Datum2
+        {
+            public DateTime Time;
+            public double? Cloud;
+            public double? Daylen;
+            public double? Elevation;
+            public long? Generation;
+            public double? Uvi;
+
+            public bool IsComplete
+            {
+                get
+                {
+                    return Cloud.HasValue && Daylen.HasValue
+                        && Elevation.HasValue && Generation.HasValue && Uvi.HasValue;
+                }
+            }
+
+            public double[] Input
+            {
+                get
+                {
+                    return new[]
+            {
+                Convert.ToDouble(Cloud.Value), Convert.ToDouble(Daylen.Value), Convert.ToDouble(Elevation.Value), Convert.ToDouble(Uvi.Value)
+            };
+                }
+            }
+
+            public double[] Output { get { return new[] { Convert.ToDouble(Generation.Value) }; } }
+        }
+
+        private async Task<double> GenerationPredictionFromMultivariateLinearRegression(DateTime tForecast)
+        {
+            // Get daat.
+             FluxTable fluxData = (await InfluxQuery.QueryAsync(Query.PredictionData2, DateTime.Now)).Single();
+            List<Datum2> data = fluxData.Records.Select(z => new Datum2()
+            {
+                Time = z.GetValue<DateTime>("_time"),
+                Cloud = z.GetValue<double?>("cloud"),
+                Daylen = z.GetValue<double?>("daylen"),
+                Elevation = z.GetValue<double?>("elevation"),
+                Generation = z.GetValue<long?>("generation"),
+                Uvi = z.GetValue<double?>("uvi"),
+            }).ToList();
+
+            // Build model.
+            OrdinaryLeastSquares ols = new OrdinaryLeastSquares();
+            IEnumerable<Datum2> trainingData = data.Where(z => z.IsComplete /*&& z.Time < new DateTime(2023, 9, 1)*/);
+            double[][] inputs = trainingData.Select(z => z.Input).ToArray();
+            double[][] outputs = trainingData.Select(z => z.Output).ToArray();
+            MultivariateLinearRegression regression = ols.Learn(inputs, outputs);
+
+            // Use model. Apply the rescaling to the values.
+            FluxRecord weather = (await InfluxQuery.QueryAsync(Query.Weather, tForecast)).First().Records.Single();
+            double cloud = Math.Floor(weather.GetValue<double>("cloud") / 10.0);
+            double daylen = Math.Floor(weather.GetValue<double>("daylen") * 60 * 60 / 1000.0);
+            double uvi = Math.Floor(weather.GetValue<double>("uvi") * 10.0);
+            double elevation = Math.Floor(weather.GetValue<double>("elevation"));
+
+            double[] prediction = regression.Transform(new double[] { cloud, daylen, elevation, uvi });
+            return prediction[0];
+        }
+        #endregion
     }
 }

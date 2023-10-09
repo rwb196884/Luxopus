@@ -178,7 +178,8 @@ namespace Rwb.Luxopus.Services
         /// </summary>
         Weather,
 
-        PredictionData
+        PredictionData,
+        PredictionData2
     }
 
     public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable

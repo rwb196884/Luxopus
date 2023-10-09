@@ -1,0 +1,48 @@
+import "math"
+
+slap = (tables=<-) => tables |> keep(columns: ["_field", "_time", "_value"]) |> group(columns: ["_field"]) |> sort(columns: ["_time"])
+
+t0 = 2023-02-14T00:00:00Z
+
+gen = from(bucket: "solar")
+  |> range(start: t0, stop: today())
+  |> filter(fn: (r) => r["_measurement"] == "daily" and r["_field"] == "generation")
+  |> aggregateWindow(every: 1d, fn: last, createEmpty: false)
+  |> slap()
+
+daylen = from(bucket: "solar")
+  |> range(start: t0, stop: today())
+  |> filter(fn: (r) => r["_measurement"] == "sun")
+  |> filter(fn: (r) => r["_field"] == "daylen")
+  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
+  |> map(fn: (r) => ({r with _value: math.floor(x: float(v: r._value) / 1000.0)}))
+  |> slap()
+
+elevation = from(bucket: "solar")
+  |> range(start: t0, stop: today())
+  |> filter(fn: (r) => r["_measurement"] == "sun")
+  |> filter(fn: (r) => r["_field"] == "elevation")
+  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
+  |> map(fn: (r) => ({r with _value: math.floor(x: r._value)}))
+  |> slap()
+
+uvi = from(bucket: "solar")
+  |> range(start: t0, stop: today())
+  |> filter(fn: (r) => r["_measurement"] == "weather")
+  |> filter(fn: (r) => r["_field"] == "uvi")
+  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
+  |> map(fn: (r) => ({r with _value: math.floor(x: r._value * 10.0)}))
+  |> slap()
+
+cloud = from(bucket: "solar")
+  |> range(start: t0, stop: today())
+  |> filter(fn: (r) => r["_measurement"] == "weather")
+  |> filter(fn: (r) => r["_field"] == "cloud")
+  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
+  |> map(fn: (r) => ({r with _value: math.floor(x: r._value / 10.0)}))
+  |> slap()
+
+
+union( tables: [gen, daylen, elevation, uvi, cloud]) // , weather
+|> pivot(columnKey: ["_field"], rowKey: ["_time"], valueColumn: "_value")
+|> yield()
