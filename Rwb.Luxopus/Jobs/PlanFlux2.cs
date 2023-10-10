@@ -85,7 +85,7 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            DateTime t0 = DateTime.UtcNow.AddHours(-3);
+            DateTime t0 = DateTime.UtcNow.AddDays(-1).AddHours(-3);
             Plan? current = PlanService.Load(t0);
             StringBuilder notes = new StringBuilder();
 
@@ -200,8 +200,8 @@ namespace Rwb.Luxopus.Jobs
                         // Compare to yesterday.
                         long chargeFromGrid = AdjustLimit(true, batteryCharged, batteryMorningLow, BatteryAbsoluteMinimum + 1, 20);
                         notes.AppendLine($"Low: AdjustLimit    batteryCharged {batteryCharged}%");
-                        notes.AppendLine($"Low: AdjustLimit batteryMorningLow {batteryMorningLow}%");
-                        notes.AppendLine($"Low: AdjustLimit    chargeFromGrid {chargeFromGrid}% (not used)");
+                        notes.AppendLine($"     AdjustLimit batteryMorningLow {batteryMorningLow}%");
+                        notes.AppendLine($"     AdjustLimit    chargeFromGrid {chargeFromGrid}% (not used)");
                         notes.AppendLine();
 
                         // Work it out properly?
@@ -227,11 +227,11 @@ namespace Rwb.Luxopus.Jobs
                         }
                         int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
                         notes.AppendLine($"Low: AdjustLimit      battRequired {battRequired}%");
-                        notes.AppendLine($"Low: AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
-                        notes.AppendLine($"Low: AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0)})");
+                        notes.AppendLine($"     AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
+                        notes.AppendLine($"     AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0)})");
 
                         chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
-                        notes.AppendLine($"Low: chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (used)");
+                        notes.AppendLine($"     chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (used)");
 
                         DateTime tForecast = p.Start;
                         if( tForecast.Hour > 12)
@@ -276,13 +276,13 @@ namespace Rwb.Luxopus.Jobs
                                 powerRequired = bup.GetKwkh(p.Start.DayOfWeek, startOfGeneration.Hour, peak.Start.Hour);
                                 battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
 
-                                notes.AppendLine($"Predicted generation of {generationPrediction:0.0}kW ({battPrediction:0}%). Predicted use {powerRequired:0.0}kW ({battRequired:0}%).");
+                                notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kW ({battPrediction:0}%). Predicted use {powerRequired:0.0}kW ({battRequired:0}%).");
 
                                 double powerAvailableForBatt = generationPrediction - powerRequired;
                                 if (powerAvailableForBatt < 0)
                                 {
                                     // Not enough generation. Charge to 90%.
-                                    notes.AppendLine("  Generation too low: charge to 68%. (Maybe increase to 90%?)");
+                                    notes.AppendLine("     Generation too low: charge to 68%. (Maybe increase to 90%?)");
                                     chargeFromGrid = 68;
                                 }
                                 else
@@ -290,21 +290,21 @@ namespace Rwb.Luxopus.Jobs
                                     double predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt);
                                     if(predictedGenerationToBatt > 90)
                                     {
-                                        notes.AppendLine("  Generation high.");
-                                        if(chargeFromGrid > 11)
+                                        notes.AppendLine("     Generation high.");
+                                        if(chargeFromGrid > 21)
                                         {
-                                            notes.AppendLine($"      Charge from grid overidden from {chargeFromGrid:0}% to 11%.");
-                                            chargeFromGrid = 11;
+                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to 21%.");
+                                            chargeFromGrid = 21;
                                         }
                                     }
                                     else if( predictedGenerationToBatt < 10 )
                                     {
-                                        notes.AppendLine("  Generation low: charge to 69%. (Maybe increase to 90%?)");
+                                        notes.AppendLine("     Generation low: charge to 69%. (Maybe increase to 90%?)");
                                         chargeFromGrid = 69;
                                     }
                                     else
                                     {
-                                        notes.AppendLine($"  Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
+                                        notes.AppendLine($"     Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
                                         chargeFromGrid = 98 - Convert.ToInt32(predictedGenerationToBatt);
                                     }
                                 }
