@@ -200,8 +200,8 @@ namespace Rwb.Luxopus.Jobs
                         // Compare to yesterday.
                         long chargeFromGrid = AdjustLimit(true, batteryCharged, batteryMorningLow, BatteryAbsoluteMinimum + 1, 20);
                         notes.AppendLine($"Low: AdjustLimit    batteryCharged {batteryCharged}%");
-                        notes.AppendLine($"Low: AdjustLimit batteryMorningLow {batteryMorningLow}%");
-                        notes.AppendLine($"Low: AdjustLimit    chargeFromGrid {chargeFromGrid}% (not used)");
+                        notes.AppendLine($"     AdjustLimit batteryMorningLow {batteryMorningLow}%");
+                        notes.AppendLine($"     AdjustLimit    chargeFromGrid {chargeFromGrid}% (not used)");
                         notes.AppendLine();
 
                         // Work it out properly?
@@ -227,11 +227,11 @@ namespace Rwb.Luxopus.Jobs
                         }
                         int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
                         notes.AppendLine($"Low: AdjustLimit      battRequired {battRequired}%");
-                        notes.AppendLine($"Low: AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
-                        notes.AppendLine($"Low: AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0)})");
+                        notes.AppendLine($"     AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
+                        notes.AppendLine($"     AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0)})");
 
                         chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
-                        notes.AppendLine($"Low: chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (used)");
+                        notes.AppendLine($"     chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (used)");
 
                         DateTime tForecast = p.Start;
                         if( tForecast.Hour > 12)
@@ -267,11 +267,48 @@ namespace Rwb.Luxopus.Jobs
                             }
 
                             // !
-                            //double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
-                            //double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction / 10);
-                            //double chargeLimitFromPrediction = 95 - battPrediction + battRequired;
-                            //notes.AppendLine($"Predicted generation of {generationPrediction / 10.0:0.0}kW ({battPrediction:0}%). Charge to {chargeLimitFromPrediction:0}% = 95 - {battPrediction:0}% + {battRequired:0}%.");
+                            HalfHourPlan? peak = plan.Plans.FirstOrDefault(z => z.Start > p.Start && GetFluxCase(plan, z) == FluxCase.Peak);
+                            if (next != null && peak != null)
+                            {
+                                double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
+                                double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
+                                
+                                powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, peak.Start.Hour);
+                                battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
 
+                                notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kW ({battPrediction:0}%). Predicted use {powerRequired:0.0}kW ({battRequired:0}%).");
+
+                                double powerAvailableForBatt = generationPrediction - powerRequired;
+                                if (powerAvailableForBatt < 0)
+                                {
+                                    // Not enough generation. Charge to 90%.
+                                    notes.AppendLine("     Generation prediction is very low: charge to 68%. (Maybe increase to 90%?)");
+                                    chargeFromGrid = 68;
+                                }
+                                else
+                                {
+                                    double predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt);
+                                    if(predictedGenerationToBatt > 90)
+                                    {
+                                        notes.AppendLine("     Generation prediction is high.");
+                                        if(chargeFromGrid > 21)
+                                        {
+                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to 21%.");
+                                            chargeFromGrid = 21;
+                                        }
+                                    }
+                                    else if( predictedGenerationToBatt < 10 )
+                                    {
+                                        notes.AppendLine("     Generation prediction is los: charge to 69%. (Maybe increase to 90%?)");
+                                        chargeFromGrid = 69;
+                                    }
+                                    else
+                                    {
+                                        notes.AppendLine($"     Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
+                                        chargeFromGrid = 98 - Convert.ToInt32(predictedGenerationToBatt);
+                                    }
+                                }
+                            }
                         }
                         catch ( Exception e) {
                             Logger.LogError(e, "Failed to execute cloud query.");
@@ -360,7 +397,7 @@ namespace Rwb.Luxopus.Jobs
             double elevation = Math.Floor(weather.GetValue<double>("elevation"));
 
             double[] prediction = regression.Transform(new double[] { cloud, daylen, elevation, uvi });
-            return prediction[0];
+            return prediction[0] / 10.0;
         }
         #endregion
     }
