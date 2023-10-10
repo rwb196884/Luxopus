@@ -243,6 +243,7 @@ namespace Rwb.Luxopus.Jobs
                         }
                         try
                         {
+                            /*
                             FluxRecord weather = (await InfluxQuery.QueryAsync(Query.Weather, tForecast)).First().Records.Single();
                             double cloud = weather.GetValue<double>("cloud");
                             double daylen = weather.GetValue<double>("daylen");
@@ -268,21 +269,22 @@ namespace Rwb.Luxopus.Jobs
                                 chargeFromGrid = 21;
                                 // Hack.
                             }
-
+                            */
                             // !
                             HalfHourPlan? peak = plan.Plans.FirstOrDefault(z => z.Start > p.Start && GetFluxCase(plan, z) == FluxCase.Peak);
                             if (next != null && peak != null)
                             {
                                 double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
                                 LineDataBuilder ldb = new LineDataBuilder();
-                                ldb.Add("daily", "PredictionFromMultivariateLinearRegression", generationPrediction, tForecast);
+                                ldb.Add("prediction", "MultivariateLinearRegression", generationPrediction * 10 , tForecast);
                                 await _InfluxWriter.WriteAsync(ldb);
                                 double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
                                 
                                 powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, peak.Start.Hour);
                                 battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
 
-                                notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kW ({battPrediction:0}%). Predicted use {powerRequired:0.0}kW ({battRequired:0}%).");
+                                notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kW ({battPrediction:0}%).");
+                                notes.AppendLine($"     Predicted        use of {powerRequired:0.0}kW ({battRequired:0}%).");
 
                                 double powerAvailableForBatt = generationPrediction - powerRequired;
                                 if (powerAvailableForBatt < 0)
@@ -312,6 +314,12 @@ namespace Rwb.Luxopus.Jobs
                                     {
                                         notes.AppendLine($"     Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
                                         chargeFromGrid = 98 - Convert.ToInt32(predictedGenerationToBatt);
+                                        notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}%).");
+                                        if( chargeFromGrid > 34)
+                                        {
+                                            notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}%).");
+                                            chargeFromGrid = 34;
+                                        }
                                     }
                                 }
                             }
