@@ -39,13 +39,11 @@ namespace Rwb.Luxopus.Jobs
             return a.Substring(0, a.Length - 2);
         }
 
-        private const string ElectricityTariffs = "E-1R-AGILE-FLEX-22-11-25-E,E-1R-AGILE-OUTGOING-19-05-13-E,E-1R-FLUX-EXPORT-23-02-14-E,E-1R-FLUX-IMPORT-23-02-14-E";
-
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             Dictionary<string, List<Price>> negativePrices = new Dictionary<string, List<Price>>();
 
-            foreach (string t in ( await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Union(ElectricityTariffs.Split(',')).Distinct() )
+            foreach (string t in ( await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code) )
             {
                 Dictionary<string, string> tags = new Dictionary<string, string>()
                 {

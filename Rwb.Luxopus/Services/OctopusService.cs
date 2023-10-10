@@ -56,6 +56,9 @@ namespace Rwb.Luxopus.Services
 
         //public string TimeZone { get; set; } // Not needeed because Octopus data is in format yyyy-MM-ddTHH:MM:sszzz
         //public string Mapn { get; set; }
+
+        // Comma separated list of additional tariffs to get prices for.
+        public string AdditionalTariffs { get; set; }
     }
 
     public class TariffCode
@@ -169,7 +172,7 @@ namespace Rwb.Luxopus.Services
                 var a = j.RootElement.GetArray("properties").ToList();
                 var b = a.GetArray("electricity_meter_points").ToList();
                 var c = b.GetArray("agreements").ToList();
-                return c.Select(z =>
+                List<TariffCode> meterTariffs = c.Select(z =>
                 {
                     var p = z.EnumerateObject();
 
@@ -180,6 +183,17 @@ namespace Rwb.Luxopus.Services
                         ValidTo = p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
                     };
                 }).ToList();
+
+                List<string> additionalTariffs = Settings.AdditionalTariffs.Split(',')
+                    .Distinct()
+                    .Where(z => !meterTariffs.Any(y => y.Code.ToLower() == z.ToLower()))
+                    .ToList();
+
+                return meterTariffs.Union(additionalTariffs.Select(z => new TariffCode() { 
+                    Code = z,
+                    ValidFrom = DateTime.UtcNow.AddYears(-1),
+                    ValidTo = DateTime.UtcNow.AddYears(1)
+                }));
             }
         }
 
