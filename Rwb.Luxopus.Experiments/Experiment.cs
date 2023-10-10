@@ -20,11 +20,13 @@ namespace Rwb.Luxopus.Experiments
     {
         private readonly ILogger<Experiment> _Logger;
         private readonly IInfluxQueryService _InfluxQuery;
+        private readonly IInfluxWriterService _InfluxWriter;
 
-        public Experiment(ILogger<Experiment> logger, IInfluxQueryService influxQuery)
+        public Experiment(ILogger<Experiment> logger, IInfluxQueryService influxQuery, IInfluxWriterService influxWriter)
         {
             _Logger = logger;
             _InfluxQuery = influxQuery;
+            _InfluxWriter = influxWriter;
         }
 
         class Datum
@@ -97,7 +99,8 @@ namespace Rwb.Luxopus.Experiments
         public async Task RunAsync()
         {
             //await RunNeuralNetAsync();
-            await RunLinearRegressionAsync();
+            //await RunLinearRegressionAsync();
+            await GenerateLinearRegressionPredictionsAsync();
         }
 
         private async Task<List<Datum>> LoadData()
@@ -192,28 +195,60 @@ namespace Rwb.Luxopus.Experiments
             // 39%, 2
         }
 
-        public async Task RunNaiveBayesAsync()
-        {
-            List<Datum> data = await LoadData();
+        // influx delete --org mini31 --bucket solar --start 2020-01-01T00:00:00Z --stop 2023-11-16T00:00:00Z --predicate "_measurement=\"prediction\"" --token $token
+/*
+from(bucket: "solar")
+|> range(start: -2mo, stop: today())
+|> filter(fn: (r) => r["_measurement"] == "prediction" or r["_measurement"] == "daily")
+|> filter(fn: (r) => r["_field"] == "PredictionFromMultivariateLinearRegression" or r["_field"] == "generation")
+|> aggregateWindow(every: 1d, fn: first, createEmpty: false)
+|> yield(name: "mean")
+*/
+public async Task GenerateLinearRegressionPredictionsAsync()
+{
+    LineDataBuilder ldb = new LineDataBuilder();
 
-            NaiveBayes bayes = new NaiveBayes(classes: 2, symbols: new[] { 0, 100 });
-            NaiveBayesLearning learner = new NaiveBayesLearning()
-            {
-                Model = bayes
-            };
+    List<Datum2> data = await LoadData2();
+    DateTime t = (new DateTime(2023, 7, 1, 16, 0, 0)).ToUniversalTime();
+    while( t < DateTime.Now.AddDays(-2))
+    {
+        OrdinaryLeastSquares ols = new OrdinaryLeastSquares();
+        IEnumerable<Datum2> trainingData = data.Where(z => z.IsComplete && z.Time < t);
+        double[][] inputs = trainingData.Select(z => z.Input).ToArray();
+        double[][] outputs = trainingData.Select(z => z.Output).ToArray();
+        MultivariateLinearRegression regression = ols.Learn(inputs, outputs);
 
-            //NaiveBayesLearning<NormalDistribution> learner = new NaiveBayesLearning<NormalDistribution>();
-            IEnumerable<Datum> trainingData = data.Where(z => z.IsComplete && z.Time < new DateTime(2023, 9, 1));
-            int[][] inputs = trainingData.Select(z => z.Input.Select(z => Convert.ToInt32(z)).ToArray()).ToArray();
-            int[][] outputs = trainingData.Select(z => z.Output.Select(z => z > 150 ? 100 : 0).ToArray()).ToArray();
-            var nb = learner.Learn(inputs, outputs);
+        Datum2 td = data.Where(z => z.IsComplete && z.Time >= t).OrderBy(z => z.Time).First();
+        double[] prediction = regression.Transform(td.Input);
+        ldb.Add("prediction", "PredictionFromMultivariateLinearRegression", prediction[0], t);
 
-            foreach (Datum testDatum in data.Where(z => z.IsComplete && z.Time >= new DateTime(2023, 9, 1)))
-            {
-                int[] input = testDatum.Input.Select(z => Convert.ToInt32(z)).ToArray();
-                int output = nb.Decide(input);
-                _Logger.LogDebug($"Prediction: {output:#,##0}, Actual: {testDatum.Output[0]:#,##0}");
-            }
-        }
+        t = t.AddDays(1);
     }
+    await _InfluxWriter.WriteAsync(ldb);
+}
+
+public async Task RunNaiveBayesAsync()
+{
+    List<Datum> data = await LoadData();
+
+    NaiveBayes bayes = new NaiveBayes(classes: 2, symbols: new[] { 0, 100 });
+    NaiveBayesLearning learner = new NaiveBayesLearning()
+    {
+        Model = bayes
+    };
+
+    //NaiveBayesLearning<NormalDistribution> learner = new NaiveBayesLearning<NormalDistribution>();
+    IEnumerable<Datum> trainingData = data.Where(z => z.IsComplete && z.Time < new DateTime(2023, 9, 1));
+    int[][] inputs = trainingData.Select(z => z.Input.Select(z => Convert.ToInt32(z)).ToArray()).ToArray();
+    int[][] outputs = trainingData.Select(z => z.Output.Select(z => z > 150 ? 100 : 0).ToArray()).ToArray();
+    var nb = learner.Learn(inputs, outputs);
+
+    foreach (Datum testDatum in data.Where(z => z.IsComplete && z.Time >= new DateTime(2023, 9, 1)))
+    {
+        int[] input = testDatum.Input.Select(z => Convert.ToInt32(z)).ToArray();
+        int output = nb.Decide(input);
+        _Logger.LogDebug($"Prediction: {output:#,##0}, Actual: {testDatum.Output[0]:#,##0}");
+    }
+}
+}
 }

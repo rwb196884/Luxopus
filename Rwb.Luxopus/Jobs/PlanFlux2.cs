@@ -69,16 +69,19 @@ namespace Rwb.Luxopus.Jobs
         private const int BatteryAbsoluteMinimum = 5;
         private const int DischargeAbsoluteMinimum = 18;
 
-        private IBatteryService _Batt;
-        private IOpenWeathermapService _Weather;
+        private readonly IInfluxWriterService _InfluxWriter;
+        private readonly IBatteryService _Batt;
+        private readonly IOpenWeathermapService _Weather;
 
         public PlanFlux2(ILogger<LuxMonitor> logger, 
             IInfluxQueryService influxQuery, 
+            IInfluxWriterService influxWriter,
             ILuxopusPlanService plan, IEmailService email, 
             IBatteryService batt,
             IOpenWeathermapService weather)
             : base(logger, influxQuery, plan, email)
         {
+            _InfluxWriter = influxWriter;
             _Batt = batt;
             _Weather= weather;
         }
@@ -271,6 +274,9 @@ namespace Rwb.Luxopus.Jobs
                             if (next != null && peak != null)
                             {
                                 double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
+                                LineDataBuilder ldb = new LineDataBuilder();
+                                ldb.Add("daily", "PredictionFromMultivariateLinearRegression", generationPrediction, tForecast);
+                                await _InfluxWriter.WriteAsync(ldb);
                                 double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
                                 
                                 powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, peak.Start.Hour);
