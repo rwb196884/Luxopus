@@ -85,7 +85,7 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            DateTime t0 = DateTime.UtcNow.AddDays(-1).AddHours(-3);
+            DateTime t0 = DateTime.UtcNow.AddHours(-3);
             Plan? current = PlanService.Load(t0);
             StringBuilder notes = new StringBuilder();
 
@@ -273,7 +273,7 @@ namespace Rwb.Luxopus.Jobs
                                 double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
                                 double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
                                 
-                                powerRequired = bup.GetKwkh(p.Start.DayOfWeek, startOfGeneration.Hour, peak.Start.Hour);
+                                powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, peak.Start.Hour);
                                 battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
 
                                 notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kW ({battPrediction:0}%). Predicted use {powerRequired:0.0}kW ({battRequired:0}%).");
@@ -282,7 +282,7 @@ namespace Rwb.Luxopus.Jobs
                                 if (powerAvailableForBatt < 0)
                                 {
                                     // Not enough generation. Charge to 90%.
-                                    notes.AppendLine("     Generation too low: charge to 68%. (Maybe increase to 90%?)");
+                                    notes.AppendLine("     Generation prediction is very low: charge to 68%. (Maybe increase to 90%?)");
                                     chargeFromGrid = 68;
                                 }
                                 else
@@ -290,7 +290,7 @@ namespace Rwb.Luxopus.Jobs
                                     double predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt);
                                     if(predictedGenerationToBatt > 90)
                                     {
-                                        notes.AppendLine("     Generation high.");
+                                        notes.AppendLine("     Generation prediction is high.");
                                         if(chargeFromGrid > 21)
                                         {
                                             notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to 21%.");
@@ -299,7 +299,7 @@ namespace Rwb.Luxopus.Jobs
                                     }
                                     else if( predictedGenerationToBatt < 10 )
                                     {
-                                        notes.AppendLine("     Generation low: charge to 69%. (Maybe increase to 90%?)");
+                                        notes.AppendLine("     Generation prediction is los: charge to 69%. (Maybe increase to 90%?)");
                                         chargeFromGrid = 69;
                                     }
                                     else
