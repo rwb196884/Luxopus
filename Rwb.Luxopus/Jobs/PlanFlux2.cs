@@ -88,7 +88,7 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            DateTime t0 = DateTime.UtcNow.AddDays(-3).AddHours(-3);
+            DateTime t0 = DateTime.UtcNow.AddHours(-3);
             Plan? current = PlanService.Load(t0);
             StringBuilder notes = new StringBuilder();
 
