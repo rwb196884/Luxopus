@@ -284,7 +284,7 @@ namespace Rwb.Luxopus.Jobs
                                 tomorrow = await GenerationPredictionFromMultivariateLinearRegression(tForecast.AddDays(3));
                                 ldb.Add("prediction", "MultivariateLinearRegression", tomorrow * 10, tForecast.AddDays(2));
                                 tomorrow = await GenerationPredictionFromMultivariateLinearRegression(tForecast.AddDays(3));
-                                ldb.Add("prediction", "MultivariateLinearRegression", tomorrow * 10, tForecast.AddDays(2));
+                                ldb.Add("prediction", "MultivariateLinearRegression", tomorrow * 10, tForecast.AddDays(3));
 
                                 await _InfluxWriter.WriteAsync(ldb);
 
@@ -317,18 +317,18 @@ namespace Rwb.Luxopus.Jobs
                                     }
                                     else if( predictedGenerationToBatt < 10 )
                                     {
-                                        notes.AppendLine("     Generation prediction is los: charge to 69%. (Maybe increase to 90%?)");
-                                        chargeFromGrid = 69;
+                                        notes.AppendLine("     Generation prediction is low: charge to 56%. (Maybe increase to 90%?)");
+                                        chargeFromGrid = 56; // Not 55 so that we can distinguish from the result which branch executed.
                                     }
                                     else
                                     {
                                         notes.AppendLine($"     Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
-                                        chargeFromGrid = 98 - Convert.ToInt32(predictedGenerationToBatt);
+                                        chargeFromGrid = 100 - Convert.ToInt32(predictedGenerationToBatt);
                                         notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}%.");
-                                        if( chargeFromGrid > 34)
+                                        if( chargeFromGrid > 55)
                                         {
-                                            notes.AppendLine($"     chargeFromGrid limited to 34%.");
-                                            chargeFromGrid = 34;
+                                            notes.AppendLine($"     chargeFromGrid limited to 55%.");
+                                            chargeFromGrid = 55;
                                         }
                                     }
                                 }
