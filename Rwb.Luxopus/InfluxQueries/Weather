@@ -17,9 +17,11 @@ solcast = from(bucket: "solar")
   |> integral(unit: 30s, interpolate: "linear")
   |> map(fn: (r) => ({_field: "solcast", _time: r._start, _value: r._value}))
 
-// Don't have a forecast for tomorrow so just use today.
+// Only have full data for yesterday.
+te = date.add(d: -1d, to: date.truncate(unit: 1d, t: now()))
+tee = if today() < te then today() else te
 elevation = from(bucket: "solar")
-  |> range(start: date.add(d: -1d, to: today()), stop: today())
+  |> range(start: date.add(d: -1d, to: tee), stop: tee)
   |> filter(fn: (r) => r["_measurement"] == "sun" and r["_field"] == "elevation")
   |> keep(columns: ["_time", "_field", "_value"])
   |> group(columns: ["_field"])

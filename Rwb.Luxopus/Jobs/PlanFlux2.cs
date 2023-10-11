@@ -88,7 +88,7 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            DateTime t0 = DateTime.UtcNow.AddHours(-3);
+            DateTime t0 = DateTime.UtcNow.AddDays(-3).AddHours(-3);
             Plan? current = PlanService.Load(t0);
             StringBuilder notes = new StringBuilder();
 
@@ -277,9 +277,19 @@ namespace Rwb.Luxopus.Jobs
                                 double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
                                 LineDataBuilder ldb = new LineDataBuilder();
                                 ldb.Add("prediction", "MultivariateLinearRegression", generationPrediction * 10 , tForecast);
+
+                                // Do some future predictions too.
+                                double tomorrow = await GenerationPredictionFromMultivariateLinearRegression(tForecast.AddDays(1));
+                                ldb.Add("prediction", "MultivariateLinearRegression", tomorrow * 10, tForecast.AddDays(1));
+                                tomorrow = await GenerationPredictionFromMultivariateLinearRegression(tForecast.AddDays(3));
+                                ldb.Add("prediction", "MultivariateLinearRegression", tomorrow * 10, tForecast.AddDays(2));
+                                tomorrow = await GenerationPredictionFromMultivariateLinearRegression(tForecast.AddDays(3));
+                                ldb.Add("prediction", "MultivariateLinearRegression", tomorrow * 10, tForecast.AddDays(2));
+
                                 await _InfluxWriter.WriteAsync(ldb);
+
+                                // Back to today...
                                 double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
-                                
                                 powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, peak.Start.Hour);
                                 battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
 
@@ -382,35 +392,40 @@ namespace Rwb.Luxopus.Jobs
             public double[] Output { get { return new[] { Convert.ToDouble(Generation.Value) }; } }
         }
 
+        private OrdinaryLeastSquares _OrdinaryLeastSquares;
+        private MultivariateLinearRegression _MultivariateLinearRegression;
         private async Task<double> GenerationPredictionFromMultivariateLinearRegression(DateTime tForecast)
         {
-            // Get daat.
-             FluxTable fluxData = (await InfluxQuery.QueryAsync(Query.PredictionData2, DateTime.Now)).Single();
-            List<Datum2> data = fluxData.Records.Select(z => new Datum2()
+            if (_OrdinaryLeastSquares == null || _MultivariateLinearRegression == null)
             {
-                Time = z.GetValue<DateTime>("_time"),
-                Cloud = z.GetValue<double?>("cloud"),
-                Daylen = z.GetValue<double?>("daylen"),
-                Elevation = z.GetValue<double?>("elevation"),
-                Generation = z.GetValue<long?>("generation"),
-                Uvi = z.GetValue<double?>("uvi"),
-            }).ToList();
+                // Get daat.
+                FluxTable fluxData = (await InfluxQuery.QueryAsync(Query.PredictionData2, DateTime.Now)).Single();
+                List<Datum2> data = fluxData.Records.Select(z => new Datum2()
+                {
+                    Time = z.GetValue<DateTime>("_time"),
+                    Cloud = z.GetValue<double?>("cloud"),
+                    Daylen = z.GetValue<double?>("daylen"),
+                    Elevation = z.GetValue<double?>("elevation"),
+                    Generation = z.GetValue<long?>("generation"),
+                    Uvi = z.GetValue<double?>("uvi"),
+                }).ToList();
 
-            // Build model.
-            OrdinaryLeastSquares ols = new OrdinaryLeastSquares();
-            IEnumerable<Datum2> trainingData = data.Where(z => z.IsComplete /*&& z.Time < new DateTime(2023, 9, 1)*/);
-            double[][] inputs = trainingData.Select(z => z.Input).ToArray();
-            double[][] outputs = trainingData.Select(z => z.Output).ToArray();
-            MultivariateLinearRegression regression = ols.Learn(inputs, outputs);
+                // Build model.
+                _OrdinaryLeastSquares = new OrdinaryLeastSquares();
+                IEnumerable<Datum2> trainingData = data.Where(z => z.IsComplete /*&& z.Time < new DateTime(2023, 9, 1)*/);
+                double[][] inputs = trainingData.Select(z => z.Input).ToArray();
+                double[][] outputs = trainingData.Select(z => z.Output).ToArray();
+                _MultivariateLinearRegression = _OrdinaryLeastSquares.Learn(inputs, outputs);
+            }
 
             // Use model. Apply the rescaling to the values.
             FluxRecord weather = (await InfluxQuery.QueryAsync(Query.Weather, tForecast)).First().Records.Single();
             double cloud = Math.Floor(weather.GetValue<double>("cloud") / 10.0);
             double daylen = Math.Floor(weather.GetValue<double>("daylen") * 60 * 60 / 1000.0);
             double uvi = Math.Floor(weather.GetValue<double>("uvi") * 10.0);
-            double elevation = Math.Floor(weather.GetValue<double>("elevation"));
+            double elevation = Math.Floor(weather.GetValue<double>("elevation")); // Hack in query in case of not full day of data.
 
-            double[] prediction = regression.Transform(new double[] { cloud, daylen, elevation, uvi });
+            double[] prediction = _MultivariateLinearRegression.Transform(new double[] { cloud, daylen, elevation, uvi });
             return prediction[0] / 10.0;
         }
         #endregion
