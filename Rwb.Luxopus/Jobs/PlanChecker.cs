@@ -128,11 +128,23 @@ namespace Rwb.Luxopus.Jobs
 
             if (outEnabledWanted)
             {
-                (DateTime lastOccupied, bool wasOccupied) = (await _InfluxQuery.QueryAsync(Query.LastOccupied, DateTime.UtcNow)).Single().FirstOrDefault<bool>();
-                if (wasOccupied && lastOccupied < DateTime.Now.AddHours(-3) && outBatteryLimitPercentWanted > 7)
+                try
                 {
-                    actions.AppendLine($"DischargeToGridLevel overridden from plan of {outBatteryLimitPercentWanted}% to 7% because house not occupied since {lastOccupied.ToString("yyyy-MM-dd HH:mm")}.");
+                    (DateTime lastOccupied, bool wasOccupied) = (await _InfluxQuery.QueryAsync(Query.LastOccupied, DateTime.UtcNow)).Single().FirstOrDefault<bool>();
+                    if (wasOccupied && lastOccupied < DateTime.Now.AddHours(-3) && outBatteryLimitPercentWanted > 7)
+                    {
+                        actions.AppendLine($"DischargeToGridLevel overridden from plan of {outBatteryLimitPercentWanted}% to 7% because house not occupied since {lastOccupied.ToString("yyyy-MM-dd HH:mm")}.");
+                        outBatteryLimitPercentWanted = 7;
+                    }
+                }
+                catch (InvalidOperationException e)
+                {
+                    actions.AppendLine($"DischargeToGridLevel overridden from plan of {outBatteryLimitPercentWanted}% to 7% because house not occupied (query failed: ${e.Message}).");
                     outBatteryLimitPercentWanted = 7;
+                }
+                catch (Exception e)
+                {
+                    actions.AppendLine($"DischargeToGridLevel not overridden because house not occupied query failed: ${e.Message}.");
                 }
             }
 
