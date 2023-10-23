@@ -175,13 +175,15 @@ namespace Rwb.Luxopus.Services
                 List<TariffCode> meterTariffs = c.Select(z =>
                 {
                     var p = z.EnumerateObject();
+                    string tariffCode = p.Single(z => z.Name == "tariff_code").Value.GetString()!;
+                    bool tariffIsAdditional = Settings.AdditionalTariffs.ToLower().Contains(tariffCode.ToLower());
 
                     return new TariffCode()
                     {
-                        Code = p.Single(z => z.Name == "tariff_code").Value.GetString(),
-                        ValidFrom = p.Single(z => z.Name == "valid_from").GetDate().Value.ToUniversalTime(),
+                        Code = tariffCode,
+                        ValidFrom = tariffIsAdditional ? DateTime.UtcNow.AddYears(-1) : p.Single(z => z.Name == "valid_from").GetDate()!.Value.ToUniversalTime(),
                         // Do not limit additional tariffs to a date range.
-                        ValidTo = Settings.AdditionalTariffs.ToLower().Contains(p.Single(z => z.Name == "tariff_code").Value.GetString().ToLower()) ? null : p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
+                        ValidTo = tariffIsAdditional ? null : p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
                     };
                 }).ToList();
 
@@ -193,7 +195,7 @@ namespace Rwb.Luxopus.Services
                 return meterTariffs.Union(additionalTariffs.Select(z => new TariffCode() { 
                     Code = z,
                     ValidFrom = DateTime.UtcNow.AddYears(-1),
-                    ValidTo = DateTime.UtcNow.AddYears(1)
+                    ValidTo = null
                 }));
             }
         }
@@ -220,7 +222,7 @@ namespace Rwb.Luxopus.Services
                                 return new Price()
                                 {
                                     Pence = p.Single(z => z.Name == "value_inc_vat").Value.GetDecimal(),
-                                    ValidFrom = p.Single(z => z.Name == "valid_from").GetDate().Value.ToUniversalTime(),
+                                    ValidFrom = p.Single(z => z.Name == "valid_from").GetDate()!.Value.ToUniversalTime(),
                                     ValidTo =  p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
                                 };
 
@@ -258,8 +260,8 @@ namespace Rwb.Luxopus.Services
                                 {
                                     return new MeterReading()
                                     {
-                                        IntervalStart = p.Single(z => z.Name == "interval_start").GetDate().Value.ToUniversalTime(),
-                                        IntervalEnd = p.Single(z => z.Name == "interval_end").GetDate().Value.ToUniversalTime(),
+                                        IntervalStart = p.Single(z => z.Name == "interval_start").GetDate()!.Value.ToUniversalTime(),
+                                        IntervalEnd = p.Single(z => z.Name == "interval_end").GetDate()!.Value.ToUniversalTime(),
                                         Consumption = p.Single(z => z.Name == "consumption").Value.GetDecimal(),
                                     };
                                 }
@@ -268,6 +270,8 @@ namespace Rwb.Luxopus.Services
                                     return null;
                                 }
                             })
+                            .Where(z => z != null)
+                            .Cast<MeterReading>() // From MeterReading?
                         );
                         next = j.RootElement.EnumerateObject().Single(z => z.Name == "next").Value.GetString();
                     }
@@ -318,8 +322,8 @@ namespace Rwb.Luxopus.Services
                     JsonElement.ObjectEnumerator p = z.EnumerateObject();
                     return new TariffCode()
                     {
-                        Code = p.Single(z => z.Name == "tariff_code").Value.GetString(),
-                        ValidFrom = p.Single(z => z.Name == "valid_from").GetDate().Value.ToUniversalTime(),
+                        Code = p.Single(z => z.Name == "tariff_code").Value.GetString()!,
+                        ValidFrom = p.Single(z => z.Name == "valid_from").GetDate()!.Value.ToUniversalTime(),
                         ValidTo = p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
                     };
                 }).ToList();
@@ -348,7 +352,7 @@ namespace Rwb.Luxopus.Services
                                 return new Price()
                                 {
                                     Pence = p.Single(z => z.Name == "value_inc_vat").Value.GetDecimal(),
-                                    ValidFrom = p.Single(z => z.Name == "valid_from").GetDate().Value.ToUniversalTime(),
+                                    ValidFrom = p.Single(z => z.Name == "valid_from").GetDate()!.Value.ToUniversalTime(),
                                     ValidTo = p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
                                 };
                             })
@@ -380,8 +384,8 @@ namespace Rwb.Luxopus.Services
                                 var p = z.EnumerateObject();
                                 return new MeterReading()
                                 {
-                                    IntervalStart = p.Single(z => z.Name == "interval_start").GetDate().Value.ToUniversalTime(),
-                                    IntervalEnd = p.Single(z => z.Name == "interval_end").GetDate().Value.ToUniversalTime(),
+                                    IntervalStart = p.Single(z => z.Name == "interval_start").GetDate()!.Value.ToUniversalTime(),
+                                    IntervalEnd = p.Single(z => z.Name == "interval_end").GetDate()!.Value.ToUniversalTime(),
                                     Consumption = p.Single(z => z.Name == "consumption").Value.GetDecimal(),
                                 };
                             })
