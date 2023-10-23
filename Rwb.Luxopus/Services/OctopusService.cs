@@ -180,7 +180,8 @@ namespace Rwb.Luxopus.Services
                     {
                         Code = p.Single(z => z.Name == "tariff_code").Value.GetString(),
                         ValidFrom = p.Single(z => z.Name == "valid_from").GetDate().Value.ToUniversalTime(),
-                        ValidTo = p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
+                        // Do not limit additional tariffs to a date range.
+                        ValidTo = Settings.AdditionalTariffs.ToLower().Contains(p.Single(z => z.Name == "tariff_code").Value.GetString().ToLower()) ? null : p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
                     };
                 }).ToList();
 
