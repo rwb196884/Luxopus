@@ -40,7 +40,7 @@ namespace Rwb.Luxopus.Console
                     //m = scope.ServiceProvider.GetRequiredService<LuxMonitor>();
                     //m = scope.ServiceProvider.GetRequiredService<LuxDaily>();
                     //m = scope.ServiceProvider.GetRequiredService<OctopusMeters>();
-                    m = scope.ServiceProvider.GetRequiredService<OctopusPrices>();
+                    //m = scope.ServiceProvider.GetRequiredService<OctopusPrices>();
                     //m = scope.ServiceProvider.GetRequiredService<Solcast>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanZero>();
                     //m = scope.ServiceProvider.GetRequiredService<PlanA>();
@@ -50,9 +50,9 @@ namespace Rwb.Luxopus.Console
                     //m = scope.ServiceProvider.GetRequiredService<Burst>();
                     //while (true)
                     //{
-                        m.RunAsync(CancellationToken.None).Wait();
+                    //    m.RunAsync(CancellationToken.None).Wait();
                     //}
-                    return;
+                    //return;
 
                     Luxopus l = scope.ServiceProvider.GetRequiredService<Luxopus>();
                     l.Start();
