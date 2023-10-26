@@ -20,13 +20,17 @@ namespace Rwb.Luxopus.Services
         int RoundPercent(int percent);
 
         (double powerKwh, double hours, double rateKw, int ratePercent) CalculateTransfer(int percentFrom, int percentTo, DateTime timeFrom, DateTime timeTo);
+
+        int BatteryLimit { get; }
     }
 
     public class BatterySettings : Settings
     {
+        public int BatteryLimit { get; set; } // 99
+        public int MaxInversionW { get; set; } // 3600
+        public int MaxBatteryW { get; set; } // 4000
         public int CapacityAmpHours { get; set; } // 189
         public int Voltage { get; set; } // 55
-        public int MaxPowerWatts { get; set; } // 4000
     }
 
 
@@ -36,7 +40,7 @@ namespace Rwb.Luxopus.Services
 
         public override bool ValidateSettings()
         {
-            return Settings.CapacityAmpHours > 0 && Settings.Voltage > 0 && Settings.MaxPowerWatts > 0;
+            return Settings.CapacityAmpHours > 0 && Settings.Voltage > 0 && Settings.MaxBatteryW > 0;
         }
 
         private double CapacityWh
@@ -59,12 +63,12 @@ namespace Rwb.Luxopus.Services
 
         public double TransferPercentToKiloWatts(int percent)
         {
-            return Convert.ToDouble(Settings.MaxPowerWatts) * Convert.ToDouble(percent) / (100.0 * 1000.0);
+            return Convert.ToDouble(Settings.MaxBatteryW) * Convert.ToDouble(percent) / (100.0 * 1000.0);
         }
 
         public int TransferKiloWattsToPercent(double kiloWatts)
         {
-            return Convert.ToInt32(Math.Round(kiloWatts * 1000.0 * 100.0 / Settings.MaxPowerWatts));
+            return Convert.ToInt32(Math.Round(kiloWatts * 1000.0 * 100.0 / Settings.MaxBatteryW));
         }
 
         //public int PercentForAnHour(int watts)
@@ -111,5 +115,7 @@ namespace Rwb.Luxopus.Services
             else if (percent <= 80) { return 80; }
             return 90;
         }
+
+        public int BatteryLimit {  get { return Settings.BatteryLimit; } }
     }
 }

@@ -25,10 +25,6 @@ namespace Rwb.Luxopus.Jobs
         private readonly IEmailService _Email;
         private readonly IBatteryService _Batt;
 
-        private const int _BatteryUpperLimit = 97;
-        private const int _InverterLimit = 3600;
-        private const int _BatteryChargeMaxRate = 4000;
-
         public Burst(
             ILogger<Burst> logger, 
             IBurstLogService burstLog,
@@ -139,7 +135,7 @@ namespace Rwb.Luxopus.Jobs
 
                 // Plan A
                 double hoursToCharge = (plan.Next.Start - t0).TotalHours;
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_Batt.BatteryLimit - battLevel);
 
                 // Are we behind schedule?
                 double extraPowerNeeded = 0.0;
@@ -204,7 +200,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     battChargeRateWanted = battChargeRatePlan;
                     string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                    actionInfo.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRatePlan}%).");
+                    actionInfo.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRatePlan}%).");
                 }
             }
 

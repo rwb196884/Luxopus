@@ -75,6 +75,8 @@ namespace Rwb.Luxopus.Services
         private readonly HttpClient _Client;
         private bool disposedValue;
 
+        private readonly BatterySettings _BatterySettings;
+
         public DateTime ToUtc(DateTime localTime)
         {
             DateTimeZone ntz = DateTimeZoneProviders.Tzdb[Settings.TimeZone];
@@ -93,7 +95,7 @@ namespace Rwb.Luxopus.Services
             return v;
         }
 
-        public LuxService(ILogger<LuxService> logger, IOptions<LuxSettings> settings) : base(logger, settings)
+        public LuxService(ILogger<LuxService> logger, IOptions<LuxSettings> settings, IOptions<BatterySettings> batterySettings) : base(logger, settings)
         {
             _CookieContainer = new CookieContainer();
             _Handler = new HttpClientHandler() { CookieContainer = _CookieContainer };
@@ -112,6 +114,8 @@ namespace Rwb.Luxopus.Services
                 Timeout = TimeSpan.FromSeconds(15)
             };
             _InverterRuntimeCache = null;
+
+            _BatterySettings = batterySettings.Value;
         }
 
         public override bool ValidateSettings()
@@ -476,18 +480,15 @@ namespace Rwb.Luxopus.Services
             return parameters;
         }
 
-        private const decimal _BattAh = 189M;
-        private const decimal _BattV = 53.4M;
-
         public int KwhToBatt(int kWh)
         {
-            decimal battkWh = _BattAh * _BattV / 1000M;
+            decimal battkWh = _BatterySettings.CapacityAmpHours * _BatterySettings.Voltage / 1000M;
             return Convert.ToInt32(Math.Floor(kWh / battkWh));
         }
 
         public int BattToKwh(int batt)
         {
-            decimal battkWh = _BattAh * _BattV / 1000M;
+            decimal battkWh = _BatterySettings.CapacityAmpHours * _BatterySettings.Voltage / 1000M;
             return Convert.ToInt32(Math.Floor(Convert.ToDecimal(batt) * battkWh / 100M));
         }
 

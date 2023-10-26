@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
@@ -23,8 +24,7 @@ namespace Rwb.Luxopus.Jobs
         private readonly IEmailService _Email;
         private readonly IBatteryService _Batt;
         private readonly IBurstLogService _BurstLog;
-
-        private const int _BatteryUpperLimit = 97;
+        private readonly BatterySettings _BatterySettings;
 
         public PlanChecker(
             ILogger<LuxMonitor> logger,
@@ -33,7 +33,8 @@ namespace Rwb.Luxopus.Jobs
             IInfluxQueryService influxQuery,
             IEmailService email,
             IBatteryService batt,
-            IBurstLogService burstLog
+            IBurstLogService burstLog,
+            IOptions<BatterySettings> batterySettings
             )
             : base(logger)
         {
@@ -43,6 +44,7 @@ namespace Rwb.Luxopus.Jobs
             _Email = email;
             _Batt = batt;
             _BurstLog = burstLog;
+            _BatterySettings = batterySettings.Value;
         }
 
         //private const int _MedianHousePowerWatts = 240;
@@ -266,14 +268,14 @@ namespace Rwb.Luxopus.Jobs
             else
             {
                 // Default: charging from solar. Throttle it down.
-                if (battLevel >= _BatteryUpperLimit - 2 /* It will still get about 60W. */)
+                if (battLevel >= _Batt.BatteryLimit - 2 /* It will still get about 60W. */)
                 {
                     // Battery is full.
                     // Set charge rate high and enable discharge to grid to absorb generation peaks then discharge them.
                     battChargeRateWanted = 72;
                     outEnabledWanted = true;
                     battDischargeToGridRateWanted = 72;
-                    outBatteryLimitPercentWanted = _BatteryUpperLimit;
+                    outBatteryLimitPercentWanted = _Batt.BatteryLimit;
                     outStartWanted = currentPeriod.Start; // Needs to be constant in order not to spam changes.
                     outStopWanted = plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30);
                     why = $"Battery is full ({battLevel}%).";
@@ -342,13 +344,13 @@ from(bucket: ""solar"")
                                 outStopWanted = (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30));
                             }
 
-                            if (battLevel >= _BatteryUpperLimit)
+                            if (battLevel >= _Batt.BatteryLimit)
                             {
-                                outBatteryLimitPercentWanted = _BatteryUpperLimit;
+                                outBatteryLimitPercentWanted = _Batt.BatteryLimit;
                             }
                             else if (battLevel > battLevelTarget)
                             {
-                                outBatteryLimitPercentWanted = (battLevel + 3) > _BatteryUpperLimit ? _BatteryUpperLimit : (battLevelTarget + 3);
+                                outBatteryLimitPercentWanted = (battLevel + 3) > _Batt.BatteryLimit ? _Batt.BatteryLimit : (battLevelTarget + 3);
                             }
                             else
                             {
@@ -381,7 +383,7 @@ from(bucket: ""solar"")
                                 outEnabledWanted = false;
                                 inEnabledWanted = false;
                                 double hoursToCharge = ((plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)) - t0).TotalHours;
-                                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_BatteryUpperLimit - battLevel);
+                                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_Batt.BatteryLimit - battLevel);
 
                                 // Are we behind schedule?
                                 double extraPowerNeeded = 0.0;
@@ -396,7 +398,7 @@ from(bucket: ""solar"")
                                 // Set the rate.
                                 battChargeRateWanted = _Batt.RoundPercent(b);
                                 string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                                why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_BatteryUpperLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
+                                why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
                             }
                         }
                     }
