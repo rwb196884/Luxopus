@@ -220,17 +220,23 @@ namespace Rwb.Luxopus.Jobs
 
             // Batt charge.
             int battChargeRateWanted = battChargeRate; // No change.
-            DateTime sunrise = DateTime.Now.AddMinutes(-30);
-            DateTime sunset = DateTime.Now.AddMinutes(30);
+            DateTime sunrise = DateTime.Today.AddHours(9);
+            DateTime sunset = DateTime.Today.AddHours(16);
+            DateTime gStart = sunrise;
+            DateTime gEnd = sunset;
             try
             {
                 long _;
                 (sunrise, _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
                 (sunset, _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
+                gStart = sunrise;
+                gEnd = sunset;
+                (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<long>();
+                (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<long>();
             }
             catch (Exception e)
             {
-                Logger.LogError(e, "Failed to query for sunrise and sunset.");
+                Logger.LogError(e, "Failed to query for sunrise and sunset / generation.");
             }
             string why = "no change";
 
@@ -257,7 +263,7 @@ namespace Rwb.Luxopus.Jobs
                 battChargeRateWanted = 0;
                 why = $"Discharge to grid: {powerRequiredKwh:0.0}kWh needed to grid to get from {battLevel}% to {outBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {outStopWanted:HH:mm} (mean rate {kW:0.0}kW -> {battDischargeToGridRateWanted}%).";
             }
-            else if (t0.TimeOfDay <= sunrise.TimeOfDay || t0.TimeOfDay >= sunset.TimeOfDay)
+            else if (t0.TimeOfDay <= gStart.TimeOfDay || t0.TimeOfDay >= gEnd.TimeOfDay)
             {
                 if (battChargeFromGridRateWanted < 80)
                 {
@@ -300,7 +306,7 @@ namespace Rwb.Luxopus.Jobs
                         {
                             double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(percentTarget - battLevel);
                             DateTime until = plan!.Next!.Start;
-                            if (until > sunset) { until = sunset; }
+                            if (until < gStart) { until = gStart; }
                             double hoursToCharge = (until - t0).TotalHours;
                             double kW = powerRequiredKwh / hoursToCharge;
                             int b = _Batt.TransferKiloWattsToPercent(kW);
@@ -311,15 +317,11 @@ namespace Rwb.Luxopus.Jobs
                     else if (plan?.Next != null && Plan.DischargeToGridCondition(plan!.Next!))
                     {
                         // Get fully charged before the discharge period.
-                        DateTime tBattChargeFrom = currentPeriod.Start < sunrise ? sunrise : currentPeriod.Start;
+                        DateTime tBattChargeFrom = currentPeriod.Start < gStart ? gStart : currentPeriod.Start;
 
                         int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(currentPeriod.Start);
                         DateTime nextPlanCheck = DateTime.UtcNow.AddMinutes(21); // Just before.
-                        int battLevelTarget = battLevelStart + Convert.ToInt32(
-                            Convert.ToDouble(100 - battLevelStart)
-                            * nextPlanCheck.Subtract(tBattChargeFrom).TotalMinutes
-                          / plan.Next.Start.Subtract(tBattChargeFrom).TotalMinutes
-                            );
+                        int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, _Batt.BatteryLimit, ScaleMethod.FastLinear);
 
                         // Override for high generation.
                         // This doesn't work: when the battery gets to the limit the inverter prevents generation again.
@@ -500,22 +502,6 @@ from(bucket: ""solar"")
                 _Email.SendEmail($"PlanChecker at UTC {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString());
                 Logger.LogInformation("PlanChecker made changes: " + Environment.NewLine + actions.ToString());
             }
-        }
-
-        private async Task<double> PredictAsync(DateTime now, DateTime until)
-        {
-            (DateTime sunrise, long _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, now)).First().FirstOrDefault<long>();
-            (DateTime sunset, long _) = (await _InfluxQuery.QueryAsync(Query.Sunset, now)).First().FirstOrDefault<long>();
-
-            double dayLength = (sunset - sunrise).TotalHours;
-            double generationToNow = 0;
-
-            // Generation profile.
-            // At k% of the way through the day v% of the generation has occurred.
-            Dictionary<int, int> generationProfile = new Dictionary<int, int>();
-
-
-            return await Task.FromResult<double>(0);
         }
     }
 }

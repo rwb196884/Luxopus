@@ -214,7 +214,7 @@ namespace Rwb.Luxopus.Jobs
                         DateTime startOfGeneration = DateTime.UtcNow.Date.AddHours(10).AddDays(-1);
                         try
                         {
-                            (startOfGeneration, _) = (await InfluxQuery.QueryAsync(Query.StartOfGenerationYesterday, t0)).First().FirstOrDefault<long>();
+                            (startOfGeneration, _) = (await InfluxQuery.QueryAsync(Query.StartOfGeneration, t0)).First().FirstOrDefault<long>();
                         }
                         catch (Exception e)
                         {

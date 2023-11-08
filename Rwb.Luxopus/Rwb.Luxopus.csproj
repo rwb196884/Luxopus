@@ -25,7 +25,7 @@
     <None Remove="InfluxQueries\DaytimeBuyMin" />
     <None Remove="InfluxQueries\DaytimeSellMedian" />
     <None Remove="InfluxQueries\DischargeAchievedYesterday" />
-    <None Remove="InfluxQueries\EndOfGenerationYesterday" />
+    <None Remove="InfluxQueries\EndOfGeneration" />
     <None Remove="InfluxQueries\EveningSellMAx" />
     <None Remove="InfluxQueries\HourlyBatteryUse" />
     <None Remove="InfluxQueries\LastOccupied" />
@@ -35,7 +35,7 @@
     <None Remove="InfluxQueries\PredictionData2" />
     <None Remove="InfluxQueries\SolcastFactors" />
     <None Remove="InfluxQueries\SolcastToday" />
-    <None Remove="InfluxQueries\StartOfGenerationYesterday" />
+    <None Remove="InfluxQueries\StartOfGeneration" />
     <None Remove="InfluxQueries\Sunrise" />
     <None Remove="InfluxQueries\Sunset" />
     <None Remove="InfluxQueries\Weather" />

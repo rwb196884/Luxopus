@@ -159,14 +159,14 @@ namespace Rwb.Luxopus.Services
         HourlyBatteryUse,
 
         /// <summary>
-        /// Earliest time at which generation exceeded 300W yesterday.
+        /// Estimate when generation above use will start today.
         /// </summary>
-        StartOfGenerationYesterday,
+        StartOfGeneration,
 
         /// <summary>
-        /// Latest time at which generation exceeded 300W yesterday.
+        /// Estimate when generation above use will end today.
         /// </summary>
-        EndOfGenerationYesterday,
+        EndOfGeneration,
 
         /// <summary>
         /// The latest time that any PIR sensor detected occupancy.

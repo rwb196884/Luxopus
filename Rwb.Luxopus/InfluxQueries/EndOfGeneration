@@ -1,0 +1,27 @@
+import "date"
+import "math"
+
+// Mean generation start time over the last week.
+// Mean daytime use is about 150W
+// TODO: query for mean use.
+// TODO: Adjust for weather foreacast.
+
+t0 = today()
+
+from(bucket: "solar")
+  |> range(start: date.add(d: -1w, to: t0), stop: today())
+  |> filter(fn: (r) => r["_measurement"] == "inverter" and r["_field"] == "generation" and r["_value"] > 150)
+  |> map(fn: (r) => ({r with _value: float(v: 60 * date.hour(t: r._time) + date.minute(t: r._time)), tt: r._time}))
+  |> aggregateWindow(every: 1d, fn: last)
+  |> mean()
+  |> map(fn: (r) => ({r with
+    h:  math.floor(x: r._value / 60.0),
+    m: math.mod(x: r._value , y: 60.0 )
+  }))
+  |> map(fn: (r) => ({r with d: r._value * 60.0 * 1000.0 * 1000.0 * 1000.0}))
+
+  |> map(fn: (r) => ({
+    _time: date.add(to: today(), d: duration(v: int( v: math.floor(x: r.d)))),
+    _value: r._value
+  }))
+  |> yield()

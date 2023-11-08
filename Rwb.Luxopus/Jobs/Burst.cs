@@ -26,12 +26,12 @@ namespace Rwb.Luxopus.Jobs
         private readonly IBatteryService _Batt;
 
         public Burst(
-            ILogger<Burst> logger, 
+            ILogger<Burst> logger,
             IBurstLogService burstLog,
-            ILuxopusPlanService plans, 
-            ILuxService lux, 
-            IInfluxQueryService influxQuery, 
-            IEmailService email, 
+            ILuxopusPlanService plans,
+            ILuxService lux,
+            IInfluxQueryService influxQuery,
+            IEmailService email,
             IBatteryService batt)
             : base(logger)
         {
@@ -78,13 +78,21 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
 
+            // Generation start and end. Guess from yesterday.
+            DateTime gStart = sunrise;
+            DateTime gEnd = sunset;
+            gStart = sunrise;
+            gEnd = sunset;
+            (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<long>();
+            (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<long>();
+
             (DateTime _, long generationMax) = (await _InfluxQuery.QueryAsync(@$"
             from(bucket: ""solar"")
               |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
               |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
               |> max()")).First().FirstOrDefault<long>();
 
-            if(generationMax < 2500)
+            if (generationMax < 2500)
             {
                 return;
             }
@@ -111,12 +119,9 @@ namespace Rwb.Luxopus.Jobs
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
             DateTime nextPlanCheck = DateTime.UtcNow.Minute > 30  //Check if mins are greater than 30
                ? DateTime.UtcNow.AddHours(1).AddMinutes(-DateTime.UtcNow.Minute) // After half past so go to the next hour.
-               : DateTime.UtcNow.AddMinutes(30-DateTime.UtcNow.Minute); // Before half past so go to half past.
-            int battLevelTarget = battLevelStart + Convert.ToInt32(
-                Convert.ToDouble(100 - battLevelStart)
-                * nextPlanCheck.Subtract(tBattChargeFrom).TotalMinutes
-                / plan.Next.Start.Subtract(tBattChargeFrom).TotalMinutes
-                );
+               : DateTime.UtcNow.AddMinutes(30 - DateTime.UtcNow.Minute); // Before half past so go to half past.
+            int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, _Batt.BatteryLimit, ScaleMethod.FastLinear);
+
 
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {
@@ -153,12 +158,12 @@ namespace Rwb.Luxopus.Jobs
                 if (generation > 3600)
                 {
                     // Manage the limit.
-                    if( inverterOutput < 3300)
+                    if (inverterOutput < 3300)
                     {
                         // Can export more.
                         battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation - 3600) / 1000.0);
                         // It seems to over-estimate. In this case we expect to decrease.
-                        if(battChargeRateWanted >= battChargeRate)
+                        if (battChargeRateWanted >= battChargeRate)
                         {
                             battChargeRateWanted = battChargeRate - 5;
                             actionInfo.AppendLine($"Battery charge rate {battChargeRateWanted}% = {battChargeRate}% - 5%.");
@@ -168,7 +173,7 @@ namespace Rwb.Luxopus.Jobs
                             actionInfo.AppendLine($"Battery charge rate: {generation}W - 3600W -> {battChargeRateWanted}%.");
                         }
                     }
-                    else if( inverterOutput > 3500)
+                    else if (inverterOutput > 3500)
                     {
                         int battChargeActual = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(battCharge) / 1000.0);
                         int forBatt = 200 + generation - inverterOutput;
@@ -181,13 +186,13 @@ namespace Rwb.Luxopus.Jobs
                 {
                     // Generation could be limited.
                     battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation + 200 - 3600) / 1000.0);
-                    if(battChargeRateWanted <= battChargeRate)
+                    if (battChargeRateWanted <= battChargeRate)
                     {
                         battChargeRateWanted = battChargeRate + 5;
                         actionInfo.AppendLine($"Generation {generation} > 2700 and 3200 < inverterOutput:{inverterOutput} < 3700 therefore generation could be limited.");
                     }
                 }
-                else if ( t0.Hour <= 10 && generationMax > 1000 && battLevel > battLevelTarget - 5)
+                else if (t0.Hour <= 10 && generationMax > 1000 && battLevel > battLevelTarget - 5)
                 {
                     // It's early and it looks like it's going to be a good day.
                     // So keep the battery empty to make space for later.
@@ -209,7 +214,7 @@ namespace Rwb.Luxopus.Jobs
                 actionInfo.AppendLine($"Battery charge rate wanted {battChargeRateWanted} reduced to 71%.");
                 battChargeRateWanted = 71;
             }
-            else if( battChargeRateWanted < 5)
+            else if (battChargeRateWanted < 5)
             {
                 actionInfo.AppendLine($"Battery charge rate wanted {battChargeRateWanted} increased to 5%.");
                 battChargeRateWanted = 5;
@@ -232,7 +237,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 _BurstLog.Write(actions.ToString() + Environment.NewLine + actionInfo.ToString());
                 // spammy _Email.SendEmail($"Burst at UTC {DateTime.UtcNow.ToString("dd MMM HH:mm")}", actions.ToString() + Environment.NewLine + actionInfo.ToString());
-               Logger.LogInformation("Burst made changes: " + Environment.NewLine + actions.ToString());
+                Logger.LogInformation("Burst made changes: " + Environment.NewLine + actions.ToString());
             }
         }
     }
