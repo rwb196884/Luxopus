@@ -3,7 +3,7 @@
     "Luxopus (work)": {
       "commandName": "Project",
       "environmentVariables": {
-        "DOTNET_ENVIRONMENT": "rwb"
+        "DOTNET_ENVIRONMENT": "work"
       }
     },
     "Luxopus (laptop)": {
