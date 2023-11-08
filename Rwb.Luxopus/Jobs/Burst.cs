@@ -71,20 +71,12 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
 
-            (DateTime sunrise, long _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
-            (DateTime sunset, long _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
+            (DateTime sunrise, _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
+            (DateTime sunset, _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
             if (t0 < sunrise || t0 > sunset)
             {
                 return;
             }
-
-            // Generation start and end. Guess from yesterday.
-            DateTime gStart = sunrise;
-            DateTime gEnd = sunset;
-            gStart = sunrise;
-            gEnd = sunset;
-            (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<long>();
-            (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<long>();
 
             (DateTime _, long generationMax) = (await _InfluxQuery.QueryAsync(@$"
             from(bucket: ""solar"")
@@ -96,8 +88,16 @@ namespace Rwb.Luxopus.Jobs
             {
                 return;
             }
-
             // We're good to go...
+
+            // Generation start and end. Guess from yesterday.
+            DateTime gStart = sunrise;
+            DateTime gEnd = sunset;
+            gStart = sunrise;
+            gEnd = sunset;
+            (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
+            (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
+
             StringBuilder actions = new StringBuilder();
             StringBuilder actionInfo = new StringBuilder();
 
