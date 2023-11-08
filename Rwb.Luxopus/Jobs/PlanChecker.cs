@@ -220,19 +220,16 @@ namespace Rwb.Luxopus.Jobs
 
             // Batt charge.
             int battChargeRateWanted = battChargeRate; // No change.
-            DateTime sunrise = DateTime.Today.AddHours(9);
+            DateTime sunrise = DateTime.Today.AddHours(9); // TODO: Move to configuration.
             DateTime sunset = DateTime.Today.AddHours(16);
             DateTime gStart = sunrise;
             DateTime gEnd = sunset;
             try
             {
-                long _;
                 (sunrise, _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
                 (sunset, _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
-                gStart = sunrise;
-                gEnd = sunset;
-                (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<long>();
-                (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<long>();
+                (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
+                (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
             }
             catch (Exception e)
             {
@@ -305,7 +302,7 @@ namespace Rwb.Luxopus.Jobs
                         else
                         {
                             double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(percentTarget - battLevel);
-                            DateTime until = plan!.Next!.Start;
+                            DateTime until = gEnd < plan!.Next!.Start ? gEnd : plan!.Next!.Start;
                             if (until < gStart) { until = gStart; }
                             double hoursToCharge = (until - t0).TotalHours;
                             double kW = powerRequiredKwh / hoursToCharge;
@@ -384,7 +381,8 @@ from(bucket: ""solar"")
                                 // Plan A
                                 outEnabledWanted = false;
                                 inEnabledWanted = false;
-                                double hoursToCharge = ((plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)) - t0).TotalHours;
+                                DateTime endOfCharge = gEnd < plan.Next.Start ? gEnd : plan.Next.Start;
+                                double hoursToCharge = (endOfCharge - t0).TotalHours;
                                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_Batt.BatteryLimit - battLevel);
 
                                 // Are we behind schedule?
@@ -400,7 +398,7 @@ from(bucket: ""solar"")
                                 // Set the rate.
                                 battChargeRateWanted = _Batt.RoundPercent(b);
                                 string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                                why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW).";
+                                why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW).";
                             }
                         }
                     }

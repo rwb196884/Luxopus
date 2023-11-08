@@ -20,14 +20,14 @@ namespace Rwb.Luxopus.Services
                     double l_delta = Convert.ToDouble(endValue - startValue);
                     double l_deltaPerMinute = l_delta / l_totalMinutes;
                     double l_minutesToScaleTime = scaleTime.Subtract(startTime).TotalMinutes;
-                    double l_scaleValue = l_deltaPerMinute * l_minutesToScaleTime;
+                    double l_scaleValue = startValue + l_deltaPerMinute * l_minutesToScaleTime;
                     return Convert.ToInt32(Math.Floor(l_scaleValue));
                 case (ScaleMethod.FastLinear):
                     double f_totalMinutes = endTime.Subtract(startTime).TotalMinutes;
                     double f_delta = Convert.ToDouble(endValue - startValue) * 1.5; // Extra factor.
                     double f_deltaPerMinute = f_delta / f_totalMinutes;
                     double f_minutesToScaleTime = scaleTime.Subtract(startTime).TotalMinutes;
-                    double f_scaleValue = f_deltaPerMinute * f_minutesToScaleTime;
+                    double f_scaleValue = startValue + f_deltaPerMinute * f_minutesToScaleTime;
                     return Convert.ToInt32(Math.Floor(f_scaleValue));
                 default:
                     throw new NotImplementedException($"Scale method {method} is not implemented.");
