@@ -35,6 +35,7 @@ namespace Rwb.Luxopus
                     });
 
                     // Serivces.
+                    services.AddScoped<NullJob>();
                     services.Register<ILuxopusPlanService, LuxopusPlanService, LuxopusPlanSettings>(context);
                     services.Register<IInfluxQueryService, InfluxQueryService, InfluxDBSettings>(context);
                     services.Register<IInfluxWriterService, InfluxWriterService, InfluxDBSettings>(context);
@@ -50,6 +51,7 @@ namespace Rwb.Luxopus
                     //services.Register<IGenerationForecastService, GenerationForecastService, GenerationForecastSettings>(context);
 
                     // Main thingy.
+                    services.ConfigureSettings<LuxopusSettings>(context.Configuration);
                     services.AddScoped<Luxopus>();
 
                     // Jobs.

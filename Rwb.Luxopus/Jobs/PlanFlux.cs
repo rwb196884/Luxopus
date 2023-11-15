@@ -20,7 +20,7 @@ namespace Rwb.Luxopus.Jobs
     /// </summary>
     public abstract class PlanFlux : Planner
     {
-        private readonly IEmailService _Email;
+        protected readonly IEmailService Email;
 
         protected static FluxCase GetFluxCase(Plan plan, HalfHourPlan p)
         {
@@ -54,7 +54,7 @@ namespace Rwb.Luxopus.Jobs
         public PlanFlux(ILogger<LuxMonitor> logger, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email)
             : base(logger, influxQuery, plan)
         {
-            _Email = email;
+            Email = email;
         }
 
         protected void SendEmail(Plan plan, string notes)
@@ -65,7 +65,7 @@ namespace Rwb.Luxopus.Jobs
                 message.AppendLine(p.ToString());
             }
 
-            _Email.SendEmail($"Solar strategy ({this.GetType().Name}) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString() + Environment.NewLine + Environment.NewLine + notes);
+            Email.SendEmail($"Solar strategy ({this.GetType().Name}) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString() + Environment.NewLine + Environment.NewLine + notes);
             Logger.LogInformation($"Planner '{this.GetType().Name}' created new plan: " + Environment.NewLine + message.ToString() + Environment.NewLine + notes);
         }
 
@@ -133,6 +133,5 @@ namespace Rwb.Luxopus.Jobs
             // TODO: query.
             return today.Date.AddDays(1).AddHours(10);
         }
-
     }
 }

@@ -61,11 +61,18 @@ namespace Rwb.Luxopus.Services
         public string AdditionalTariffs { get; set; }
     }
 
+    public enum TariffType
+    {
+        Import,
+        Export
+    }
+
     public class TariffCode
     {
         public string Code { get; set; }
         public DateTime ValidFrom { get; set; }
         public DateTime? ValidTo { get; set; }
+        public TariffType TariffType { get; set; }
 
         public override string ToString()
         {
@@ -103,6 +110,7 @@ namespace Rwb.Luxopus.Services
         Task<IEnumerable<string>> GetElectricityMeters(string mapn);
         Task<IEnumerable<MeterReading>> GetElectricityMeterReadings(string mapn, string serialNumber, DateTime from, DateTime to);
         Task<IEnumerable<TariffCode>> GetElectricityTariffs();
+        Task<TariffCode> GetElectricityCurrentTariff(TariffType tariffType, DateTime at);
         Task<IEnumerable<Price>> GetElectricityPrices(string product, string tariff, DateTime from, DateTime to);
 
         Task<IEnumerable<string>> GetGasMeterPoints();
@@ -183,7 +191,8 @@ namespace Rwb.Luxopus.Services
                         Code = tariffCode,
                         ValidFrom = tariffIsAdditional ? DateTime.UtcNow.AddYears(-1) : p.Single(z => z.Name == "valid_from").GetDate()!.Value.ToUniversalTime(),
                         // Do not limit additional tariffs to a date range.
-                        ValidTo = tariffIsAdditional ? null : p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
+                        ValidTo = tariffIsAdditional ? null : p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime(),
+                        TariffType = tariffCode.Contains("OUTGOING") || tariffCode.Contains("EXPORT") ? TariffType.Export : TariffType.Import
                     };
                 }).ToList();
 
@@ -192,7 +201,8 @@ namespace Rwb.Luxopus.Services
                     .Where(z => !meterTariffs.Any(y => y.Code.ToLower() == z.ToLower()))
                     .ToList();
 
-                return meterTariffs.Union(additionalTariffs.Select(z => new TariffCode() { 
+                return meterTariffs.Union(additionalTariffs.Select(z => new TariffCode()
+                {
                     Code = z,
                     ValidFrom = DateTime.UtcNow.AddYears(-1),
                     ValidTo = null
@@ -200,11 +210,17 @@ namespace Rwb.Luxopus.Services
             }
         }
 
+        public async Task<TariffCode> GetElectricityCurrentTariff(TariffType tariffType, DateTime at)
+        {
+            return (await GetElectricityTariffs())
+                    .Where(z => z.ValidFrom >= at && (!z.ValidTo.HasValue || z.ValidTo >= at) && z.TariffType == tariffType)
+                    .Single();
+        }
 
         public async Task<IEnumerable<Price>> GetElectricityPrices(string product, string tariff, DateTime from, DateTime to)
         {
             List<Price> prices = new List<Price>();
-            if( to <= from) { return prices; }
+            if (to <= from) { return prices; }
             using (HttpClient httpClient = GetHttpClient())
             {
                 HttpResponseMessage response = await httpClient.GetAsync($"/v1/products/{product}/electricity-tariffs/{tariff}/standard-unit-rates/?period_from={from.ToString(DateFormat)}Z&period_to={to.ToString(DateFormat)}Z");
@@ -223,7 +239,7 @@ namespace Rwb.Luxopus.Services
                                 {
                                     Pence = p.Single(z => z.Name == "value_inc_vat").Value.GetDecimal(),
                                     ValidFrom = p.Single(z => z.Name == "valid_from").GetDate()!.Value.ToUniversalTime(),
-                                    ValidTo =  p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
+                                    ValidTo = p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime()
                                 };
 
 
@@ -241,7 +257,7 @@ namespace Rwb.Luxopus.Services
         public async Task<IEnumerable<MeterReading>> GetElectricityMeterReadings(string mpan, string serialNumber, DateTime from, DateTime to)
         {
             List<MeterReading> consumption = new List<MeterReading>();
-           using (HttpClient httpClient = GetHttpClient())
+            using (HttpClient httpClient = GetHttpClient())
             {
                 // Fucking slash.
                 HttpResponseMessage response = await httpClient.GetAsync($"/v1/electricity-meter-points/{mpan}/meters/{serialNumber}/consumption/?period_from={from.ToString(DateFormat)}Z&period_to={to.ToString(DateFormat)}Z");
@@ -426,7 +442,7 @@ namespace Rwb.Luxopus.Services
 
         private async Task<string?> GetNextPage(string? url)
         {
-            if (string.IsNullOrEmpty(url)){ return null; }
+            if (string.IsNullOrEmpty(url)) { return null; }
             using (HttpClient httpClient = GetHttpClient())
             {
                 HttpResponseMessage response = await httpClient.GetAsync(url);

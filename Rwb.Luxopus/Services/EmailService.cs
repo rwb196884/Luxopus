@@ -1,9 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Rwb.Luxopus.Jobs;
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Mail;
 using System.Runtime;
+using System.Text;
 
 namespace Rwb.Luxopus.Services
 {
@@ -19,6 +22,7 @@ namespace Rwb.Luxopus.Services
     public interface IEmailService
     {
         void SendEmail(string subject, string body);
+        void SendPlanEmail(Plan plan, string notes);
     }
 
     public class EmailService : Service<EmailSettings>, IEmailService
@@ -99,6 +103,18 @@ namespace Rwb.Luxopus.Services
             {
                 Logger.LogError(e, "Failed to send e-mail: " + e.Message);
             }
+        }
+
+        public void SendPlanEmail(Plan plan, string notes)
+        {
+            StringBuilder message = new StringBuilder();
+            foreach (HalfHourPlan p in plan.Plans.OrderBy(z => z.Start))
+            {
+                message.AppendLine(p.ToString());
+            }
+
+            SendEmail($"Solar strategy ({this.GetType().Name}) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString() + Environment.NewLine + Environment.NewLine + notes);
+            Logger.LogInformation($"Planner '{this.GetType().Name}' created new plan: " + Environment.NewLine + message.ToString() + Environment.NewLine + notes);
         }
     }
 }

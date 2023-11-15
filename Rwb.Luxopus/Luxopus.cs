@@ -1,13 +1,23 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NCrontab;
 using NCrontab.Scheduler;
 using Rwb.Luxopus.Jobs;
+using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 
 namespace Rwb.Luxopus
 {
+    public class LuxopusSettings
+    {
+        public string Plan { get; set; }
+        public string Check { get; set; }
+        public string Burst { get; set; }
+    }
+
     public class Luxopus
     {
         private readonly List<Job> _Jobs;
@@ -16,7 +26,24 @@ namespace Rwb.Luxopus
 
         private readonly IReadOnlyList<Job> _StartupTasks;
 
-        public Luxopus(ILogger<Luxopus> logger, IScheduler scheduler,
+        private Job GetJob(IServiceProvider serviceProvider, string name)
+        {
+            Type? t = Type.GetType($"Rwb.Luxopus.Jobs.{name}");
+            if( t == null)
+            {
+                _Logger.LogError($"Could not find type Rwb.Luxopus.Jobs.{name} when configuring jobs.");
+                return serviceProvider.GetRequiredService<NullJob>();
+            }
+            Job? j = serviceProvider.GetRequiredService(t!) as Job;
+            if( j == null)
+            {
+                _Logger.LogError($"Could get service for type Rwb.Luxopus.Jobs.{name} when configuring jobs.");
+                return serviceProvider.GetRequiredService<NullJob>();
+            }
+            return j!;
+        }
+
+        public Luxopus(IOptions<LuxopusSettings> settings, IServiceProvider serviceProvider, ILogger<Luxopus> logger, IScheduler scheduler,
             LuxMonitor luxMonitor,
             LuxDaily luxDaily,
             OctopusMeters octopusMeters,
@@ -24,14 +51,19 @@ namespace Rwb.Luxopus
             Solcast solcast,
             SolarPosition sunPosition,
             Sunrise sunrise,
-            Openweathermap openweathermap,
-            PlanChecker planChecker,
-            //PlanA planA
-            //PlanZero planZero,
-            PlanFlux2 planFlux,
-            Burst burst
-            )
-        {
+            Openweathermap openweathermap
+            //PlanChecker planChecker,
+            ////PlanA planA
+            ////PlanZero planZero,
+            //PlanFlux2 planFlux,
+            //Burst burst
+        ){
+            Job planner = GetJob(serviceProvider, settings.Value.Plan);
+            Job planChecker = GetJob(serviceProvider, settings.Value.Check);
+            Job burst = GetJob(serviceProvider, settings.Value.Burst);
+
+            if(planner.GetType() == typeof(NullJob)) { }
+
             _Logger = logger;
             _Jobs = new List<Job>();
             _Scheduler = scheduler;
@@ -49,12 +81,12 @@ namespace Rwb.Luxopus
             // Make plan after getting prices and before evening peak.
             //AddJob(planA, "34 16 * * *"); 
             //AddJob(planZero, "38 16 * * *");
-            AddJob(planFlux, "38 16 * * *");
+            AddJob(planner, "38 16 * * *");
             AddJob(burst, "* 8-15 * * *");
 
             _StartupTasks = new List<Job>()
             {
-                planFlux,
+                planner,
                 burst,
                 planChecker,
                 //planZero,

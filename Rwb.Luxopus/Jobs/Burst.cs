@@ -115,13 +115,13 @@ namespace Rwb.Luxopus.Jobs
             string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
 
             DateTime tBattChargeFrom = plan.Current.Start < sunrise ? sunrise : plan.Current.Start;
+            tBattChargeFrom = tBattChargeFrom < gStart ? gStart : tBattChargeFrom;
 
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
             DateTime nextPlanCheck = DateTime.UtcNow.Minute > 30  //Check if mins are greater than 30
                ? DateTime.UtcNow.AddHours(1).AddMinutes(-DateTime.UtcNow.Minute) // After half past so go to the next hour.
                : DateTime.UtcNow.AddMinutes(30 - DateTime.UtcNow.Minute); // Before half past so go to half past.
             int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, _Batt.BatteryLimit, ScaleMethod.FastLinear);
-
 
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {
@@ -133,10 +133,16 @@ namespace Rwb.Luxopus.Jobs
                 int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
                 //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
 
-                actionInfo.AppendLine($"Generation: {generation}W");
+                double powerNeeded = 0;
+                if (battLevelTarget < battLevel)
+                {
+                    powerNeeded = _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
+                }
+
+                    actionInfo.AppendLine($"Generation: {generation}W");
                 actionInfo.AppendLine($"Inverter output: {inverterOutput}W");
                 actionInfo.AppendLine($"Battery level: {battLevel}%");
-                actionInfo.AppendLine($"Battery level target: {battLevelTarget}%");
+                actionInfo.AppendLine($"Battery level target: {battLevelTarget}%; behind by {powerNeeded:#,##0.0}kWh.");
 
                 // Plan A
                 double hoursToCharge = (plan.Next.Start - t0).TotalHours;

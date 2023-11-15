@@ -71,19 +71,19 @@ namespace Rwb.Luxopus.Jobs
 
         private readonly IInfluxWriterService _InfluxWriter;
         private readonly IBatteryService _Batt;
-        private readonly IOpenWeathermapService _Weather;
+        private readonly IOctopusService _Octopus;
 
         public PlanFlux2(ILogger<LuxMonitor> logger, 
             IInfluxQueryService influxQuery, 
             IInfluxWriterService influxWriter,
             ILuxopusPlanService plan, IEmailService email, 
             IBatteryService batt,
-            IOpenWeathermapService weather)
+            IOctopusService octopus)
             : base(logger, influxQuery, plan, email)
         {
             _InfluxWriter = influxWriter;
             _Batt = batt;
-            _Weather= weather;
+            _Octopus = octopus;
         }
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
@@ -97,7 +97,9 @@ namespace Rwb.Luxopus.Jobs
 
             DateTime start = t0.StartOfHalfHour().AddDays(-1);
             DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 21, 0, 0)).AddDays(1);
-            List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, "E-1R-FLUX-IMPORT-23-02-14-E", "E-1R-FLUX-EXPORT-23-02-14-E");
+            TariffCode ti = await _Octopus.GetElectricityCurrentTariff(TariffType.Import, start);
+            TariffCode te = await _Octopus.GetElectricityCurrentTariff(TariffType.Export, start);
+            List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, ti.Code, te.Code);
 
             // Find the current period: the last period that starts before t0.
             ElectricityPrice? priceNow = prices.Where(z => z.Start < t0).OrderByDescending(z => z.Start).FirstOrDefault();
@@ -350,7 +352,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             PlanService.Save(plan);
-            SendEmail(plan, notes.ToString());
+            Email.SendPlanEmail(plan, notes.ToString());
         }
 
         private DateTime GenerationStartTomorrow(DateTime today)

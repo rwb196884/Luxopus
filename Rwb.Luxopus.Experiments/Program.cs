@@ -27,14 +27,17 @@ namespace Rwb.Luxopus.Experiments
                 })
                 .AddAppsettingsWithAspNetCoreEnvironment()
                 .AddLuxopus()
-                .ConfigureServices((context, services) => { services.AddScoped<Experiment>(); })
+                .ConfigureServices((context, services) => { 
+                    services.AddScoped<PredictByLinearRegression>();
+                    services.AddScoped<DayTypeClassification>();
+                })
                     .Build()
                     )
 
             {
                 using (IServiceScope scope = host.Services.CreateScope())
                 {
-                    Experiment e = scope.ServiceProvider.GetRequiredService<Experiment>();
+                    DayTypeClassification e = scope.ServiceProvider.GetRequiredService<DayTypeClassification>();
                     e.RunAsync().Wait();
                 }
             }

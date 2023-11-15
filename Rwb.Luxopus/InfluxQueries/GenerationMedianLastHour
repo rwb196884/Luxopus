@@ -1,0 +1,6 @@
+from(bucket: "solar")
+  |> range(start: -1h, stop: now())
+  |> filter(fn: (r) => r["_measurement"] == "inverter")
+  |> filter(fn: (r) => r["_field"] == "generation")
+  |> median()
+  |> yield(name: "mean")

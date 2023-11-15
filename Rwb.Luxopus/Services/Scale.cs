@@ -13,6 +13,8 @@ namespace Rwb.Luxopus.Services
         public static int Apply(DateTime startTime, DateTime endTime, DateTime scaleTime,
             int startValue, int endValue, ScaleMethod method)
         {
+            if( scaleTime <= startTime) { return startValue; }
+            if( scaleTime >= endTime) { return endValue; }
             switch (method)
             {
                 case (ScaleMethod.Linear):
