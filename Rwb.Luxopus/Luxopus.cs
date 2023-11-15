@@ -58,16 +58,20 @@ namespace Rwb.Luxopus
             //PlanFlux2 planFlux,
             //Burst burst
         ){
-            Job planner = GetJob(serviceProvider, settings.Value.Plan);
-            Job planChecker = GetJob(serviceProvider, settings.Value.Check);
-            Job burst = GetJob(serviceProvider, settings.Value.Burst);
-
-            if(planner.GetType() == typeof(NullJob)) { }
-
             _Logger = logger;
-            _Jobs = new List<Job>();
             _Scheduler = scheduler;
             _Scheduler.Next += _Scheduler_Next;
+
+            Job planner = GetJob(serviceProvider, settings.Value.Plan);
+            _Logger.LogInformation($" Plan service: {planner.GetType().Name}");
+            Job planChecker = GetJob(serviceProvider, settings.Value.Check);
+            _Logger.LogInformation($"Check service: {planChecker.GetType().Name}");
+            Job burst = GetJob(serviceProvider, settings.Value.Burst);
+            _Logger.LogInformation($"Burst service: {burst.GetType().Name}");
+
+            if (planner.GetType() == typeof(NullJob)) { }
+
+            _Jobs = new List<Job>();
 
             AddJob(luxMonitor, "* * * * *"); // every minute -- the most that cron will allow.
             AddJob(luxDaily, "51 * * * *"); // at the end of every day. Try every hour because of time zone nuissance.
