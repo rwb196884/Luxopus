@@ -213,7 +213,7 @@ namespace Rwb.Luxopus.Services
         public async Task<TariffCode> GetElectricityCurrentTariff(TariffType tariffType, DateTime at)
         {
             return (await GetElectricityTariffs())
-                    .Where(z => z.ValidFrom >= at && (!z.ValidTo.HasValue || z.ValidTo >= at) && z.TariffType == tariffType)
+                    .Where(z => z.ValidFrom <= at && (!z.ValidTo.HasValue || z.ValidTo >= at) && z.TariffType == tariffType)
                     .Single();
         }
 
