@@ -299,10 +299,17 @@ namespace Rwb.Luxopus.Jobs
                                 notes.AppendLine($"     Predicted        use of {powerRequired:0.0}kW ({battRequired:0}%).");
 
                                 double powerAvailableForBatt = generationPrediction - powerRequired;
+                                double burstPrediction = await BurstPredictionFromMultivariateLinearRegression(tForecast);
+
                                 if (powerAvailableForBatt < 0)
                                 {
                                     // Not enough generation. Charge to 89%.
-                                    notes.AppendLine("     Generation prediction is very low: charge to 89%.");
+                                    notes.AppendLine("     Generation prediction is very low ({powerAvailableForBatt:#,##0}kWh): charge to 89%.");
+                                    chargeFromGrid = 89;
+                                }
+                                else if(burstPrediction < 3000 && chargeFromGrid < 66)
+                                {
+                                    notes.AppendLine($"     Burst prediction is low ({burstPrediction:#,##0}kW): charge to 89%.");
                                     chargeFromGrid = 89;
                                 }
                                 else
@@ -409,6 +416,41 @@ namespace Rwb.Luxopus.Jobs
                     Daylen = z.GetValue<double?>("daylen"),
                     Elevation = z.GetValue<double?>("elevation"),
                     Generation = z.GetValue<long?>("generation"),
+                    Uvi = z.GetValue<double?>("uvi"),
+                }).ToList();
+
+                // Build model.
+                _OrdinaryLeastSquares = new OrdinaryLeastSquares();
+                IEnumerable<Datum2> trainingData = data.Where(z => z.IsComplete /*&& z.Time < new DateTime(2023, 9, 1)*/);
+                double[][] inputs = trainingData.Select(z => z.Input).ToArray();
+                double[][] outputs = trainingData.Select(z => z.Output).ToArray();
+                _MultivariateLinearRegression = _OrdinaryLeastSquares.Learn(inputs, outputs);
+            }
+
+            // Use model. Apply the rescaling to the values.
+            FluxRecord weather = (await InfluxQuery.QueryAsync(Query.Weather, tForecast)).First().Records.Single();
+            double cloud = Math.Floor(weather.GetValue<double>("cloud") / 10.0);
+            double daylen = Math.Floor(weather.GetValue<double>("daylen") * 60 * 60 / 1000.0);
+            double uvi = Math.Floor(weather.GetValue<double>("uvi") * 10.0);
+            double elevation = Math.Floor(weather.GetValue<double>("elevation")); // Hack in query in case of not full day of data.
+
+            double[] prediction = _MultivariateLinearRegression.Transform(new double[] { cloud, daylen, elevation, uvi });
+            return prediction[0] / 10.0;
+        }
+
+        private async Task<double> BurstPredictionFromMultivariateLinearRegression(DateTime tForecast)
+        {
+            if (_OrdinaryLeastSquares == null || _MultivariateLinearRegression == null)
+            {
+                // Get daat.
+                FluxTable fluxData = (await InfluxQuery.QueryAsync(Query.PredictionData2, DateTime.Now)).Single();
+                List<Datum2> data = fluxData.Records.Select(z => new Datum2()
+                {
+                    Time = z.GetValue<DateTime>("_time"),
+                    Cloud = z.GetValue<double?>("cloud"),
+                    Daylen = z.GetValue<double?>("daylen"),
+                    Elevation = z.GetValue<double?>("elevation"),
+                    Generation = z.GetValue<long?>("burst"),
                     Uvi = z.GetValue<double?>("uvi"),
                 }).ToList();
 

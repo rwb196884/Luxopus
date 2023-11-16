@@ -37,7 +37,8 @@ namespace Rwb.Luxopus.Experiments
             {
                 using (IServiceScope scope = host.Services.CreateScope())
                 {
-                    DayTypeClassification e = scope.ServiceProvider.GetRequiredService<DayTypeClassification>();
+                    //DayTypeClassification e = scope.ServiceProvider.GetRequiredService<DayTypeClassification>();
+                    PredictByLinearRegression e = scope.ServiceProvider.GetRequiredService<PredictByLinearRegression>();
                     e.RunAsync().Wait();
                 }
             }
