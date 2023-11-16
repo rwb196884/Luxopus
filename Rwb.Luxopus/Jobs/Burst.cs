@@ -22,7 +22,6 @@ namespace Rwb.Luxopus.Jobs
         private readonly ILuxopusPlanService _Plans;
         private readonly ILuxService _Lux;
         private readonly IInfluxQueryService _InfluxQuery;
-        private readonly IEmailService _Email;
         private readonly IBatteryService _Batt;
 
         public Burst(
@@ -31,7 +30,6 @@ namespace Rwb.Luxopus.Jobs
             ILuxopusPlanService plans,
             ILuxService lux,
             IInfluxQueryService influxQuery,
-            IEmailService email,
             IBatteryService batt)
             : base(logger)
         {
@@ -39,7 +37,6 @@ namespace Rwb.Luxopus.Jobs
             _Plans = plans;
             _Lux = lux;
             _InfluxQuery = influxQuery;
-            _Email = email;
             _Batt = batt;
         }
 
