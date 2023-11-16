@@ -5,7 +5,6 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
-using System.Runtime;
 using System.Text;
 
 namespace Rwb.Luxopus.Services
@@ -113,7 +112,7 @@ namespace Rwb.Luxopus.Services
                 message.AppendLine(p.ToString());
             }
 
-            SendEmail($"Solar strategy ({this.GetType().Name}) " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString() + Environment.NewLine + Environment.NewLine + notes);
+            SendEmail($"Solar strategy " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString() + Environment.NewLine + Environment.NewLine + notes);
             Logger.LogInformation($"Planner '{this.GetType().Name}' created new plan: " + Environment.NewLine + message.ToString() + Environment.NewLine + notes);
         }
     }
