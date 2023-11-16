@@ -30,7 +30,13 @@ namespace Rwb.Luxopus.Services
 
         protected InfluxService(ILogger<InfluxService> logger, IOptions<InfluxDBSettings> settings) : base(logger, settings)
         {
-            Client = new InfluxDBClient(Settings.Server, Settings.Token); // TODO: DI.
+            InfluxDBClientOptions o = new InfluxDBClientOptions.Builder()
+                .Url(Settings.Server)
+                .AuthenticateToken(Settings.Token)
+                .TimeOut(TimeSpan.FromSeconds(120))
+                .Build();
+
+            Client = new InfluxDBClient(o); // TODO: DI.
         }
 
         public async Task<List<FluxTable>> QueryAsync(string flux)
