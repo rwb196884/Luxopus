@@ -173,6 +173,12 @@ namespace Rwb.Luxopus.Services
 
         public async Task<IEnumerable<TariffCode>> GetElectricityTariffs()
         {
+            return await GetElectricityTariffs(true);
+        }
+
+
+        private async Task<IEnumerable<TariffCode>> GetElectricityTariffs(bool includeAdditional)
+        {
             string account = await GetAccount();
             using (JsonDocument j = JsonDocument.Parse(account))
             {
@@ -212,7 +218,7 @@ namespace Rwb.Luxopus.Services
 
         public async Task<TariffCode> GetElectricityCurrentTariff(TariffType tariffType, DateTime at)
         {
-            return (await GetElectricityTariffs())
+            return (await GetElectricityTariffs(false))
                     .Where(z => z.ValidFrom <= at && (!z.ValidTo.HasValue || z.ValidTo >= at) && z.TariffType == tariffType)
                     .Single();
         }
