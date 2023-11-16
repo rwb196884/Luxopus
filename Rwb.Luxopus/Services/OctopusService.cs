@@ -195,17 +195,19 @@ namespace Rwb.Luxopus.Services
                     return new TariffCode()
                     {
                         Code = tariffCode,
-                        ValidFrom = tariffIsAdditional ? DateTime.UtcNow.AddYears(-1) : p.Single(z => z.Name == "valid_from").GetDate()!.Value.ToUniversalTime(),
+                        ValidFrom = tariffIsAdditional && includeAdditional ? DateTime.UtcNow.AddYears(-1) : p.Single(z => z.Name == "valid_from").GetDate()!.Value.ToUniversalTime(),
                         // Do not limit additional tariffs to a date range.
-                        ValidTo = tariffIsAdditional ? null : p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime(),
-                        TariffType = tariffCode.Contains("OUTGOING") || tariffCode.Contains("EXPORT") ? TariffType.Export : TariffType.Import
+                        ValidTo = tariffIsAdditional && includeAdditional ? null : p.Single(z => z.Name == "valid_to").GetDate()?.ToUniversalTime(),
+                        TariffType = (tariffCode.Contains("OUTGOING") || tariffCode.Contains("EXPORT")) ? TariffType.Export : TariffType.Import
+
                     };
                 }).ToList();
 
-                List<string> additionalTariffs = Settings.AdditionalTariffs.Split(',')
+                List<string> additionalTariffs = includeAdditional ? Settings.AdditionalTariffs.Split(',')
                     .Distinct()
                     .Where(z => !meterTariffs.Any(y => y.Code.ToLower() == z.ToLower()))
-                    .ToList();
+                    .ToList()
+                    : new List<string>();
 
                 return meterTariffs.Union(additionalTariffs.Select(z => new TariffCode()
                 {

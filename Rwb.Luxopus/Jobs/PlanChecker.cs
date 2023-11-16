@@ -71,7 +71,7 @@ namespace Rwb.Luxopus.Jobs
 
             HalfHourPlan? currentPeriod = plan?.Current;
 
-            if (currentPeriod == null)
+            if (currentPeriod == null || currentPeriod.Start < DateTime.Now.AddDays(-7))
             {
                 Logger.LogError($"No current plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
                 currentPeriod = new HalfHourPlan()
