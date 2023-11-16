@@ -93,7 +93,8 @@ namespace Rwb.Luxopus.Experiments
                 Cloud = z.GetValue<double?>("cloud"),
                 Daylen = z.GetValue<double?>("daylen"),
                 Elevation = z.GetValue<double?>("elevation"),
-                Generation = z.GetValue<long?>("generation"),
+                //Generation = z.GetValue<long?>("generation"),
+                Generation = z.GetValue<long?>("burst"),
                 Uvi = z.GetValue<double?>("uvi"),
             }).ToList();
         }
