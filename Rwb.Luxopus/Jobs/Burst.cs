@@ -147,7 +147,7 @@ namespace Rwb.Luxopus.Jobs
                 actionInfo.AppendLine($"Battery level target: {battLevelTarget}%; behind by {extraPowerNeeded:#,##0.0}kWh.");
 
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
-                int b = _Batt.TransferKiloWattsToPercent(kW);
+                int b = _Batt.CapacityKiloWattHoursToPercent(kW);
 
                 // Set the rate.
                 int battChargeRatePlan = _Batt.RoundPercent(b);
@@ -202,7 +202,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     battChargeRateWanted = battChargeRatePlan;
                     string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                    actionInfo.AppendLine($"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {plan.Next.Start:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRatePlan}%).");
+                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRatePlan}%).");
                 }
             }
 
