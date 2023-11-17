@@ -278,7 +278,7 @@ namespace Rwb.Luxopus.Jobs
                     battChargeRateWanted = 72;
                     outEnabledWanted = true;
                     battDischargeToGridRateWanted = 72;
-                    outBatteryLimitPercentWanted = _Batt.BatteryLimit;
+                    outBatteryLimitPercentWanted = 97;
                     outStartWanted = currentPeriod.Start; // Needs to be constant in order not to spam changes.
                     outStopWanted = plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30);
                     why = $"Battery is full ({battLevel}%).";
@@ -332,8 +332,9 @@ from(bucket: ""solar"")
 
                         if (generationMax > 2000 && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
                         {
+                            // Discharge any bursts that got absorbed.
                             outEnabledWanted = true;
-                            battDischargeToGridRateWanted = 70; // Allow extra to be discharged.
+                            battDischargeToGridRateWanted = 70;
                             if (outStartWanted.TimeOfDay > currentPeriod.Start.TimeOfDay)
                             {
                                 outStartWanted = currentPeriod.Start;
@@ -364,43 +365,37 @@ from(bucket: ""solar"")
                             // Therefore battery charge rate should be at most 70%.
                             why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}% (expected {battLevelTarget}%).";
                         }
+                        else if (t0.Hour <= 9 && generationMax > 1500 && battLevel > 20)
+                        {
+                            // At 9am median generation is 1500.
+                            battChargeRateWanted = 8;
+                            why = "Keep battery empty in anticipation of high generation later today.";
+                        }
                         else
                         {
-                            // TODO
-                            // If it's early and it looks like it's going to be a good day
-                            // then keep the battery empty.
-
-                            if (t0.Hour <= 9 && generationMax > 1500 && battLevel > 20)
-                            {
-                                // At 9am median generation is 1500.
-                                battChargeRateWanted = 8;
-                                why = "Keep battery empty in anticipation of high generation later today.";
-                            }
-                            else
-                            {
-                                // Plan A
-                                outEnabledWanted = false;
-                                inEnabledWanted = false;
-                                DateTime endOfCharge = gEnd < plan.Next.Start ? gEnd : plan.Next.Start;
-                                double hoursToCharge = (endOfCharge - t0).TotalHours;
-                                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_Batt.BatteryLimit - battLevel);
-
-                                // Are we behind schedule?
-                                double extraPowerNeeded = 0.0;
-                                if (battLevel < battLevelTarget)
-                                {
-                                    extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
-                                }
-
-                                double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
-                                int b = _Batt.TransferKiloWattsToPercent(kW);
-
-                                // Set the rate.
-                                battChargeRateWanted = _Batt.RoundPercent(b);
-                                string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                                why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW).";
-                            }
+                            // Plan A
+                            outEnabledWanted = false;
+                            inEnabledWanted = false;
                         }
+
+                        DateTime endOfCharge = gEnd < plan.Next.Start ? gEnd : plan.Next.Start;
+                        double hoursToCharge = (endOfCharge - t0).TotalHours;
+                        double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_Batt.BatteryLimit - battLevel);
+
+                        // Are we behind schedule?
+                        double extraPowerNeeded = 0.0;
+                        if (battLevel < battLevelTarget)
+                        {
+                            extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
+                        }
+
+                        double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
+                        int b = _Batt.TransferKiloWattsToPercent(kW);
+
+                        // Set the rate.
+                        battChargeRateWanted = _Batt.RoundPercent(b);
+                        string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW).";
                     }
                     else
                     {
