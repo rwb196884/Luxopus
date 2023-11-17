@@ -130,19 +130,12 @@ namespace Rwb.Luxopus.Jobs
                 int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
                 //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
 
-                double powerNeeded = 0;
-                if (battLevelTarget < battLevel)
-                {
-                    powerNeeded = _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
-                }
-
-                    actionInfo.AppendLine($"Generation: {generation}W");
+                actionInfo.AppendLine($"Generation: {generation}W");
                 actionInfo.AppendLine($"Inverter output: {inverterOutput}W");
                 actionInfo.AppendLine($"Battery level: {battLevel}%");
-                actionInfo.AppendLine($"Battery level target: {battLevelTarget}%; behind by {powerNeeded:#,##0.0}kWh.");
 
                 // Plan A
-                double hoursToCharge = (plan.Next.Start - t0).TotalHours;
+                double hoursToCharge = (gEnd - t0).TotalHours;
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_Batt.BatteryLimit - battLevel);
 
                 // Are we behind schedule?
@@ -151,6 +144,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
                 }
+                actionInfo.AppendLine($"Battery level target: {battLevelTarget}%; behind by {extraPowerNeeded:#,##0.0}kWh.");
 
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                 int b = _Batt.TransferKiloWattsToPercent(kW);
