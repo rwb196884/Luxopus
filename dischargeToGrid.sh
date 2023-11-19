@@ -24,7 +24,8 @@ elif [ $1 -gt 100 ]; then
 	exit 1
 fi
  
-echo "Setting all non-zero DiscahrgeToGrid to $1 in ${planDir}/$f"
+echo "Setting DiscahrgeToGrid to $1 where value is < 100 in ${planDir}/$f"
 
-cat "${planDir}/$f" | jq ".Plans[].Action.DischargeToGrid |= if . > 0 then $1 else . end" > "${planDir}/${f}.tmp"
+cat "${planDir}/$f" | jq ".Plans[].Action.DischargeToGrid |= if . < 100 then $1 else . end" > "${planDir}/${f}.tmp"
 mv "${planDir}/${f}.tmp" "${planDir}/$f"
+
