@@ -300,6 +300,7 @@ namespace Rwb.Luxopus.Jobs
 
                                 double powerAvailableForBatt = generationPrediction - powerRequired;
                                 double burstPrediction = await BurstPredictionFromMultivariateLinearRegression(tForecast);
+                                notes.AppendLine($"     Predicted      burst of {burstPrediction:0.0}kW.");
 
                                 if (powerAvailableForBatt < 0)
                                 {
@@ -307,11 +308,11 @@ namespace Rwb.Luxopus.Jobs
                                     notes.AppendLine("     Generation prediction is very low ({powerAvailableForBatt:#,##0}kWh): charge to 89%.");
                                     chargeFromGrid = 89;
                                 }
-                                else if(burstPrediction < 3000 && chargeFromGrid < 66)
-                                {
-                                    notes.AppendLine($"     Burst prediction is low ({burstPrediction:#,##0}kW): charge to 89%.");
-                                    chargeFromGrid = 89;
-                                }
+                                //else if(burstPrediction < 3000 && chargeFromGrid < 66)
+                                //{
+                                //    notes.AppendLine($"     Burst prediction is low ({burstPrediction:#,##0}kW): charge to 89%.");
+                                //    chargeFromGrid = 89;
+                                //}
                                 else
                                 {
                                     double predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt);
