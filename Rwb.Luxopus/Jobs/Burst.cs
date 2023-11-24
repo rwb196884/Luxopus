@@ -142,7 +142,7 @@ namespace Rwb.Luxopus.Jobs
                 double extraPowerNeeded = 0.0;
                 if (battLevel < battLevelTarget)
                 {
-                    extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
+                    extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
                 }
                 actionInfo.AppendLine($"Battery level target: {battLevelTarget}%; behind by {extraPowerNeeded:#,##0.0}kWh.");
 
@@ -150,9 +150,7 @@ namespace Rwb.Luxopus.Jobs
                 int b = _Batt.CapacityKiloWattHoursToPercent(kW);
 
                 // Set the rate.
-                int battChargeRatePlan = _Batt.RoundPercent(b);
-
-                if (generation > 3600)
+                else if (generation > 3600)
                 {
                     // Manage the limit.
                     if (inverterOutput < 3300)
@@ -198,20 +196,15 @@ namespace Rwb.Luxopus.Jobs
                     outBatteryLimitPercentWanted = battLevelTarget - 5;
                 }
 
-                if (battChargeRateWanted < battChargeRatePlan)
+                if (battChargeRateWanted < battCharge)
                 {
-                    battChargeRateWanted = battChargeRatePlan;
+                    battChargeRateWanted = battCharge;
                     string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRatePlan}%).");
+                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battCharge}% therefore not changed.");
                 }
             }
 
-            if (battChargeRateWanted > 71)
-            {
-                actionInfo.AppendLine($"Battery charge rate wanted {battChargeRateWanted} reduced to 71%.");
-                battChargeRateWanted = 71;
-            }
-            else if (battChargeRateWanted < 5)
+            if (battChargeRateWanted < 5)
             {
                 actionInfo.AppendLine($"Battery charge rate wanted {battChargeRateWanted} increased to 5%.");
                 battChargeRateWanted = 5;
