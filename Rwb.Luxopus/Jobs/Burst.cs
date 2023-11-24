@@ -150,7 +150,7 @@ namespace Rwb.Luxopus.Jobs
                 int b = _Batt.CapacityKiloWattHoursToPercent(kW);
 
                 // Set the rate.
-                else if (generation > 3600)
+                if (generation > 3600)
                 {
                     // Manage the limit.
                     if (inverterOutput < 3300)
