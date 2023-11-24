@@ -70,10 +70,7 @@ namespace Rwb.Luxopus.Jobs
 
             (DateTime sunrise, _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
             (DateTime sunset, _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
-            if (t0 < sunrise || t0 > sunset)
-            {
-                return;
-            }
+            if (t0 < sunrise || t0 > sunset) { return; }
 
             (DateTime _, long generationMax) = (await _InfluxQuery.QueryAsync(@$"
             from(bucket: ""solar"")
@@ -94,6 +91,7 @@ namespace Rwb.Luxopus.Jobs
             gEnd = sunset;
             (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
             (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
+            if( t0 < gStart || t0 > gEnd) { return; }
 
             StringBuilder actions = new StringBuilder();
             StringBuilder actionInfo = new StringBuilder();
