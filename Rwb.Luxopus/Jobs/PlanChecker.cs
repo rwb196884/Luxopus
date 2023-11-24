@@ -393,13 +393,13 @@ from(bucket: ""solar"")
                         int b = _Batt.TransferKiloWattsToPercent(kW);
 
                         // Set the rate.
-                            battChargeRateWanted = _Batt.RoundPercent(b);
-                            string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW).";
+                        battChargeRateWanted = _Batt.RoundPercent(b);
+                        string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
                         if (extraPowerNeeded > 0)
                         {
                             battChargeRateWanted = 90;
-                            why += $" But we are behind by {extraPowerNeeded:0.0}kW.";
+                            why += $" But we are behind by {extraPowerNeeded:0.0}kW therefore override to 90%.";
                         }
                     }
                     else
