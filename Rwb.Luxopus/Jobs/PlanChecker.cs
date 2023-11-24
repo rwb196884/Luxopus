@@ -386,7 +386,7 @@ from(bucket: ""solar"")
                         double extraPowerNeeded = 0.0;
                         if (battLevel < battLevelTarget)
                         {
-                            extraPowerNeeded = 2 * _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
+                            extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
                         }
 
                         double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
@@ -399,7 +399,7 @@ from(bucket: ""solar"")
                         if (extraPowerNeeded > 0)
                         {
                             battChargeRateWanted = 90;
-                            why += $" but we are behind by {extraPowerNeeded}kW.";
+                            why += $" But we are behind by {extraPowerNeeded:0.0}kW.";
                         }
                     }
                     else
