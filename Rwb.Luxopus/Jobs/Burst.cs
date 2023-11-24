@@ -200,7 +200,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     battChargeRateWanted = battCharge;
                     string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battCharge}% therefore not changed.");
+                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
                 }
             }
 
