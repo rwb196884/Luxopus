@@ -95,7 +95,7 @@ namespace Rwb.Luxopus
                 planChecker,
                 //planZero,
                 //octopusMeters,
-                //octopusPrices,
+                octopusPrices,
                 ////solcast, // severely rate lmited.
                 sunPosition,
                 sunrise,
