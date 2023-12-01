@@ -346,7 +346,7 @@ from(bucket: ""solar"")
                            ).First().Records.First().GetValue<double>();
 
                          if (generationMax > 2000 
-                            && generationRecentMean > 2000 
+                            && generationRecentMean > 1000 
                             && generationMeanDifference > 0
                             && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
                         {
