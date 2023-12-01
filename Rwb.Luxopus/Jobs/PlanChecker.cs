@@ -330,6 +330,13 @@ from(bucket: ""solar"")
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")).First().FirstOrDefault<long>();
 
+                        double generationMean = //(DateTime.Now, 0);
+    (await _InfluxQuery.QueryAsync(@$"
+from(bucket: ""solar"")
+  |> range(start: {gStart.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
+  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+  |> median()")).First().Records.First().GetValue<double>();
+
                         if (generationMax > 2000 && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
                         {
                             // Discharge any bursts that got absorbed.
@@ -344,17 +351,18 @@ from(bucket: ""solar"")
                                 outStopWanted = (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30));
                             }
 
+                            int bb = _Batt.CapacityKiloWattHoursToPercent(0.5 * generationMean / 1000.0);
                             if (battLevel >= _Batt.BatteryLimit)
                             {
                                 outBatteryLimitPercentWanted = _Batt.BatteryLimit;
                             }
                             else if (battLevel > battLevelTarget)
                             {
-                                outBatteryLimitPercentWanted = (battLevel + 3) > _Batt.BatteryLimit ? _Batt.BatteryLimit : (battLevelTarget + 3);
+                                outBatteryLimitPercentWanted = (battLevel + bb) > _Batt.BatteryLimit ? _Batt.BatteryLimit : (battLevelTarget + bb);
                             }
                             else
                             {
-                                outBatteryLimitPercentWanted = (battLevelTarget + 3) > 95 ? 95 : (battLevelTarget + 3);
+                                outBatteryLimitPercentWanted = (battLevelTarget + bb) > 95 ? 95 : (battLevelTarget + bb);
                             }
 
                             // Let the Burst job sort out the batt charge rate.
