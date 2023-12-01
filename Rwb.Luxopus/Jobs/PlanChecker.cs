@@ -330,16 +330,16 @@ from(bucket: ""solar"")
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")).First().FirstOrDefault<long>();
 
-                        double generationMean = //(DateTime.Now, 0);
-    (await _InfluxQuery.QueryAsync(@$"
+                         double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
-  |> range(start: {gStart.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
+  |> range(start: -1h, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-  |> median()")).First().Records.First().GetValue<double>();
+  |> mean()")
+                            ).First().Records.First().GetValue<double>();
 
-                        if (generationMax > 2000 && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
+                        if (generationMax > 2000 && generationRecentMean > 2000 && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
                         {
-                            // Discharge any bursts that got absorbed.
+                            // High generation. Discharge any bursts that got absorbed.
                             outEnabledWanted = true;
                             battDischargeToGridRateWanted = 70;
                             if (outStartWanted.TimeOfDay > currentPeriod.Start.TimeOfDay)
@@ -351,7 +351,7 @@ from(bucket: ""solar"")
                                 outStopWanted = (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30));
                             }
 
-                            int bb = _Batt.CapacityKiloWattHoursToPercent(0.5 * generationMean / 1000.0);
+                            int bb = _Batt.CapacityKiloWattHoursToPercent(0.5 * generationRecentMean / 1000.0);
                             if (battLevel >= _Batt.BatteryLimit)
                             {
                                 outBatteryLimitPercentWanted = _Batt.BatteryLimit;
@@ -408,6 +408,12 @@ from(bucket: ""solar"")
                         {
                             battChargeRateWanted = 90;
                             why += $" But we are behind by {extraPowerNeeded:0.0}kW therefore override to 90%.";
+                        }
+
+                        if((powerRequiredKwh + extraPowerNeeded) / hoursToCharge > generationRecentMean)
+                        {
+                            battChargeRateWanted = 90;
+                            why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean/1000:0.0}kW therefore override to 90%.";
                         }
                     }
                     else
