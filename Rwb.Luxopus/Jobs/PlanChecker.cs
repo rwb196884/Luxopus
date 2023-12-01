@@ -318,7 +318,7 @@ namespace Rwb.Luxopus.Jobs
 
                         int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(currentPeriod.Start);
                         DateTime nextPlanCheck = DateTime.UtcNow.AddMinutes(21); // Just before.
-                        int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, _Batt.BatteryLimit, ScaleMethod.FastLinear);
+                        int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(-1), nextPlanCheck, battLevelStart, _Batt.BatteryLimit, ScaleMethod.FastLinear);
 
                         // Override for high generation.
                         // This doesn't work: when the battery gets to the limit the inverter prevents generation again.
