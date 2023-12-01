@@ -337,7 +337,18 @@ from(bucket: ""solar"")
   |> mean()")
                             ).First().Records.First().GetValue<double>();
 
-                        if (generationMax > 2000 && generationRecentMean > 2000 && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
+                        double generationMeanDifference = (await _InfluxQuery.QueryAsync(@$"
+from(bucket: ""solar"")
+  |> range(start: -1h, stop: now())
+  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+  |> difference()
+  |> mean()")
+                           ).First().Records.First().GetValue<double>();
+
+                         if (generationMax > 2000 
+                            && generationRecentMean > 2000 
+                            && generationMeanDifference > 0
+                            && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
                         {
                             // High generation. Discharge any bursts that got absorbed.
                             outEnabledWanted = true;
@@ -407,13 +418,22 @@ from(bucket: ""solar"")
                         if (extraPowerNeeded > 0)
                         {
                             battChargeRateWanted = 90;
+                            outEnabledWanted = false;
                             why += $" But we are behind by {extraPowerNeeded:0.0}kW therefore override to 90%.";
                         }
 
                         if((powerRequiredKwh + extraPowerNeeded) / hoursToCharge > generationRecentMean)
                         {
                             battChargeRateWanted = 90;
+                            outEnabledWanted = false;
                             why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean/1000:0.0}kW therefore override to 90%.";
+                        }
+
+                        if(generationMeanDifference < 0)
+                        {
+                            battChargeRateWanted = 90;
+                            outEnabledWanted = false;
+                            why += $" Rate of generation is decreasing ({generationMeanDifference:0}W) therefore override to 90%.";
                         }
                     }
                     else
