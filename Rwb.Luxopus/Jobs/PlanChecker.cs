@@ -266,7 +266,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     battChargeRateWanted = 50;
                 }
-                why = "Default (it's dark).";
+                why = $"Default (time {t0:HH:mm} is outside of generation range {gStart:HH:mm} to {gEnd:HH:mm}).";
             }
             else
             {
