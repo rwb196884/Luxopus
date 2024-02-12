@@ -147,10 +147,9 @@ namespace Rwb.Luxopus.Jobs
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                 int b = _Batt.CapacityKiloWattHoursToPercent(kW);
 
-                // Set the rate.
+                    // Manage the limit.
                 if (generation > 3600)
                 {
-                    // Manage the limit.
                     if (inverterOutput < 3300)
                     {
                         // Can export more.
@@ -175,11 +174,13 @@ namespace Rwb.Luxopus.Jobs
                         actionInfo.AppendLine($"{generation}W + 200W - {inverterOutput}W = {forBatt}W -> {battChargeRateWanted}%");
                     }
                 }
-                else if (generation > 2700 && inverterOutput > 3200 && inverterOutput < 3700)
+                
+                // Check for being limited.
+                if (generation > 2700 && inverterOutput > 3200 && inverterOutput < 3700)
                 {
                     // Generation could be limited.
-                    battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation + 200 - 3600) / 1000.0);
-                    if (battChargeRateWanted <= battChargeRate)
+                    battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation + 400 - 3600) / 1000.0);
+                    if (battChargeRateWanted >= battChargeRate)
                     {
                         battChargeRateWanted = battChargeRate + 5;
                         actionInfo.AppendLine($"Generation {generation} > 2700 and 3200 < inverterOutput:{inverterOutput} < 3700 therefore generation could be limited.");
