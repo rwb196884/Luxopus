@@ -20,9 +20,9 @@ namespace Rwb.Luxopus.Jobs
         {
             _DailyHourly = hourly.Single().Records.GroupBy(z => z.GetValue<long>("d"))
             .ToDictionary(
-                z => (DayOfWeek)Convert.ToInt32(z.Key), 
+                z => (DayOfWeek)Convert.ToInt32(z.Key),
                 z => z.ToDictionary(
-                    y => Convert.ToInt32(y.GetValue<long>("h")), 
+                    y => Convert.ToInt32(y.GetValue<long>("h")),
                     y => y.GetValue<double>("_value")
                 )
             );
@@ -73,10 +73,10 @@ namespace Rwb.Luxopus.Jobs
         private readonly IBatteryService _Batt;
         private readonly IOctopusService _Octopus;
 
-        public PlanFlux2(ILogger<LuxMonitor> logger, 
-            IInfluxQueryService influxQuery, 
+        public PlanFlux2(ILogger<LuxMonitor> logger,
+            IInfluxQueryService influxQuery,
             IInfluxWriterService influxWriter,
-            ILuxopusPlanService plan, IEmailService email, 
+            ILuxopusPlanService plan, IEmailService email,
             IBatteryService batt,
             IOctopusService octopus)
             : base(logger, influxQuery, plan, email)
@@ -109,37 +109,27 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
             Plan plan = new Plan(prices.Where(z => z.Start >= priceNow.Start));
+            HalfHourPlan? next = null;
 
             foreach (HalfHourPlan p in plan.Plans)
             {
                 switch (GetFluxCase(plan, p))
                 {
                     case FluxCase.Peak:
-                        /*
-                         * I will need an electricity later and there is one in the battery.
-                         * Should I sell it now at 34p and buy it back later for 33p, or just keep it?
-                         * 33/34 => 97% so: keep.
-                         * Therefore we need to work out how much to keep to get to the nighttime low.
-                         */
-                        long dischargeAchievedYesterday = 20;
-                        long batteryLowBeforeChargingYesterday = BatteryAbsoluteMinimum;
-
-                        try
+                        next = plan.Plans.GetNext(p);
+                        if (next != null)
                         {
-                            (_, dischargeAchievedYesterday) = (await InfluxQuery.QueryAsync(Query.DischargeAchievedYesterday, t0)).First().FirstOrDefault<long>();
-                            (_, batteryLowBeforeChargingYesterday) = (await InfluxQuery.QueryAsync(Query.BatteryLowBeforeCharging, t0)).First().FirstOrDefault<long>();
+                            if (next.Buy < p.Sell)
+                            {
+                                notes.Append($"Next buy {next.Buy:0.0} < current sell {p.Sell:0.0} therefore discharge all.");
+                                p.Action = new PeriodAction()
+                                {
+                                    ChargeFromGrid = 0,
+                                    DischargeToGrid = Convert.ToInt32(2),
+                                };
+                                break;
+                            }
                         }
-                        catch( Exception e)
-                        {
-                            Logger.LogError(e, "Could not get battery discharge information for yesteray for making flux peak plan.");
-                        }
-
-                        long dischargeToGrid = AdjustLimit(false, dischargeAchievedYesterday, batteryLowBeforeChargingYesterday, BatteryAbsoluteMinimum, DischargeAbsoluteMinimum);
-                        notes.AppendLine($"Peak:        dischargeAchievedYesterday: {dischargeAchievedYesterday}");
-                        notes.AppendLine($"Peak: batteryLowBeforeChargingYesterday: {batteryLowBeforeChargingYesterday}");
-                        notes.AppendLine($"Peak:            BatteryAbsoluteMinimum: {BatteryAbsoluteMinimum}");
-                        notes.AppendLine($"Peak:          DischargeAbsoluteMinimum: {DischargeAbsoluteMinimum}");
-                        notes.AppendLine($"Peak:                       AdjustLimit: {dischargeToGrid} (not used)");
 
                         // TODO: user flag to keep back more. Use MQTT?
 
@@ -147,6 +137,7 @@ namespace Rwb.Luxopus.Jobs
                         // Batt absolute min plus use until ~~morning generation~~ the low.
                         HalfHourPlan? dischargeEnd = plan.Plans.GetNext(p);
                         HalfHourPlan? low = plan.Plans.GetNext(p, z => GetFluxCase(plan, z) == FluxCase.Low);
+                        int dischargeToGrid = 21;
                         if (dischargeEnd != null && low != null)
                         {
                             double hours = (low.Start - dischargeEnd.Start).TotalHours;
@@ -187,32 +178,8 @@ namespace Rwb.Luxopus.Jobs
                         };
                         break;
                     case FluxCase.Low:
-                        // Hack: If adjust according to yesterday's battery morning low.
-                        DateTime tt = t0.Hour < 10 ? t0.AddDays(-1) : t0;
-                        long batteryMorningLow = BatteryAbsoluteMinimum;
-                        long batteryCharged = 20;
-
-                        try
-                        {
-                            (_, batteryMorningLow) = (await InfluxQuery.QueryAsync(Query.BatteryMorningLow, tt)).First().FirstOrDefault<long>();
-                            (_, batteryCharged) = (await InfluxQuery.QueryAsync(Query.BatteryGridChargeHigh, tt)).First().FirstOrDefault<long>();
-                        }
-                        catch (Exception e)
-                        {
-                            Logger.LogError(e, "Could not get battery morning information for yesteray for making flux low plan.");
-                        }
-
-                        // Compare to yesterday.
-                        long chargeFromGrid = AdjustLimit(true, batteryCharged, batteryMorningLow, BatteryAbsoluteMinimum + 1, 20);
-                        notes.AppendLine($"Low: AdjustLimit    batteryCharged {batteryCharged}%");
-                        notes.AppendLine($"     AdjustLimit batteryMorningLow {batteryMorningLow}%");
-                        notes.AppendLine($"     AdjustLimit    chargeFromGrid {chargeFromGrid}% (not used)");
-                        notes.AppendLine();
-
-                        // Work it out properly?
                         // How much do we want?
-                        HalfHourPlan? next = plan.Plans.GetNext(p);
-
+                        next = plan.Plans.GetNext(p);
                         DateTime startOfGeneration = DateTime.UtcNow.Date.AddHours(10).AddDays(-1);
                         try
                         {
@@ -235,11 +202,11 @@ namespace Rwb.Luxopus.Jobs
                         notes.AppendLine($"     AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
                         notes.AppendLine($"     AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0)})");
 
-                        chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
+                        int chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
                         notes.AppendLine($"     chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (used)");
 
                         DateTime tForecast = p.Start;
-                        if( tForecast.Hour > 12)
+                        if (tForecast.Hour > 12)
                         {
                             tForecast = tForecast.AddDays(1);
                         }
@@ -278,7 +245,7 @@ namespace Rwb.Luxopus.Jobs
                             {
                                 double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
                                 LineDataBuilder ldb = new LineDataBuilder();
-                                ldb.Add("prediction", "MultivariateLinearRegression", generationPrediction * 10 , tForecast);
+                                ldb.Add("prediction", "MultivariateLinearRegression", generationPrediction * 10, tForecast);
 
                                 // Do some future predictions too.
                                 double tomorrow = await GenerationPredictionFromMultivariateLinearRegression(tForecast.AddDays(1));
@@ -316,16 +283,16 @@ namespace Rwb.Luxopus.Jobs
                                 else
                                 {
                                     double predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt);
-                                    if(predictedGenerationToBatt > 90)
+                                    if (predictedGenerationToBatt > 90)
                                     {
                                         notes.AppendLine("     Generation prediction is high.");
-                                        if(chargeFromGrid > 21)
+                                        if (chargeFromGrid > 21)
                                         {
                                             notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to 21%.");
                                             chargeFromGrid = 21;
                                         }
                                     }
-                                    else if( predictedGenerationToBatt < 10 )
+                                    else if (predictedGenerationToBatt < 10)
                                     {
                                         notes.AppendLine("     Generation prediction is low: charge to 90%. ");
                                         chargeFromGrid = 89;
@@ -335,7 +302,7 @@ namespace Rwb.Luxopus.Jobs
                                         notes.AppendLine($"     Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
                                         chargeFromGrid = 100 - Convert.ToInt32(predictedGenerationToBatt);
                                         notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}%.");
-                                        if( chargeFromGrid > 89)
+                                        if (chargeFromGrid > 89)
                                         {
                                             notes.AppendLine($"     chargeFromGrid limited to 89%.");
                                             chargeFromGrid = 89;
@@ -344,7 +311,8 @@ namespace Rwb.Luxopus.Jobs
                                 }
                             }
                         }
-                        catch ( Exception e) {
+                        catch (Exception e)
+                        {
                             Logger.LogError(e, "Failed to execute cloud query.");
                         }
 

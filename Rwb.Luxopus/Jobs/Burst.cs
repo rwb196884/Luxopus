@@ -82,6 +82,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 return;
             }
+
             // We're good to go...
 
             // Generation start and end. Guess from yesterday.

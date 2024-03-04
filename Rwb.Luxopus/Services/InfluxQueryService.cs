@@ -133,16 +133,6 @@ namespace Rwb.Luxopus.Services
         SolcastToday,
 
         /// <summary>
-        /// Battery minimum between 16:00 and 19:00 yesterday.
-        /// </summary>
-        DischargeAchievedYesterday,
-
-        /// <summary>
-        /// Battery minimum between 20:00 yesterday and 04:00 today.
-        /// </summary>
-        BatteryLowBeforeCharging,
-
-        /// <summary>
         /// Sunrise today.
         /// </summary>
         Sunrise,
@@ -151,16 +141,6 @@ namespace Rwb.Luxopus.Services
         /// Sunrise today.
         /// </summary>
         Sunset,
-
-        /// <summary>
-        /// Battery minimum today between 05:00 and an hour after sunrise today.
-        /// </summary>
-        BatteryMorningLow,
-
-        /// <summary>
-        /// Battery maximum between -3:00 and 05:00 today.
-        /// </summary>
-        BatteryGridChargeHigh,
 
         HourlyBatteryUse,
 
@@ -187,7 +167,7 @@ namespace Rwb.Luxopus.Services
         PredictionData,
         PredictionData2,
 
-        GenerationMedianLastHour
+        GenerationMedianLastHour,
     }
 
     public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable

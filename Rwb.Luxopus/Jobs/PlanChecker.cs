@@ -274,14 +274,29 @@ namespace Rwb.Luxopus.Jobs
                 if (battLevel >= _Batt.BatteryLimit - 2 /* It will still get about 60W. */)
                 {
                     // Battery is full.
-                    // Set charge rate high and enable discharge to grid to absorb generation peaks then discharge them.
-                    battChargeRateWanted = 72;
-                    outEnabledWanted = true;
-                    battDischargeToGridRateWanted = 72;
-                    outBatteryLimitPercentWanted = 97;
-                    outStartWanted = currentPeriod.Start; // Needs to be constant in order not to spam changes.
-                    outStopWanted = plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30);
-                    why = $"Battery is full ({battLevel}%).";
+                    (DateTime _, long generationMaxLastHour) = (await _InfluxQuery.QueryAsync(@$"
+            from(bucket: ""solar"")
+              |> range(start: -1h, stop: now())
+              |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+              |> max()")).First().FirstOrDefault<long>();
+
+                    if (generationMaxLastHour < 3600)
+                    {
+                        battChargeRateWanted = 100;
+                        outEnabledWanted = false;
+                        why = $"Battery is full ({battLevel}%) and max generation in last hour is {generationMaxLastHour}.";
+                    }
+                    else
+                    {
+                        // Set charge rate high and enable discharge to grid to absorb generation peaks then discharge them.
+                        battChargeRateWanted = 72;
+                        outEnabledWanted = true;
+                        battDischargeToGridRateWanted = 72;
+                        outBatteryLimitPercentWanted = 97;
+                        outStartWanted = currentPeriod.Start; // Needs to be constant in order not to spam changes.
+                        outStopWanted = plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30);
+                        why = $"Battery is full ({battLevel}%) and max generation in last hour is {generationMaxLastHour}.";
+                    }
                 }
                 else
                 {
@@ -330,12 +345,12 @@ from(bucket: ""solar"")
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")).First().FirstOrDefault<long>();
 
-                         double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
+                        double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
   |> range(start: -1h, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> mean()")
-                            ).First().Records.First().GetValue<double>();
+                           ).First().Records.First().GetValue<double>();
 
                         double generationMeanDifference = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -345,10 +360,10 @@ from(bucket: ""solar"")
   |> mean()")
                            ).First().Records.First().GetValue<double>();
 
-                         if (generationMax > 2000 
-                            && generationRecentMean > 1000 
-                            && generationMeanDifference > 0
-                            && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
+                        if (generationMax > 2000
+                           && generationRecentMean > 1000
+                           && generationMeanDifference > 0
+                           && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
                         {
                             // High generation. Discharge any bursts that got absorbed.
                             outEnabledWanted = true;
@@ -422,14 +437,14 @@ from(bucket: ""solar"")
                             why += $" But we are behind by {extraPowerNeeded:0.0}kW therefore override to 90%.";
                         }
 
-                        if((powerRequiredKwh + extraPowerNeeded) / hoursToCharge > generationRecentMean)
+                        if ((powerRequiredKwh + extraPowerNeeded) / hoursToCharge > generationRecentMean)
                         {
                             battChargeRateWanted = 90;
                             outEnabledWanted = false;
-                            why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean/1000:0.0}kW therefore override to 90%.";
+                            why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 90%.";
                         }
 
-                        if(generationMeanDifference < 0)
+                        if (generationMeanDifference < 0)
                         {
                             battChargeRateWanted = 90;
                             outEnabledWanted = false;
