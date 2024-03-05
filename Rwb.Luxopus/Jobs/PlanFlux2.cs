@@ -125,7 +125,7 @@ namespace Rwb.Luxopus.Jobs
                                 p.Action = new PeriodAction()
                                 {
                                     ChargeFromGrid = 0,
-                                    DischargeToGrid = Convert.ToInt32(2),
+                                    DischargeToGrid = Convert.ToInt32(8),
                                 };
                                 break;
                             }
