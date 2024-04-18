@@ -351,7 +351,7 @@ from(bucket: ""solar"")
   |> range(start: -45m, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")
-                           ).First().Records.First().GetValue<double>();
+                           ).First().Records.First().GetValue<long>();
 
                         double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
