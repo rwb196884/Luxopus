@@ -289,6 +289,7 @@ namespace Rwb.Luxopus.Jobs
                     else
                     {
                         // Set charge rate high and enable discharge to grid to absorb generation peaks then discharge them.
+                        // Can cause generation to be limited, but since the battery is full this is the case anyway.
                         battChargeRateWanted = 72;
                         outEnabledWanted = true;
                         battDischargeToGridRateWanted = 72;
@@ -345,16 +346,23 @@ from(bucket: ""solar"")
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")).First().FirstOrDefault<long>();
 
+                        double generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
+from(bucket: ""solar"")
+  |> range(start: -45m, stop: now())
+  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+  |> max()")
+                           ).First().Records.First().GetValue<double>();
+
                         double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
-  |> range(start: -1h, stop: now())
+  |> range(start: -45m, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> mean()")
                            ).First().Records.First().GetValue<double>();
 
                         double generationMeanDifference = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
-  |> range(start: -1h, stop: now())
+  |> range(start: -45m, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> difference()
   |> mean()")
@@ -366,6 +374,7 @@ from(bucket: ""solar"")
                            && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
                         {
                             // High generation. Discharge any bursts that got absorbed.
+                            // NO! This causes generation to be limited.
                             outEnabledWanted = true;
                             battDischargeToGridRateWanted = 70;
                             if (outStartWanted.TimeOfDay > currentPeriod.Start.TimeOfDay)
@@ -430,21 +439,22 @@ from(bucket: ""solar"")
                         battChargeRateWanted = _Batt.RoundPercent(b);
                         string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
                         why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
-                        if (extraPowerNeeded > 0)
+
+                        if (generationMax > 4000 && extraPowerNeeded > 0)
                         {
                             battChargeRateWanted = 90;
                             outEnabledWanted = false;
                             why += $" But we are behind by {extraPowerNeeded:0.0}kW therefore override to 90%.";
                         }
 
-                        if ((powerRequiredKwh + extraPowerNeeded) / hoursToCharge > generationRecentMean)
+                        if ((powerRequiredKwh + extraPowerNeeded * 1.5 /* caution factor */ ) / hoursToCharge > generationRecentMean)
                         {
                             battChargeRateWanted = 90;
                             outEnabledWanted = false;
                             why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 90%.";
                         }
 
-                        if (generationMeanDifference < 0)
+                        if (generationMax > 4000 && generationMeanDifference < 0)
                         {
                             battChargeRateWanted = 90;
                             outEnabledWanted = false;
