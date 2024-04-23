@@ -440,7 +440,7 @@ from(bucket: ""solar"")
                         string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
                         why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
 
-                        if (generationMax > 4000 && extraPowerNeeded > 0)
+                        if (generationRecentMax < 3000 && extraPowerNeeded > 0)
                         {
                             battChargeRateWanted = 90;
                             outEnabledWanted = false;
@@ -454,11 +454,11 @@ from(bucket: ""solar"")
                             why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 90%.";
                         }
 
-                        if (generationMax > 4000 && generationMeanDifference < 0)
+                        if (generationRecentMax > 3000 && generationMeanDifference < 0)
                         {
-                            battChargeRateWanted = 90;
+                            battChargeRateWanted = battChargeRateWanted > 40 ? 90 : battChargeRateWanted * 2;
                             outEnabledWanted = false;
-                            why += $" Rate of generation is decreasing ({generationMeanDifference:0}W) therefore override to 90%.";
+                            why += $" Rate of generation is decreasing ({generationMeanDifference:0}W) therefore override to {battChargeRateWanted}%.";
                         }
                     }
                     else
