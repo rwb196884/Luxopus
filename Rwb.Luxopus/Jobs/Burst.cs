@@ -106,6 +106,7 @@ namespace Rwb.Luxopus.Jobs
             int battChargeRateWanted = battChargeRate; // No change.
 
             (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDischargeToGrid(settings);
+            bool outEnabledWanted = outEnabled;
             int outBatteryLimitPercentWanted = outBatteryLimitPercent;
 
             string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
@@ -155,63 +156,57 @@ from(bucket: ""solar"")
   |> max()")
    ).First().Records.First().GetValue<long>();
 
-                if (generation > 2700 && inverterOutput > 3200 && inverterOutput < 3700)
+                if (generation > 2700)
                 {
-                    // Generation could be limited.
-                    battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation + 400 - 3600) / 1000.0);
-                    if (battChargeRateWanted >= battChargeRate)
+                    outEnabledWanted = false;
+
+                    if (inverterOutput > 3400)
                     {
-                        battChargeRateWanted = battChargeRate + 5;
-                        actionInfo.AppendLine($"Generation {generation} > 2700 and 3200 < inverterOutput:{inverterOutput} < 3700 therefore generation could be limited.");
+                        // Generation could be limited therefore send more to battery.
+                        battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation + 400 - 3600) / 1000.0);
+                        if (battChargeRateWanted >= battChargeRate)
+                        {
+                            battChargeRateWanted = battChargeRate + 5;
+                            actionInfo.AppendLine($"Generation {generation} > 2700 and 3200 < inverterOutput:{inverterOutput} < 3700 therefore generation could be limited.");
+                        }
                     }
-                    await _Lux.SetDischargeToGridLevelAsync(100);
-                }
-                else if (generation > 3600)
-                {
-                    // Manage the limit.
-                    if (inverterOutput < 3300)
+                    else
                     {
-                        // Can export more.
-                        battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation - 3600 - 200) / 1000.0);
-                        // It seems to over-estimate. In this case we expect to decrease.
-                        if (battChargeRateWanted <= battChargeRate)
+                        // Generation probably not limited therefore send less to battery.
+                        if(battLevel >= battLevelTarget)
                         {
                             battChargeRateWanted = battChargeRate - 5;
-                            actionInfo.AppendLine($"Battery charge rate {battChargeRateWanted}% = {battChargeRate}% - 5%.");
+                            actionInfo.AppendLine($"Battery charge rate {battChargeRateWanted}% = {battChargeRate}% - 5% because ahead of target.");
                         }
-                        else
+                        else if(battLevel < battLevelTarget)
                         {
-                            actionInfo.AppendLine($"Battery charge rate: {generation}W - 3600W -> {battChargeRateWanted}%.");
+                            battChargeRateWanted = battChargeRate + 5;
+                            actionInfo.AppendLine($"Battery charge rate {battChargeRateWanted}% = {battChargeRate}% + 5% because behind target.");
                         }
                     }
-                    else if (inverterOutput > 3500)
+                }
+                else
+                {
+                    // Low generation.
+                    if (t0.Hour <= 9 && generationMax > 1000 && battLevel > battLevelTarget - 5)
                     {
-                        int battChargeActual = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(battCharge) / 1000.0);
-                        int forBatt = 200 + generation - inverterOutput;
-                        battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(forBatt) / 1000.0);
-
-                        actionInfo.AppendLine($"{generation}W + 200W - {inverterOutput}W = {forBatt}W -> {battChargeRateWanted}%");
+                        // It's early and it looks like it's going to be a good day.
+                        // So keep the battery empty to make space for later.
+                        battChargeRateWanted = 8;
+                        actionInfo.AppendLine($"Generation peak of {generationMax} before 10AM UTC suggests that it could be a good day. Battery level {battLevel}, target of {battLevelTarget} therefore keep some space.");
                     }
-                    await _Lux.SetDischargeToGridLevelAsync(100);
-                }
-                else if (t0.Hour <= 10 && generationMax > 1000 && battLevel > battLevelTarget - 5)
-                {
-                    // It's early and it looks like it's going to be a good day.
-                    // So keep the battery empty to make space for later.
-                    battChargeRateWanted = 8;
-                    actionInfo.AppendLine($"Generation peak of {generationMax} before 11AM UTC suggests that it could be a good day. Battery level {battLevel}, target of {battLevelTarget} therefore keep some space.");
-                    outBatteryLimitPercentWanted = battLevelTarget - 5;
-                    await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
-                }
-                else if (generationMax > 4000 && generation < 2500 && generationRecentMax > 3000 && inverterOutput < 3000 && battLevel > battLevelTarget + 2)
-                {
-                    // It's gone quiet: try to discharge some over-charge.
-                    await _Lux.SetDischargeToGridStartAsync(currentPeriod.Start);
-                    await _Lux.SetDischargeToGridStopAsync(DateTime.UtcNow.AddMinutes(30));
-                    await _Lux.SetDischargeToGridLevelAsync(battLevelTarget - 1);
-                    await _Lux.SetBatteryDischargeToGridRateAsync(90);
-                    outBatteryLimitPercentWanted = battLevelTarget;
-                    actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}, target of {battLevelTarget} therefore take opportunity to discharge.");
+                    else if (generationMax > 4000 && generationRecentMax > 3000 && inverterOutput < 3000 && battLevel > battLevelTarget + 2)
+                    {
+                        if(plan.Next != null && plan.Next.Action.DischargeToGrid < 100)
+                        {
+                            // Need battery full soon.
+
+                        }
+                        // It's gone quiet but it might get busy again: try to discharge some over-charge.
+                        outBatteryLimitPercentWanted = battLevelTarget - 2;
+                        outEnabledWanted = true;
+                        actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}, target of {battLevelTarget} therefore take opportunity to discharge.");
+                    }
                 }
 
                 if (battChargeRateWanted < battChargeRate && battLevel < battLevelTarget)
@@ -219,6 +214,26 @@ from(bucket: ""solar"")
                     string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
                     actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
                     battChargeRateWanted = battChargeRate;
+                }
+            }
+
+            // Apply any changes.
+
+            if (outEnabled && !outEnabledWanted)
+            {
+                actionInfo.AppendLine($"Discharge to grid disabled because battery needed to store generation.");
+                await _Lux.SetDischargeToGridLevelAsync(100);
+            }
+            
+            if( outEnabledWanted && ( !outEnabled || outBatteryLimitPercentWanted != outBatteryLimitPercent ))
+            {
+                bool o = false;
+                if (outStart != currentPeriod.Start) { await _Lux.SetDischargeToGridStartAsync(currentPeriod.Start); o = true; }
+                if (outStop != DateTime.UtcNow.AddMinutes(30)) { await _Lux.SetDischargeToGridStopAsync(DateTime.UtcNow.AddMinutes(30)); o = true; }
+                if (outBatteryLimitPercentWanted != outBatteryLimitPercent) { await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted); o = true; }
+                if (o) { 
+                    await _Lux.SetBatteryDischargeToGridRateAsync(90);
+                    actionInfo.AppendLine("Discharge to grid enabled.");
                 }
             }
 
