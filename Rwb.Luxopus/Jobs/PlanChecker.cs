@@ -368,6 +368,7 @@ from(bucket: ""solar"")
   |> mean()")
                            ).First().Records.First().GetValue<double>();
 
+                        /*
                         if (generationMax > 2000
                            && generationRecentMean > 1000
                            && generationMeanDifference > 0
@@ -375,6 +376,7 @@ from(bucket: ""solar"")
                         {
                             // High generation. Discharge any bursts that got absorbed.
                             // NO! This causes generation to be limited.
+                            // Attempt this in the burst manager instead.
                             outEnabledWanted = true;
                             battDischargeToGridRateWanted = 70;
                             if (outStartWanted.TimeOfDay > currentPeriod.Start.TimeOfDay)
@@ -408,7 +410,8 @@ from(bucket: ""solar"")
                             // Therefore battery charge rate should be at most 70%.
                             why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}% (expected {battLevelTarget}%).";
                         }
-                        else if (t0.Hour <= 9 && generationMax > 1500 && battLevel > 20)
+                        else */
+                        if (t0.Hour <= 9 && generationMax > 1500 && battLevel > 20)
                         {
                             // At 9am median generation is 1500.
                             battChargeRateWanted = 8;

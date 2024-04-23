@@ -92,7 +92,7 @@ namespace Rwb.Luxopus.Jobs
             gEnd = sunset;
             (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
             (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
-            if( t0 < gStart || t0 > gEnd) { return; }
+            if (t0 < gStart || t0 > gEnd) { return; }
 
             StringBuilder actions = new StringBuilder();
             StringBuilder actionInfo = new StringBuilder();
@@ -147,7 +147,14 @@ namespace Rwb.Luxopus.Jobs
 
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                 int b = _Batt.CapacityKiloWattHoursToPercent(kW);
-                
+
+                long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
+from(bucket: ""solar"")
+  |> range(start: -45m, stop: now())
+  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+  |> max()")
+   ).First().Records.First().GetValue<long>();
+
                 if (generation > 2700 && inverterOutput > 3200 && inverterOutput < 3700)
                 {
                     // Generation could be limited.
@@ -157,6 +164,7 @@ namespace Rwb.Luxopus.Jobs
                         battChargeRateWanted = battChargeRate + 5;
                         actionInfo.AppendLine($"Generation {generation} > 2700 and 3200 < inverterOutput:{inverterOutput} < 3700 therefore generation could be limited.");
                     }
+                    await _Lux.SetDischargeToGridLevelAsync(100);
                 }
                 else if (generation > 3600)
                 {
@@ -184,6 +192,7 @@ namespace Rwb.Luxopus.Jobs
 
                         actionInfo.AppendLine($"{generation}W + 200W - {inverterOutput}W = {forBatt}W -> {battChargeRateWanted}%");
                     }
+                    await _Lux.SetDischargeToGridLevelAsync(100);
                 }
                 else if (t0.Hour <= 10 && generationMax > 1000 && battLevel > battLevelTarget - 5)
                 {
@@ -192,6 +201,17 @@ namespace Rwb.Luxopus.Jobs
                     battChargeRateWanted = 8;
                     actionInfo.AppendLine($"Generation peak of {generationMax} before 11AM UTC suggests that it could be a good day. Battery level {battLevel}, target of {battLevelTarget} therefore keep some space.");
                     outBatteryLimitPercentWanted = battLevelTarget - 5;
+                    await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
+                }
+                else if (generationMax > 4000 && generation < 2500 && generationRecentMax > 3000 && inverterOutput < 3000 && battLevel > battLevelTarget + 2)
+                {
+                    // It's gone quiet: try to discharge some over-charge.
+                    await _Lux.SetDischargeToGridStartAsync(currentPeriod.Start);
+                    await _Lux.SetDischargeToGridStopAsync(DateTime.UtcNow.AddMinutes(30));
+                    await _Lux.SetDischargeToGridLevelAsync(battLevelTarget - 1);
+                    await _Lux.SetBatteryDischargeToGridRateAsync(90);
+                    outBatteryLimitPercentWanted = battLevelTarget;
+                    actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}, target of {battLevelTarget} therefore take opportunity to discharge.");
                 }
 
                 if (battChargeRateWanted < battChargeRate && battLevel < battLevelTarget)
@@ -212,12 +232,6 @@ namespace Rwb.Luxopus.Jobs
             {
                 await _Lux.SetBatteryChargeRateAsync(battChargeRateWanted);
                 actions.AppendLine($"SetBatteryChargeRate({battChargeRateWanted}) was {battChargeRate}.");
-            }
-
-            if (outEnabled && outBatteryLimitPercentWanted < 100 && outBatteryLimitPercent != outBatteryLimitPercentWanted)
-            {
-                await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
-                actions.AppendLine($"SetDischargeToGridLevelAsync({outBatteryLimitPercentWanted}) was {outBatteryLimitPercent}.");
             }
 
             // Report any changes.
