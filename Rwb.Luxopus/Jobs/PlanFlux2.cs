@@ -291,6 +291,11 @@ namespace Rwb.Luxopus.Jobs
                                             notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to 21%.");
                                             chargeFromGrid = 21;
                                         }
+                                        else if(chargeFromGrid < 13)
+                                        {
+                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to 13%.");
+                                            chargeFromGrid = 13;
+                                        }
                                     }
                                     else if (predictedGenerationToBatt < 10)
                                     {
