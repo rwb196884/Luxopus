@@ -131,9 +131,10 @@ namespace Rwb.Luxopus.Jobs
                 int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
                 //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
 
-                actionInfo.AppendLine($"Generation: {generation}W");
+                actionInfo.AppendLine($"     Generation: {generation}W");
                 actionInfo.AppendLine($"Inverter output: {inverterOutput}W");
-                actionInfo.AppendLine($"Battery level: {battLevel}%");
+                actionInfo.AppendLine($"  Battery level: {battLevel}%");
+                actionInfo.AppendLine($" Battery target: {battLevelTarget}%");
 
                 // Plan A
                 double hoursToCharge = (gEnd - t0).TotalHours;
@@ -144,11 +145,16 @@ namespace Rwb.Luxopus.Jobs
                 if (battLevel < battLevelTarget)
                 {
                     extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
+                    actionInfo.AppendLine($"Behind by {extraPowerNeeded:#,##0.0}kWh.");
                 }
-                actionInfo.AppendLine($"Battery level target: {battLevelTarget}%; behind by {extraPowerNeeded:#,##0.0}kWh.");
+                else if(battLevelTarget < battLevel)
+                {
+                    double a = _Batt.CapacityPercentToKiloWattHours(battLevel - battLevelTarget);
+                    actionInfo.AppendLine($"Ahead by {a:#,##0.0}kWh.");
+                }
 
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
-                battChargeRateNeeded = _Batt.CapacityKiloWattHoursToPercent(kW);
+                battChargeRateNeeded = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(kW));
 
                 long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -164,7 +170,7 @@ from(bucket: ""solar"")
                     if (inverterOutput > 3200)
                     {
                         // Generation could be limited therefore send more to battery.
-                        battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation + 400 - 3600) / 1000.0);
+                        battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation + 400 - 3200) / 1000.0);
                         if (battChargeRateWanted >= battChargeRate)
                         {
                             battChargeRateWanted = battChargeRate + 5;
