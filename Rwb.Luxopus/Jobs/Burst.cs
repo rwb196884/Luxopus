@@ -161,14 +161,14 @@ from(bucket: ""solar"")
                 {
                     outEnabledWanted = false;
 
-                    if (inverterOutput > 3400)
+                    if (inverterOutput > 3200)
                     {
                         // Generation could be limited therefore send more to battery.
                         battChargeRateWanted = _Batt.TransferKiloWattsToPercent(Convert.ToDouble(generation + 400 - 3600) / 1000.0);
                         if (battChargeRateWanted >= battChargeRate)
                         {
                             battChargeRateWanted = battChargeRate + 5;
-                            actionInfo.AppendLine($"Generation {generation} > 2700 and 3200 < inverterOutput:{inverterOutput} < 3700 therefore generation could be limited.");
+                            actionInfo.AppendLine($"Generation {generation} > 2700 and 3200 < inverterOutput:{inverterOutput} therefore generation could be limited.");
                         }
                     }
                     else
