@@ -104,6 +104,7 @@ namespace Rwb.Luxopus.Jobs
             }
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
             int battChargeRateWanted = battChargeRate; // No change.
+            int battChargeRateNeeded = battChargeRate;
 
             (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDischargeToGrid(settings);
             bool outEnabledWanted = outEnabled;
@@ -147,7 +148,7 @@ namespace Rwb.Luxopus.Jobs
                 actionInfo.AppendLine($"Battery level target: {battLevelTarget}%; behind by {extraPowerNeeded:#,##0.0}kWh.");
 
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
-                int b = _Batt.CapacityKiloWattHoursToPercent(kW);
+                battChargeRateNeeded = _Batt.CapacityKiloWattHoursToPercent(kW);
 
                 long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -197,11 +198,6 @@ from(bucket: ""solar"")
                     }
                     else if (generationMax > 4000 && generationRecentMax > 3000 && inverterOutput < 3000 && battLevel > battLevelTarget + 2)
                     {
-                        if(plan.Next != null && plan.Next.Action.DischargeToGrid < 100)
-                        {
-                            // Need battery full soon.
-
-                        }
                         // It's gone quiet but it might get busy again: try to discharge some over-charge.
                         outBatteryLimitPercentWanted = battLevelTarget - 2;
                         outEnabledWanted = true;
@@ -237,10 +233,10 @@ from(bucket: ""solar"")
                 }
             }
 
-            if (battChargeRateWanted < 5)
+            if (battChargeRateWanted < battChargeRateNeeded)
             {
-                actionInfo.AppendLine($"Battery charge rate wanted {battChargeRateWanted} increased to 5%.");
-                battChargeRateWanted = 5;
+                actionInfo.AppendLine($"Battery charge rate wanted {battChargeRateWanted} increased to {battChargeRateNeeded}% needed.");
+                battChargeRateWanted = battChargeRateNeeded;
             }
 
             if (battChargeRateWanted != battChargeRate)
