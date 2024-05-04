@@ -26,6 +26,6 @@ fi
  
 echo "Setting DiscahrgeToGrid to $1 where value is > 0 in ${planDir}/$f"
 
-cat "${planDir}/$f" | jq ".Plans[].Action.DischargeToGrid |= if . > 0 then $1 else . end" > "${planDir}/${f}.tmp"
+cat "${planDir}/$f" | jq ".Plans[].Action.DischargeToGrid |= if . < 100 then $1 else . end" > "${planDir}/${f}.tmp"
 mv "${planDir}/${f}.tmp" "${planDir}/$f"
 
