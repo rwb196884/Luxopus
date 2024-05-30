@@ -90,16 +90,16 @@ namespace Rwb.Luxopus
 
             _StartupTasks = new List<Job>()
             {
-                planner,
-                burst,
-                planChecker,
-                //planZero,
-                //octopusMeters,
                 octopusPrices,
-                ////solcast, // severely rate lmited.
                 sunPosition,
                 sunrise,
-                openweathermap
+                openweathermap,
+                planner,
+                burst,
+                planChecker
+                //planZero,
+                //octopusMeters,
+                ////solcast, // severely rate lmited.
             };
         }
 
