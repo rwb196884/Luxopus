@@ -68,18 +68,21 @@ namespace Rwb.Luxopus.Jobs
         private readonly IInfluxWriterService _InfluxWriter;
         private readonly IBatteryService _Batt;
         private readonly IOctopusService _Octopus;
+        private readonly IAtService _At;
 
         public PlanFlux2(ILogger<LuxMonitor> logger,
             IInfluxQueryService influxQuery,
             IInfluxWriterService influxWriter,
             ILuxopusPlanService plan, IEmailService email,
             IBatteryService batt,
-            IOctopusService octopus)
+            IOctopusService octopus,
+            IAtService at)
             : base(logger, influxQuery, plan, email)
         {
             _InfluxWriter = influxWriter;
             _Batt = batt;
             _Octopus = octopus;
+            _At = at;
         }
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
@@ -97,14 +100,36 @@ namespace Rwb.Luxopus.Jobs
             TariffCode te = await _Octopus.GetElectricityCurrentTariff(TariffType.Export, start);
             List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, ti.Code, te.Code);
 
+            // Time to reschedule.
+            DateTime tReschedule = DateTime.Now;
+            if (tReschedule.Minute < 30)
+            {
+                tReschedule = tReschedule.AddMinutes(38 - tReschedule.Minute);
+            }
+            else
+            {
+                tReschedule = tReschedule.AddHours(1).AddMinutes(8 - tReschedule.Minute);
+            }
+
             // Find the current period: the last period that starts before t0.
             ElectricityPrice? priceNow = prices.Where(z => z.Start < t0).OrderByDescending(z => z.Start).FirstOrDefault();
             if (priceNow == null)
             {
                 Logger.LogError("No current price.");
+                _At.Schedule(async () => await this.WorkAsync(CancellationToken.None), tReschedule);
                 return;
             }
+
+            ElectricityPrice? priceNext = prices.Where(z => z.Start > priceNow.Start).OrderBy(z => z.Start).FirstOrDefault();
+            if (priceNext == null)
+            {
+                Logger.LogError("No future prices.");
+                _At.Schedule(async () => await this.WorkAsync(CancellationToken.None), tReschedule);
+                return;
+            }
+
             Plan plan = new Plan(prices.Where(z => z.Start >= priceNow.Start));
+
             HalfHourPlan? next = null;
 
             foreach (HalfHourPlan p in plan.Plans)
