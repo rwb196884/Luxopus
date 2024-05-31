@@ -20,14 +20,16 @@ namespace Rwb.Luxopus.Jobs
         private readonly IInfluxWriterService _InfluxWrite;
         private readonly IEmailService _Email;
         private readonly ISmsService _Sms;
+        private readonly IAtService _At;
 
-        public OctopusPrices(ILogger<LuxMonitor> logger, IOctopusService octopus, IInfluxQueryService influxQuery, IInfluxWriterService influxWrite, IEmailService email, ISmsService sms)  :base(logger)
+        public OctopusPrices(ILogger<LuxMonitor> logger, IOctopusService octopus, IInfluxQueryService influxQuery, IInfluxWriterService influxWrite, IEmailService email, ISmsService sms, IAtService at)  :base(logger)
         {
             _Octopus = octopus;
             _InfluxQuery = influxQuery;
             _InfluxWrite = influxWrite;
             _Email = email;
             _Sms = sms;
+            _At = at;
         }
 
         private static string GetProductOfTariff(string tariffCode)
@@ -42,6 +44,7 @@ namespace Rwb.Luxopus.Jobs
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             Dictionary<string, List<Price>> negativePrices = new Dictionary<string, List<Price>>();
+            bool somePricesMightBeMissing = false;
 
             foreach (string t in ( await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code) )
             {
@@ -74,6 +77,11 @@ namespace Rwb.Luxopus.Jobs
                 {
                     negativePrices.Add(t, prices.Where(z => z.Pence < 0).ToList());
                 }
+
+                if( prices.Select(z => z.ValidFrom).Max() < DateTime.Now.AddHours(-2))
+                {
+                    somePricesMightBeMissing = true;
+                }
             }
 
             if (negativePrices.Any())
@@ -91,6 +99,22 @@ namespace Rwb.Luxopus.Jobs
 
                 _Email.SendEmail("Negative electricity prices", email.ToString());
                 _Sms.SendSms($"Negative electicity prices!");
+            }
+
+            if (somePricesMightBeMissing)
+            {
+                // Re-schedule for 5 minutes after the next half hour.
+                DateTime t = DateTime.Now;
+                if(t.Minute < 30)
+                {
+                    t = t.AddMinutes(35 - t.Minute);
+                }
+                else
+                {
+                    t = t.AddHours(1).AddMinutes(5 - t.Minute);
+                }
+
+                _At.Schedule(async () => await this.RunAsync(CancellationToken.None), t);
             }
 
             foreach (string t in (await _Octopus.GetGasTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Distinct())

@@ -69,6 +69,10 @@ namespace Rwb.Luxopus.Jobs
                 if (plan != null)
                 {
                     Logger.LogWarning($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}. Using plan from {plan.Current.Start.ToString("yyyy-MM-dd HH:mm")}.");
+                    foreach (HalfHourPlan p in plan.Plans)
+                    {
+                        p.Start = p.Start.AddDays(2);
+                    }
                 }
             }
 
@@ -280,7 +284,7 @@ namespace Rwb.Luxopus.Jobs
             else
             {
                 // Default: charging from solar. Throttle it down.
-                if (battLevel >= _Batt.BatteryLimit - 2 /* It will still get about 60W. */)
+                if (battLevel >= 100 - 2 /* It will still get about 60W. */)
                 {
                     // Battery is full.
                     (DateTime _, long generationMaxLastHour) = (await _InfluxQuery.QueryAsync(@$"
@@ -343,7 +347,7 @@ namespace Rwb.Luxopus.Jobs
 
                         int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(currentPeriod.Start);
                         DateTime nextPlanCheck = DateTime.UtcNow.AddMinutes(21); // Just before.
-                        int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(-1), nextPlanCheck, battLevelStart, _Batt.BatteryLimit, ScaleMethod.FastLinear);
+                        int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(-1), nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
 
                         // Override for high generation.
                         // This doesn't work: when the battery gets to the limit the inverter prevents generation again.
@@ -435,7 +439,7 @@ from(bucket: ""solar"")
 
                         DateTime endOfCharge = gEnd < plan.Next.Start ? gEnd : plan.Next.Start;
                         double hoursToCharge = (endOfCharge - t0).TotalHours;
-                        double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_Batt.BatteryLimit - battLevel);
+                        double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - battLevel);
 
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;
@@ -450,7 +454,7 @@ from(bucket: ""solar"")
                         // Set the rate.
                         battChargeRateWanted = _Batt.RoundPercent(b);
                         string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {100}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
 
                         if (generationRecentMax < 3000 && extraPowerNeeded > 0)
                         {

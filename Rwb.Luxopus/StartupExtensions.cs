@@ -48,6 +48,7 @@ namespace Rwb.Luxopus
                     services.Register<IOpenWeathermapService, OpenWeathermapService, OpenWeathermapSettings>(context);
                     services.Register<IBurstLogService, BurstLogService, BurstLogSettings>(context);
                     services.Register<IBatteryService, BatteryService, BatterySettings>(context);
+                    services.Register<IAtService, AtService, AtSettings>(context);
                     //services.Register<IGenerationForecastService, GenerationForecastService, GenerationForecastSettings>(context);
 
                     // Main thingy.
@@ -63,6 +64,7 @@ namespace Rwb.Luxopus
                     services.AddScoped<SolarPosition>();
                     services.AddScoped<Sunrise>();
                     services.AddScoped<Openweathermap>();
+                    services.AddScoped<AtJob>();
 
                     services.AddScoped<PlanChecker>();
                     services.AddScoped<Burst>();

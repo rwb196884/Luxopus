@@ -231,6 +231,7 @@ namespace Rwb.Luxopus.Services
             if (to <= from) { return prices; }
             using (HttpClient httpClient = GetHttpClient())
             {
+
                 HttpResponseMessage response = await httpClient.GetAsync($"/v1/products/{product}/electricity-tariffs/{tariff}/standard-unit-rates/?period_from={from.ToString(DateFormat)}Z&period_to={to.ToString(DateFormat)}Z");
                 response.EnsureSuccessStatusCode();
                 string? json = await response.Content.ReadAsStringAsync();

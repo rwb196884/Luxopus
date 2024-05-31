@@ -5,7 +5,6 @@ using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,9 +65,6 @@ namespace Rwb.Luxopus.Jobs
     /// </summary>
     public class PlanFlux2 : PlanFlux
     {
-        private const int BatteryAbsoluteMinimum = 5;
-        private const int DischargeAbsoluteMinimum = 18;
-
         private readonly IInfluxWriterService _InfluxWriter;
         private readonly IBatteryService _Batt;
         private readonly IOctopusService _Octopus;
@@ -89,7 +85,7 @@ namespace Rwb.Luxopus.Jobs
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             DateTime t0 = DateTime.UtcNow.AddHours(-3);
-            Plan? current = PlanService.Load(t0);
+            //Plan? current = PlanService.Load(t0);
             StringBuilder notes = new StringBuilder();
 
             List<FluxTable> bupH = await InfluxQuery.QueryAsync(Query.HourlyBatteryUse, t0);
@@ -143,7 +139,7 @@ namespace Rwb.Luxopus.Jobs
                             double hours = (low.Start - dischargeEnd.Start).TotalHours;
                             double kWh = bup.GetKwkh(t0.DayOfWeek, dischargeEnd.Start.Hour, low.Start.Hour);
                             int percentForUse = _Batt.CapacityKiloWattHoursToPercent(kWh);
-                            dischargeToGrid = BatteryAbsoluteMinimum + percentForUse;
+                            dischargeToGrid = _Batt.BatteryMinimumLimit + percentForUse;
 
                             notes.AppendLine($"Peak:    hours to low: {hours:0.0}");
                             notes.AppendLine($"Peak:     kWh for use: {kWh:0.0} = bup.GetKwkh({t0.DayOfWeek}, {dischargeEnd.Start.Hour}, {low.Start.Hour})");
@@ -202,8 +198,8 @@ namespace Rwb.Luxopus.Jobs
                         notes.AppendLine($"     AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
                         notes.AppendLine($"     AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0)})");
 
-                        int chargeFromGrid = BatteryAbsoluteMinimum + battRequired;
-                        notes.AppendLine($"     chargeFromGrid {BatteryAbsoluteMinimum + battRequired} = BatteryAbsoluteMinimum {BatteryAbsoluteMinimum} + battRequired {battRequired} (used)");
+                        int chargeFromGrid = _Batt.BatteryMinimumLimit + battRequired;
+                        notes.AppendLine($"     chargeFromGrid {_Batt.BatteryMinimumLimit + battRequired} = BatteryAbsoluteMinimum {_Batt.BatteryMinimumLimit} + battRequired {battRequired} (used)");
 
                         DateTime tForecast = p.Start;
                         if (tForecast.Hour > 12)
@@ -334,12 +330,6 @@ namespace Rwb.Luxopus.Jobs
 
             PlanService.Save(plan);
             Email.SendPlanEmail(plan, notes.ToString());
-        }
-
-        private DateTime GenerationStartTomorrow(DateTime today)
-        {
-            // TODO: query.
-            return today.Date.AddDays(1).AddHours(10);
         }
 
         #region RegressionModel

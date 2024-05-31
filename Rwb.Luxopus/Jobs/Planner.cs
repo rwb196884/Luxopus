@@ -107,25 +107,5 @@ namespace Rwb.Luxopus.Jobs
             InfluxQuery = influxQuery;
             PlanService = planService;
         }
-
-        protected async Task<(decimal min, decimal lq, decimal median, decimal mean, decimal uq, decimal max)> GetSolcastFactorsAsync()
-        {
-            List<FluxTable> q = await InfluxQuery.QueryAsync(Query.SolcastFactors, DateTime.UtcNow);
-            FluxRecord r = q[0].Records[0];
-            return (
-                r.GetValue<decimal>("min"),
-                r.GetValue<decimal>("lq"),
-                r.GetValue<decimal>("median"),
-                r.GetValue<decimal>("mean"),
-                r.GetValue<decimal>("uq"),
-                r.GetValue<decimal>("max")
-                );
-        }
-
-        protected async Task<decimal> GetSolcastTomorrowAsync(DateTime today)
-        {
-            List<FluxTable> q = await InfluxQuery.QueryAsync(Query.SolcastToday, today.AddDays(1));
-            return q[0].Records[0].GetValue<decimal>();
-        }
     }
 }

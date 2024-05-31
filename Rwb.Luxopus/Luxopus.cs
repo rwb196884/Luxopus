@@ -51,12 +51,13 @@ namespace Rwb.Luxopus
             Solcast solcast,
             SolarPosition sunPosition,
             Sunrise sunrise,
-            Openweathermap openweathermap
+            Openweathermap openweathermap,
             //PlanChecker planChecker,
             ////PlanA planA
             ////PlanZero planZero,
             //PlanFlux2 planFlux,
             //Burst burst
+            AtJob at
         ){
             _Logger = logger;
             _Scheduler = scheduler;
@@ -87,6 +88,7 @@ namespace Rwb.Luxopus
             //AddJob(planZero, "38 16 * * *");
             AddJob(planner, "38 16 * * *");
             AddJob(burst, "* 8-15 * * *");
+            AddJob(at, "*/8 * * * *");
 
             _StartupTasks = new List<Job>()
             {

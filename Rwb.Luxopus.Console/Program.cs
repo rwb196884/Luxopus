@@ -4,7 +4,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Jobs;
 using System;
-using System.Threading;
 
 namespace Rwb.Luxopus.Console
 {

@@ -127,11 +127,5 @@ namespace Rwb.Luxopus.Jobs
         {
             throw new NotImplementedException();
         }
-
-        protected DateTime GenerationStartTomorrow(DateTime today)
-        {
-            // TODO: query.
-            return today.Date.AddDays(1).AddHours(10);
-        }
     }
 }

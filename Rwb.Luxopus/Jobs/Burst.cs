@@ -54,6 +54,10 @@ namespace Rwb.Luxopus.Jobs
                 if (plan != null)
                 {
                     Logger.LogWarning($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}. Using plan from {plan.Current.Start.ToString("yyyy-MM-dd HH:mm")}.");
+                    foreach (HalfHourPlan p in plan.Plans)
+                    {
+                        p.Start = p.Start.AddDays(2);
+                    }
                 }
             }
 
@@ -128,7 +132,7 @@ namespace Rwb.Luxopus.Jobs
             DateTime nextPlanCheck = DateTime.UtcNow.Minute > 30  //Check if mins are greater than 30
                ? DateTime.UtcNow.AddHours(1).AddMinutes(-DateTime.UtcNow.Minute) // After half past so go to the next hour.
                : DateTime.UtcNow.AddMinutes(30 - DateTime.UtcNow.Minute); // Before half past so go to half past.
-            int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, _Batt.BatteryLimit, ScaleMethod.FastLinear);
+            int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
 
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {
@@ -147,7 +151,7 @@ namespace Rwb.Luxopus.Jobs
 
                 // Plan A
                 double hoursToCharge = (gEnd - t0).TotalHours;
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(_Batt.BatteryLimit - battLevel);
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - battLevel);
 
                 // Are we behind schedule?
                 double extraPowerNeeded = 0.0;
@@ -223,7 +227,7 @@ from(bucket: ""solar"")
                 if (battChargeRateWanted < battChargeRate && battLevel < battLevelTarget)
                 {
                     string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {_Batt.BatteryLimit}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
+                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {100}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
                     battChargeRateWanted = battChargeRate;
                 }
             }
