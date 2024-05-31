@@ -45,9 +45,18 @@ namespace Rwb.Luxopus.Jobs
             // Suggested cron: * 9-15 * * *
 
             DateTime t0 = DateTime.UtcNow;
-            IEnumerable<Plan> ps = _Plans.LoadAll(t0);
 
             Plan? plan = _Plans.Load(t0);
+
+            if (plan == null)
+            {
+                plan = _Plans.Load(t0.AddDays(-2));
+                if (plan != null)
+                {
+                    Logger.LogWarning($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}. Using plan from {plan.Current.Start.ToString("yyyy-MM-dd HH:mm")}.");
+                }
+            }
+
             if (plan == null || plan.Next == null)
             {
                 Logger.LogError($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");

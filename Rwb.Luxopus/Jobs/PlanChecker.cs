@@ -60,7 +60,6 @@ namespace Rwb.Luxopus.Jobs
         {
             //DateTime t0 = new DateTime(2023, 05, 27, 03, 01, 00);
             DateTime t0 = DateTime.UtcNow;
-            IEnumerable<Plan> ps = _Plans.LoadAll(t0);
 
             Plan? plan = _Plans.Load(t0);
 
