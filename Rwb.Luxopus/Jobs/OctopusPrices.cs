@@ -65,7 +65,7 @@ namespace Rwb.Luxopus.Jobs
                     return;
                 }
 
-                IEnumerable<Price> prices = await _Octopus.GetElectricityPrices(p, t, from, to);
+                IEnumerable<Price> prices = (await _Octopus.GetElectricityPrices(p, t, from, to)).Where(z => z.ValidFrom >= from /* UTC fuckery */);
                 LineDataBuilder lines = new LineDataBuilder();
                 foreach (Price price in prices)
                 {
