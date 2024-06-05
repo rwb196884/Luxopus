@@ -149,10 +149,16 @@ namespace Rwb.Luxopus.Jobs
                 int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
                 //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
 
-                actionInfo.AppendLine($"     Generation: {generation}W");
-                actionInfo.AppendLine($"Inverter output: {inverterOutput}W");
-                actionInfo.AppendLine($"  Battery level: {battLevel}%");
-                actionInfo.AppendLine($" Battery target: {battLevelTarget}%");
+                actionInfo.AppendLine($"       Generation: {generation}W");
+                actionInfo.AppendLine($"  Inverter output: {inverterOutput}W");
+                actionInfo.AppendLine($"    Battery level: {battLevel}%");
+                actionInfo.AppendLine($"   Battery target: {battLevelTarget}%");
+                if (outEnabled)
+                {
+                    actionInfo.AppendLine($" Discharge target: {outBatteryLimitPercent}");
+                }
+                actionInfo.AppendLine($"  Discharge first: {(chargeLast ? "yes" : "no")}");
+                actionInfo.AppendLine($"Discharge to grid: {(outEnabled ? "yes" : "no")}");
 
                 // Plan A
                 double hoursToCharge = (gEnd - t0).TotalHours;
@@ -199,18 +205,16 @@ from(bucket: ""solar"")
                         battChargeRateWanted = battChargeRateNeeded;
 
                         // Increase the batt charge rate to avoid clipping.
-                        int minToBatt = _Batt.TransferKiloWattsToPercent(generation - 3000);
-                        if(battChargeRateWanted < minToBatt)
+                        int minToBatt = _Batt.TransferKiloWattsToPercent((Convert.ToDouble(generation) - 3000.0) / 1000.0);
+                        if (battChargeRateWanted < minToBatt)
                         {
                             actionInfo.AppendLine($"Charge last disabled because ahead of target; required charge rate is {battChargeRateNeeded}% overidden to {minToBatt}% because generation {generation}kW.");
                             battChargeRateWanted = _Batt.RoundPercent(minToBatt);
                         }
                         else
                         {
-                        actionInfo.AppendLine($"Charge last disabled because ahead of target; required charge rate is {battChargeRateNeeded}% which is below generation of {generation}kW.");
-
+                            actionInfo.AppendLine($"Charge last disabled because ahead of target; required charge rate is {battChargeRateNeeded}% which is below generation of {generation}kW.");
                         }
-
                     }
                 }
                 else
@@ -268,6 +272,7 @@ from(bucket: ""solar"")
                 {
                     await _Lux.SetBatteryDischargeToGridRateAsync(90);
                     actionInfo.AppendLine("Discharge to grid enabled.");
+                    actionInfo.AppendLine($"SetDischargeToGridLevelAsync({outBatteryLimitPercentWanted}) was {outBatteryLimitPercent}%.");
                 }
             }
 
