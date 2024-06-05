@@ -4,7 +4,6 @@ using Microsoft.Extensions.Options;
 using NCrontab;
 using NCrontab.Scheduler;
 using Rwb.Luxopus.Jobs;
-using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Threading;

@@ -40,6 +40,8 @@ namespace Rwb.Luxopus.Services
         int GetBatteryDischargeRate(Dictionary<string, string> settings);
         int GetBatteryDischargeToGridRate(Dictionary<string, string> settings);
 
+        bool GetChargeLast(Dictionary<string, string> settings);
+
         //Task SetChargeFromGridEnabledAsync(bool enabled);
         Task SetChargeFromGridStartAsync(DateTime start);
         Task SetChargeFromGridStopAsync(DateTime stop);
@@ -54,6 +56,8 @@ namespace Rwb.Luxopus.Services
         Task SetBatteryChargeFromGridRateAsync(int batteryChargeFromGridRatePercent);
         Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent);
         Task SetBatteryDischargeToGridRateAsync(int batteryChargeFromGridRatePercent);
+
+        Task SetChargeLastAsync(bool enabled);
 
         int KwhToBatt(int kWh);
         int BattToKwh(int batt);
@@ -356,9 +360,14 @@ namespace Rwb.Luxopus.Services
         {
             return int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"]);
         }
+
         public int GetBatteryDischargeToGridRate(Dictionary<string, string> settings)
         {
             return int.Parse(settings["HOLD_FORCED_DISCHG_POWER_CMD"]);
+        }
+        public bool GetChargeLast(Dictionary<string, string> settings)
+        {
+            return bool.Parse(settings["FUNC_CHARGE_LAST"]);
         }
 
         public async Task<int> GetBatteryLevelAsync()
@@ -433,6 +442,11 @@ namespace Rwb.Luxopus.Services
         {
             int rate = batteryChargeFromGridRatePercent < 0 || batteryChargeFromGridRatePercent > 100 ? 90 : batteryChargeFromGridRatePercent;
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_POWER_CMD", rate.ToString())); // !
+        }
+
+        public async Task SetChargeLastAsync(bool enabled)
+        {
+            await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_CHARGE_LAST", enabled));
         }
 
         private Dictionary<string, string> GetHoldParams(string holdParam, string valueText)

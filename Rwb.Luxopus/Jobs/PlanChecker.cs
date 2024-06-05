@@ -63,7 +63,7 @@ namespace Rwb.Luxopus.Jobs
 
             Plan? plan = _Plans.Load(t0);
 
-            if(plan == null)
+            if (plan == null)
             {
                 plan = _Plans.Load(t0.AddDays(-2));
                 if (plan != null)
@@ -112,6 +112,8 @@ namespace Rwb.Luxopus.Jobs
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
             int battChargeFromGridRate = _Lux.GetBatteryChargeFromGridRate(settings);
             int battDischargeToGridRate = _Lux.GetBatteryDischargeToGridRate(settings);
+            bool chargeLast = _Lux.GetChargeLast(settings);
+            bool chargeLastWanted = chargeLast;
 
             // Discharge to grid.
             (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDischargeToGrid(settings);
@@ -143,6 +145,7 @@ namespace Rwb.Luxopus.Jobs
 
             if (outEnabledWanted)
             {
+                chargeLastWanted = true;
                 try
                 {
                     (DateTime lastOccupied, bool wasOccupied) = (await _InfluxQuery.QueryAsync(Query.LastOccupied, DateTime.UtcNow)).Single().FirstOrDefault<bool>();
@@ -259,6 +262,7 @@ namespace Rwb.Luxopus.Jobs
                 b = b < 0 ? 10 : b;
                 battChargeFromGridRateWanted = _Batt.RoundPercent(b);
                 battChargeRateWanted = battChargeFromGridRateWanted > battChargeRateWanted ? battChargeFromGridRateWanted : battChargeRateWanted;
+                chargeLastWanted = false;
                 why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {inBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {inStopWanted:HH:mm} (mean rate {kW:0.0}kW {battChargeFromGridRateWanted}%).";
             }
             else if (outEnabledWanted && outStartWanted <= currentPeriod.Start && outStopWanted > currentPeriod.Start && battLevel > outBatteryLimitPercentWanted)
@@ -270,7 +274,8 @@ namespace Rwb.Luxopus.Jobs
                 int b = _Batt.TransferKiloWattsToPercent(kW);
                 b = b < 0 ? 10 : b;
                 battDischargeToGridRateWanted = _Batt.RoundPercent(b);
-                battChargeRateWanted = 0;
+                battChargeRateWanted = 100; // Use FORCE_CHARGE_LAST
+                chargeLastWanted = true;
                 why = $"Discharge to grid: {powerRequiredKwh:0.0}kWh needed to grid to get from {battLevel}% to {outBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {outStopWanted:HH:mm} (mean rate {kW:0.0}kW -> {battDischargeToGridRateWanted}%).";
             }
             else if (t0.TimeOfDay <= gStart.TimeOfDay || t0.TimeOfDay >= gEnd.TimeOfDay)
@@ -279,6 +284,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     battChargeRateWanted = 50;
                 }
+                chargeLastWanted = false;
                 why = $"Default (time {t0:HH:mm} is outside of generation range {gStart:HH:mm} to {gEnd:HH:mm}).";
             }
             else
@@ -297,6 +303,7 @@ namespace Rwb.Luxopus.Jobs
                     {
                         battChargeRateWanted = 100;
                         outEnabledWanted = false;
+                        chargeLastWanted = true;
                         why = $"Battery is full ({battLevel}%) and max generation in last hour is {generationMaxLastHour}.";
                     }
                     else
@@ -309,6 +316,7 @@ namespace Rwb.Luxopus.Jobs
                         outBatteryLimitPercentWanted = 97;
                         outStartWanted = currentPeriod.Start; // Needs to be constant in order not to spam changes.
                         outStopWanted = plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30);
+                        chargeLastWanted = true;
                         why = $"Battery is full ({battLevel}%) and max generation in last hour is {generationMaxLastHour}.";
                     }
                 }
@@ -325,7 +333,8 @@ namespace Rwb.Luxopus.Jobs
                         if (battLevel >= percentTarget)
                         {
                             // Already got enough.
-                            battChargeRateWanted = 0;
+                            battChargeRateWanted = 100; // Use FORCE_CHARGE_LAST
+                            chargeLastWanted = true;
                             why = $"{kwhForUse}kWh needed ({percentForUse}%) and charge target is {plan!.Next!.Action!.ChargeFromGrid}% but battery level is {battLevel}% > {percentTarget}%.";
                         }
                         else
@@ -337,6 +346,7 @@ namespace Rwb.Luxopus.Jobs
                             double kW = powerRequiredKwh / hoursToCharge;
                             int b = _Batt.TransferKiloWattsToPercent(kW);
                             battChargeRateWanted = _Batt.RoundPercent(b);
+                            chargeLastWanted = false;
                             why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {percentTarget}% ({plan!.Next!.Action!.ChargeFromGrid}% charge target plus {kwhForUse:0.0}kWh {percentForUse}% for consumption) in {hoursToCharge:0.0} hours until {until:HH:mm} (mean rate {kW:0.0}kW).";
                         }
                     }
@@ -427,7 +437,8 @@ from(bucket: ""solar"")
                         if (t0.Hour <= 9 && generationMax > 1500 && battLevel > 20)
                         {
                             // At 9am median generation is 1500.
-                            battChargeRateWanted = 8;
+                            battChargeRateWanted = 100;
+                            chargeLastWanted = true;
                             why = "Keep battery empty in anticipation of high generation later today.";
                         }
                         else
@@ -435,6 +446,7 @@ from(bucket: ""solar"")
                             // Plan A
                             outEnabledWanted = false;
                             inEnabledWanted = false;
+                            chargeLastWanted = false;
                         }
 
                         DateTime endOfCharge = gEnd < plan.Next.Start ? gEnd : plan.Next.Start;
@@ -460,6 +472,7 @@ from(bucket: ""solar"")
                         {
                             battChargeRateWanted = 90;
                             outEnabledWanted = false;
+                            chargeLastWanted = false;
                             why += $" But we are behind by {extraPowerNeeded:0.0}kW therefore override to 90%.";
                         }
 
@@ -467,6 +480,7 @@ from(bucket: ""solar"")
                         {
                             battChargeRateWanted = 90;
                             outEnabledWanted = false;
+                            chargeLastWanted = false;
                             why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 90%.";
                         }
 
@@ -474,6 +488,7 @@ from(bucket: ""solar"")
                         {
                             battChargeRateWanted = battChargeRateWanted > 40 ? 90 : battChargeRateWanted * 2;
                             outEnabledWanted = false;
+                            chargeLastWanted = false;
                             why += $" Rate of generation is decreasing ({generationMeanDifference:0}W) therefore override to {battChargeRateWanted}%.";
                         }
                     }
@@ -481,6 +496,7 @@ from(bucket: ""solar"")
                     {
                         // No plan. Set defaults.
                         battChargeRateWanted = 50;
+                        chargeLastWanted = false;
                         why = $"No information.";
                     }
                 }
@@ -505,6 +521,13 @@ from(bucket: ""solar"")
             {
                 await _Lux.SetBatteryDischargeToGridRateAsync(battDischargeToGridRateWanted);
                 actions.AppendLine($"SetBatteryDischargeToGridRate({battDischargeToGridRateWanted}) was {battDischargeToGridRate}.");
+            }
+
+            // Charge last.
+            if (chargeLast != chargeLastWanted)
+            {
+                await _Lux.SetChargeLastAsync(chargeLastWanted);
+                actions.AppendLine($"SetChargeLastAsync({chargeLastWanted}) was {chargeLast}.");
             }
 
             // Discharge to grid.

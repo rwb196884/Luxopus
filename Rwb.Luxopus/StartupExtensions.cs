@@ -67,7 +67,8 @@ namespace Rwb.Luxopus
                     services.AddScoped<AtJob>();
 
                     services.AddScoped<PlanChecker>();
-                    services.AddScoped<Burst>();
+                    //services.AddScoped<Burst>();
+                    services.AddScoped<BurstChargeLast>();
 
                     //services.AddScoped<PlanZero>();
                     //services.AddScoped<PlanA>();
