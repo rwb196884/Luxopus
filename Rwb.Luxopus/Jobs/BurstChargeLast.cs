@@ -208,12 +208,12 @@ from(bucket: ""solar"")
                         int minToBatt = _Batt.TransferKiloWattsToPercent((Convert.ToDouble(generation) - 3000.0) / 1000.0);
                         if (battChargeRateWanted < minToBatt)
                         {
-                            actionInfo.AppendLine($"Charge last disabled because ahead of target; required charge rate is {battChargeRateNeeded}% overidden to {minToBatt}% because generation {generation}kW.");
+                            actionInfo.AppendLine($"Charge last disabled because behind target; required charge rate is {battChargeRateNeeded}% overidden to {minToBatt}% because generation {generation}kW.");
                             battChargeRateWanted = _Batt.RoundPercent(minToBatt);
                         }
                         else
                         {
-                            actionInfo.AppendLine($"Charge last disabled because ahead of target; required charge rate is {battChargeRateNeeded}% which is below generation of {generation}kW.");
+                            actionInfo.AppendLine($"Charge last disabled because behind target; required charge rate is {battChargeRateNeeded}% which is below generation of {generation}kW.");
                         }
                     }
                 }
