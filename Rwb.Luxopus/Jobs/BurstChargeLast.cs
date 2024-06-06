@@ -189,19 +189,19 @@ from(bucket: ""solar"")
 
                 if (generation > 3000)
                 {
+                    // Forced discharge causes clipping.
+                    outEnabledWanted = false;
+
                     // Generation probably not limited therefore send less to battery.
                     if (battLevel >= battLevelTarget)
                     {
                         battChargeRateWanted = 90;
                         chargeLastWanted = true;
-                        outEnabledWanted = true;
-                        outBatteryLimitPercentWanted = battLevelTarget - 2;
                         actionInfo.AppendLine($"Charge last enabled because ahead of target.");
                     }
                     else if (battLevel < battLevelTarget)
                     {
                         chargeLastWanted = false;
-                        outEnabledWanted = false;
                         battChargeRateWanted = battChargeRateNeeded;
 
                         // Increase the batt charge rate to avoid clipping.
@@ -225,6 +225,7 @@ from(bucket: ""solar"")
                         // It's early and it looks like it's going to be a good day.
                         // So keep the battery empty to make space for later.
                         outEnabledWanted = true;
+                        outBatteryLimitPercentWanted = 8;
                         battChargeRateWanted = 90;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} before 10AM UTC suggests that it could be a good day. Battery level {battLevel}, target of {battLevelTarget} therefore keep some space.");
