@@ -4,13 +4,14 @@ using Microsoft.Extensions.Options;
 using NCrontab;
 using NCrontab.Scheduler;
 using Rwb.Luxopus.Jobs;
+using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 
 namespace Rwb.Luxopus
 {
-    public class LuxopusSettings
+    public class LuxopusSettings : Settings
     {
         public string Plan { get; set; }
         public string Check { get; set; }
@@ -25,24 +26,7 @@ namespace Rwb.Luxopus
 
         private readonly IReadOnlyList<Job> _StartupTasks;
 
-        private Job GetJob(IServiceProvider serviceProvider, string name)
-        {
-            Type? t = Type.GetType($"Rwb.Luxopus.Jobs.{name}");
-            if( t == null)
-            {
-                _Logger.LogError($"Could not find type Rwb.Luxopus.Jobs.{name} when configuring jobs.");
-                return serviceProvider.GetRequiredService<NullJob>();
-            }
-            Job? j = serviceProvider.GetRequiredService(t!) as Job;
-            if( j == null)
-            {
-                _Logger.LogError($"Could get service for type Rwb.Luxopus.Jobs.{name} when configuring jobs.");
-                return serviceProvider.GetRequiredService<NullJob>();
-            }
-            return j!;
-        }
-
-        public Luxopus(IOptions<LuxopusSettings> settings, IServiceProvider serviceProvider, ILogger<Luxopus> logger, IScheduler scheduler,
+        public Luxopus(ILuxopusServiceResolver luxopusServiceResolver, ILogger<Luxopus> logger, IScheduler scheduler,
             LuxMonitor luxMonitor,
             LuxDaily luxDaily,
             OctopusMeters octopusMeters,
@@ -57,16 +41,17 @@ namespace Rwb.Luxopus
             //PlanFlux2 planFlux,
             //Burst burst
             AtJob at
-        ){
+        )
+        {
             _Logger = logger;
             _Scheduler = scheduler;
             _Scheduler.Next += _Scheduler_Next;
 
-            Job planner = GetJob(serviceProvider, settings.Value.Plan);
+            Job planner = luxopusServiceResolver.GetPlanJob();
             _Logger.LogInformation($" Plan service: {planner.GetType().Name}");
-            Job planChecker = GetJob(serviceProvider, settings.Value.Check);
+            Job planChecker = luxopusServiceResolver.GetCheckJob();
             _Logger.LogInformation($"Check service: {planChecker.GetType().Name}");
-            Job burst = GetJob(serviceProvider, settings.Value.Burst);
+            Job burst = luxopusServiceResolver.GetBurstJob();
             _Logger.LogInformation($"Burst service: {burst.GetType().Name}");
 
             if (planner.GetType() == typeof(NullJob)) { }
@@ -134,6 +119,68 @@ namespace Rwb.Luxopus
             _Scheduler.Stop();
             _Logger.LogInformation("Luxopus has stopped scheduler.");
         }
+    }
 
+    public interface ILuxopusServiceResolver
+    {
+        Job GetPlanJob();
+        Job GetCheckJob();
+        Job GetBurstJob();
+    }
+
+    public class LuxopusServiceResolver : Service<LuxopusSettings>, ILuxopusServiceResolver
+    {
+        private readonly IServiceProvider _ServiceProvider;
+
+        public LuxopusServiceResolver(ILogger<LuxopusServiceResolver> logger, IOptions<LuxopusSettings> settings, IServiceProvider serviceProvider) : base(logger, settings)
+        {
+            _ServiceProvider = serviceProvider;
+        }
+
+        public override bool ValidateSettings()
+        {
+            if (GetType() == null) { return false; }
+            if (GetType() == null) { return false; }
+            if (GetType() == null) { return false; }
+            return true;
+        }
+
+        private Type? GetType(string name)
+        {
+            return Type.GetType($"Rwb.Luxopus.Jobs.{name}"); ;
+        }
+
+        private Job GetJob(string name)
+        {
+            Type? t = GetType(name);
+            if (t == null)
+            {
+                Logger.LogError($"Could not find type Rwb.Luxopus.Jobs.{name}.");
+                return _ServiceProvider.GetRequiredService<NullJob>();
+            }
+            Job? j = _ServiceProvider.GetRequiredService(t!) as Job;
+            if (j == null)
+            {
+                Logger.LogError($"Could get service for type Rwb.Luxopus.Jobs.{name}.");
+                return _ServiceProvider.GetRequiredService<NullJob>();
+            }
+            return j!;
+        }
+
+
+        public Job GetPlanJob()
+        {
+            return GetJob(Settings.Plan);
+        }
+
+        public Job GetCheckJob()
+        {
+            return GetJob(Settings.Check);
+        }
+
+        public Job GetBurstJob()
+        {
+            return GetJob(Settings.Burst);
+        }
     }
 }

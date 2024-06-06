@@ -115,7 +115,7 @@ namespace Rwb.Luxopus.Jobs
             ElectricityPrice? priceNow = prices.Where(z => z.Start < t0).OrderByDescending(z => z.Start).FirstOrDefault();
             if (priceNow == null)
             {
-                Logger.LogError("No current price.");
+                Logger.LogError($"No current price; rescheduling at {tReschedule: yyyy-MM-dd HH:mm}.");
                 _At.Schedule(async () => await this.WorkAsync(CancellationToken.None), tReschedule);
                 return;
             }
@@ -123,9 +123,17 @@ namespace Rwb.Luxopus.Jobs
             ElectricityPrice? priceNext = prices.Where(z => z.Start > priceNow.Start).OrderBy(z => z.Start).FirstOrDefault();
             if (priceNext == null)
             {
-                Logger.LogError("No future prices.");
+                Logger.LogError($"No future prices; rescheduling at {tReschedule: yyyy-MM-dd HH:mm}.");
                 _At.Schedule(async () => await this.WorkAsync(CancellationToken.None), tReschedule);
                 return;
+            }
+
+            DateTime pLast = prices.OrderBy(z => z.Start).Last().Start;
+            if (DateTime.Now > pLast.ToLocalTime())
+            {
+                // We're probably in the last period.
+                Logger.LogWarning($"Rescheduling PlanFlux2 at {tReschedule: yyyy-MM-dd HH:mm} because current period is the last.");
+                _At.Schedule(async () => await this.WorkAsync(CancellationToken.None), tReschedule);
             }
 
             Plan plan = new Plan(prices.Where(z => z.Start >= priceNow.Start));

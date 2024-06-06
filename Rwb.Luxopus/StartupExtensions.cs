@@ -49,10 +49,10 @@ namespace Rwb.Luxopus
                     services.Register<IBurstLogService, BurstLogService, BurstLogSettings>(context);
                     services.Register<IBatteryService, BatteryService, BatterySettings>(context);
                     services.Register<IAtService, AtService, AtSettings>(context);
+                    services.Register<ILuxopusServiceResolver, LuxopusServiceResolver, LuxopusSettings>(context);
                     //services.Register<IGenerationForecastService, GenerationForecastService, GenerationForecastSettings>(context);
 
                     // Main thingy.
-                    services.ConfigureSettings<LuxopusSettings>(context.Configuration);
                     services.AddScoped<Luxopus>();
 
                     // Jobs.

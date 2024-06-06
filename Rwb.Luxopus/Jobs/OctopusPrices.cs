@@ -61,6 +61,7 @@ namespace Rwb.Luxopus.Jobs
 
                 if( from >= to || from.Date > DateTime.Now.Date)
                 {
+                    Logger.LogInformation($"No prices need getting from {from:yyyy-MM-dd HH:mm} to {to:yyyy-MM-dd HH:mm}.");
                     // No prices need getting.
                     return;
                 }
@@ -115,7 +116,9 @@ namespace Rwb.Luxopus.Jobs
                     t = t.AddHours(1).AddMinutes(5 - t.Minute);
                 }
 
+                Logger.LogWarning("Recheduling OctopusPrices becuase prices might be missing.");
                 _At.Schedule(async () => await this.RunAsync(CancellationToken.None), t);
+                // Might also need to reschedule the plan service.
             }
 
             foreach (string t in (await _Octopus.GetGasTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Distinct())
