@@ -137,7 +137,7 @@ namespace Rwb.Luxopus.Jobs
                ? DateTime.UtcNow.AddHours(1).AddMinutes(-DateTime.UtcNow.Minute) // After half past so go to the next hour.
                : DateTime.UtcNow.AddMinutes(30 - DateTime.UtcNow.Minute); // Before half past so go to half past.
             //int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
-            int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(-1), nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
+            int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
 
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {

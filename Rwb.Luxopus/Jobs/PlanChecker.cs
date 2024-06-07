@@ -352,16 +352,6 @@ namespace Rwb.Luxopus.Jobs
                     }
                     else if (plan?.Next != null && Plan.DischargeToGridCondition(plan!.Next!))
                     {
-                        // Get fully charged before the discharge period.
-                        DateTime tBattChargeFrom = currentPeriod.Start < gStart ? gStart : currentPeriod.Start;
-
-                        int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(currentPeriod.Start);
-                        DateTime nextPlanCheck = DateTime.UtcNow.AddMinutes(21); // Just before.
-                        int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(-1), nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
-
-                        // Override for high generation.
-                        // This doesn't work: when the battery gets to the limit the inverter prevents generation again.
-                        // Fucking chinese shit.
                         (DateTime _, long generationMax) = //(DateTime.Now, 0);
                             (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -391,49 +381,56 @@ from(bucket: ""solar"")
   |> mean()")
                            ).First().Records.First().GetValue<double>();
 
+                        // Get fully charged before the discharge period.
+                        DateTime tBattChargeFrom = currentPeriod.Start < gStart ? gStart : currentPeriod.Start;
+
+                        int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(currentPeriod.Start);
+                        DateTime nextPlanCheck = DateTime.UtcNow.AddMinutes(21); // Just before.
+                        int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
+
                         /*
-                        if (generationMax > 2000
-                           && generationRecentMean > 1000
-                           && generationMeanDifference > 0
-                           && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
-                        {
-                            // High generation. Discharge any bursts that got absorbed.
-                            // NO! This causes generation to be limited.
-                            // Attempt this in the burst manager instead.
-                            outEnabledWanted = true;
-                            battDischargeToGridRateWanted = 70;
-                            if (outStartWanted.TimeOfDay > currentPeriod.Start.TimeOfDay)
-                            {
-                                outStartWanted = currentPeriod.Start;
-                            }
-                            if (outStopWanted.TimeOfDay < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).TimeOfDay)
-                            {
-                                outStopWanted = (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30));
-                            }
+                         if (generationMax > 2000
+                            && generationRecentMean > 1000
+                            && generationMeanDifference > 0
+                            && DateTime.UtcNow < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).AddHours(-1))
+                         {
+                             // High generation. Discharge any bursts that got absorbed.
+                             // NO! This causes generation to be limited.
+                             // Attempt this in the burst manager instead.
+                             outEnabledWanted = true;
+                             battDischargeToGridRateWanted = 70;
+                             if (outStartWanted.TimeOfDay > currentPeriod.Start.TimeOfDay)
+                             {
+                                 outStartWanted = currentPeriod.Start;
+                             }
+                             if (outStopWanted.TimeOfDay < (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30)).TimeOfDay)
+                             {
+                                 outStopWanted = (plan?.Next?.Start ?? currentPeriod.Start.AddMinutes(30));
+                             }
 
-                            int bb = _Batt.CapacityKiloWattHoursToPercent(0.5 * generationRecentMean / 1000.0);
-                            if (battLevel >= _Batt.BatteryLimit)
-                            {
-                                outBatteryLimitPercentWanted = _Batt.BatteryLimit;
-                            }
-                            else if (battLevel > battLevelTarget)
-                            {
-                                outBatteryLimitPercentWanted = (battLevel + bb) > _Batt.BatteryLimit ? _Batt.BatteryLimit : (battLevelTarget + bb);
-                            }
-                            else
-                            {
-                                outBatteryLimitPercentWanted = (battLevelTarget + bb) > 95 ? 95 : (battLevelTarget + bb);
-                            }
+                             int bb = _Batt.CapacityKiloWattHoursToPercent(0.5 * generationRecentMean / 1000.0);
+                             if (battLevel >= _Batt.BatteryLimit)
+                             {
+                                 outBatteryLimitPercentWanted = _Batt.BatteryLimit;
+                             }
+                             else if (battLevel > battLevelTarget)
+                             {
+                                 outBatteryLimitPercentWanted = (battLevel + bb) > _Batt.BatteryLimit ? _Batt.BatteryLimit : (battLevelTarget + bb);
+                             }
+                             else
+                             {
+                                 outBatteryLimitPercentWanted = (battLevelTarget + bb) > 95 ? 95 : (battLevelTarget + bb);
+                             }
 
-                            // Let the Burst job sort out the batt charge rate.
+                             // Let the Burst job sort out the batt charge rate.
 
-                            //battChargeRateWanted = generationMax > 5500 ? 71 : 41;// Special value signals this case. Yuck. Seems to translate to about 1640W.
-                            // Max generation witnessed was 6.2kW on 2023-02-20 but can only invert 3.6 therefore at most 2.8kW to battery.
-                            // Battery charge at 100% seems to be about 4kW.
-                            // Therefore battery charge rate should be at most 70%.
-                            why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}% (expected {battLevelTarget}%).";
-                        }
-                        else */
+                             //battChargeRateWanted = generationMax > 5500 ? 71 : 41;// Special value signals this case. Yuck. Seems to translate to about 1640W.
+                             // Max generation witnessed was 6.2kW on 2023-02-20 but can only invert 3.6 therefore at most 2.8kW to battery.
+                             // Battery charge at 100% seems to be about 4kW.
+                             // Therefore battery charge rate should be at most 70%.
+                             why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}% (expected {battLevelTarget}%).";
+                         }
+                         else */
                         if (t0.Hour <= 9 && generationMax > 1500 && battLevel > 20)
                         {
                             // At 9am median generation is 1500.
