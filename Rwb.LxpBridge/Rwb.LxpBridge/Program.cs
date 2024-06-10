@@ -142,6 +142,30 @@ namespace Rwb.LxpBridge
                 {
                     Console.Write(" data length");
                 }
+                else if (i == 34)
+                {
+                    Console.Write(" status");
+                }
+                else if (i == 36)
+                {
+                    Console.Write(" v_pv_1");
+                }
+                else if (i == 38)
+                {
+                    Console.Write(" v_pv_2");
+                }
+                else if (i == 40)
+                {
+                    Console.Write(" v_pv_3");
+                }
+                else if (i == 42)
+                {
+                    Console.Write(" v_batt");
+                }
+                else if (i == 44)
+                {
+                    Console.Write(" soc");
+                }
                 Console.WriteLine();
             }
         }
