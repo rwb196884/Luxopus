@@ -122,10 +122,20 @@ namespace Rwb.LxpBridge
             Console.WriteLine("Payload");
             Console.WriteLine("Index Index-6 Value Int16");
 
+            int r = GetShort(buffer, from + 32);
+
             for (int i = 18; i < received; i++)
             {
                 Console.Write($"{i,5:#0} {i-6,5:#0} {buffer[from + i],5:X}");
                 if (i >= 18 && i < received - 1) { Console.Write($" {GetShort(buffer, from + i),5}"); }
+
+                int register = -1;
+                if( i >= 34 && i % 2 == 0)
+                {
+                    register = r + (i - 34) / 2;
+                    Console.Write($" d{register} ");
+                }
+
                 if( i == 18)
                 {
                     Console.Write(" length");
@@ -140,32 +150,14 @@ namespace Rwb.LxpBridge
                 }
                 else if( i == 32)
                 {
-                    Console.Write(" data length");
+                    Console.Write(" data length"); // NO, it's the register index start: 0, 40, 80, 120.
                 }
-                else if (i == 34)
+
+                if(register >= 0 && Registers.Key.ContainsKey(register))
                 {
-                    Console.Write(" status");
+                    Console.Write(" " + Registers.Key[register]);
                 }
-                else if (i == 36)
-                {
-                    Console.Write(" v_pv_1");
-                }
-                else if (i == 38)
-                {
-                    Console.Write(" v_pv_2");
-                }
-                else if (i == 40)
-                {
-                    Console.Write(" v_pv_3");
-                }
-                else if (i == 42)
-                {
-                    Console.Write(" v_batt");
-                }
-                else if (i == 44)
-                {
-                    Console.Write(" soc");
-                }
+
                 Console.WriteLine();
             }
         }

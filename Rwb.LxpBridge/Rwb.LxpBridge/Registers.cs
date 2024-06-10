@@ -5,7 +5,7 @@
     /// </summary>
     internal static class Registers
     {
-        public static Dictionary<byte, string> Key = new Dictionary<byte, string>()
+        public static Dictionary<int, string> Key = new Dictionary<int, string>()
         {
             {0,"HOLD_MODEL" },
             {1,"HOLD_MODEL" },
