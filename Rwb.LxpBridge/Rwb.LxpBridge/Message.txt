@@ -1,0 +1,119 @@
+﻿Index Index-6 Value Int16
+    0          A1        Prefix
+    1          1A        Prefix
+    2           2        Protocol version
+    3           0        Protocol version
+    4          6F        Message length (low byte) 111
+    5           0        Message length (high byte)
+    6     0     1        Address -- always 1
+    7     1    C2        TCP function
+    8     2    42        SN
+    9     3    **        SN
+   10     4    **        SN
+   11     5    **        SN
+   12     6    **        SN
+   13     7    **        SN
+   14     8    **        SN
+   15     9    **        SN
+   16    10    **        SN
+   17    11    30        SN
+
+   18    12    61    97  Length 111 - 97 = 14 makes no sense
+   19    13     0   256
+   20    14     1  1025 Address -- 0 to write, 1 to read
+   21    15     4 12804 Device function
+   22    16    32    ** SN "2"
+   23    17    32    ** SN
+   24    18    34    ** SN
+   25    19    32    ** SN
+   26    20    30    ** SN
+   27    21    32    ** SN
+   28    22    36    ** SN
+   29    23    30    ** SN
+   30    24    35    ** SN
+   31    25    30    ** SN Chris Elsworth says that SN is 10 bytes, but obviouslt it's 8.
+   32    26    50    80 Data length 80
+   33    27     0 20480 
+   34    28    50  6736 Status
+   35    29    1A    26
+   36    30     0  4096 v_pv_1?
+   37    31    10 10000
+   38    32    27  4135 v_pv_2?
+   39    33    10 10000
+   40    34    27 16423 v_pv_3?
+   41    35    40   576 
+   42    36     2 36866 v_batt?
+   43    37    90   400 
+   44    38     1     1 SOC? 38 - 13 = 25
+   45    39     0     0 ?
+   46    40     0     0 "always zero"
+   47    41     0     0 "0 to 53"
+   48    42     0     0 p_vp_1
+   49    43     0     0
+   50    44     0     0 p_pv_2
+   51    45     0     0
+   52    46     0     0 p_pv_3
+   53    47     0     0
+   54    48     0     0 p_charge
+   55    49     0     0
+   56    50     0     0 p_discharge
+   57    51     0     0 
+   58    52     0     0 v_ac_r
+   59    53     0     0
+   60    54     0     0 v_ac_s
+   61    55     0     0
+   62    56     0     0 v_ac_t
+   63    57     0     0
+   64    58     0   768 f_ac
+   65    59     3     3
+   66    60     0   768 p_inv
+   67    61     3     3 
+   68    62     0 48384 p_rec
+   69    63    BD   189 
+   70    64     0  2560 ?
+   71    65     A  1290 ?
+   72    66     5     5 pf
+   73    67     0     0
+   74    68     0     0 v_eps_r
+   75    69     0     0
+   76    70     0  2304 v_eps_s
+   77    71     9  3337
+   78    72     D   525 v_eps_t
+   79    73     2  3330
+   80    74     D 53773 f_eps
+   81    75    D2   210
+   82    76     0 48640 
+   83    77    BE   190
+   84    78     0     0 
+   85    79     0     0
+   86    80     0 38400 p_to_grid
+   87    81    96   406
+   88    82     1  5633 p_to_user
+   89    83    16   534
+   90    84     2     2 e_pv_1_day
+   91    85     0     0
+   92    86     0     0 e_pv_2_day
+   93    87     0     0
+   94    88     0     0 e_pv_3_day
+   95    89     0     0
+   96    90     0     0 e_inv_day
+   97    91     0     0
+   98    92     0     0 e_rec_day
+   99    93     0     0
+  100    94     0     0 e_chg_day
+  101    95     0     0
+  102    96     0     0 e_dischg_day
+  103    97     0     0
+  104    98     0 12800 e_eps_day
+  105    99    32 12850
+  106   100    32 13362 e_to_grid_day
+  107   101    34 12852
+  108   102    32 12338 e_to_user_day
+  109   103    30 12848
+  110   104    32 13874 v_bus_1
+  111   105    36 12342
+  112   106    30 13616 v_bus_2
+  113   107    35 12341
+  114   108    30 60464
+  115   109    EC 10732
+  116   110    29
