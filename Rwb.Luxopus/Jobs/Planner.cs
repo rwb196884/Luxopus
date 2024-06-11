@@ -1,9 +1,5 @@
-﻿using InfluxDB.Client.Core.Flux.Domain;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Jobs
 {
