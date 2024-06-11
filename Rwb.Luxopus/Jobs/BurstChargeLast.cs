@@ -157,7 +157,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     actionInfo.AppendLine($" Discharge target: {outBatteryLimitPercent}");
                 }
-                actionInfo.AppendLine($"  Discharge first: {(chargeLast ? "yes" : "no")}");
+                actionInfo.AppendLine($"      Charge last: {(chargeLast ? "yes" : "no")}");
                 actionInfo.AppendLine($"Discharge to grid: {(outEnabled ? "yes" : "no")}");
 
                 // Plan A
@@ -195,7 +195,7 @@ from(bucket: ""solar"")
                     // Generation probably not limited therefore send less to battery.
                     if (battLevel >= battLevelTarget)
                     {
-                        battChargeRateWanted = 90;
+                        battChargeRateWanted = 91;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Charge last enabled because ahead of target.");
                     }
@@ -226,7 +226,7 @@ from(bucket: ""solar"")
                         // So keep the battery empty to make space for later.
                         outEnabledWanted = true;
                         outBatteryLimitPercentWanted = 8;
-                        battChargeRateWanted = 90;
+                        battChargeRateWanted = 91;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} before 10AM UTC suggests that it could be a good day. Battery level {battLevel}, target of {battLevelTarget} therefore keep some space.");
                     }
@@ -235,7 +235,7 @@ from(bucket: ""solar"")
                         // It's gone quiet but it might get busy again: try to discharge some over-charge.
                         outBatteryLimitPercentWanted = battLevelTarget - 2;
                         outEnabledWanted = true;
-                        battChargeRateWanted = 90;
+                        battChargeRateWanted = 91;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}, target of {battLevelTarget} therefore take opportunity to discharge.");
                     }

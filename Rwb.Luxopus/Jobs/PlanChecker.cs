@@ -460,6 +460,7 @@ from(bucket: ""solar"")
                         else
                         {
                             chargeLastWanted = true;
+                            battChargeRateWanted = 90;
                         }
 
                         double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
@@ -474,6 +475,7 @@ from(bucket: ""solar"")
                         {
                             battChargeRateWanted = 90;
                             outEnabledWanted = false;
+                            chargeLastWanted = false;
                             why += $" But we are behind by {extraPowerNeeded:0.0}kW therefore override to 90%.";
                         }
 
@@ -481,6 +483,7 @@ from(bucket: ""solar"")
                         {
                             battChargeRateWanted = 90;
                             outEnabledWanted = false;
+                            chargeLastWanted = false;
                             why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 90%.";
                         }
 
@@ -488,6 +491,7 @@ from(bucket: ""solar"")
                         {
                             battChargeRateWanted = battChargeRateWanted > 40 ? 90 : battChargeRateWanted * 2;
                             outEnabledWanted = false;
+                            chargeLastWanted = false;
                             why += $" Rate of generation is decreasing ({generationMeanDifference:0}W) therefore override to {battChargeRateWanted}%.";
                         }
                     }
