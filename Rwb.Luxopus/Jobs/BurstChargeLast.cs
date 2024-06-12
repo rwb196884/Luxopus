@@ -267,7 +267,7 @@ from(bucket: ""solar"")
             {
                 bool o = false;
                 if (outStart != currentPeriod.Start) { await _Lux.SetDischargeToGridStartAsync(currentPeriod.Start); o = true; }
-                if (outStop != DateTime.UtcNow.AddMinutes(30)) { await _Lux.SetDischargeToGridStopAsync(DateTime.UtcNow.AddMinutes(30)); o = true; }
+                if (outStop != currentPeriod.Start.AddMinutes(30)) { await _Lux.SetDischargeToGridStopAsync(currentPeriod.Start.AddMinutes(30)); o = true; }
                 if (outBatteryLimitPercentWanted != outBatteryLimitPercent) { await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted); o = true; }
                 if (o)
                 {
