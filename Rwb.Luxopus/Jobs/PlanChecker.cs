@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using InfluxDB.Client.Api.Domain;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Rwb.Luxopus.Services;
 using System;
@@ -324,17 +325,21 @@ namespace Rwb.Luxopus.Jobs
                 {
                     if (plan?.Next != null && Plan.ChargeFromGridCondition(plan!.Next!))
                     {
-                        // Keep what we need so that we don't have to buy.
-                        HalfHourPlan? afterCharge = plan.Plans.GetNext(plan.Next);
-
-                        double kwhForUse = 0.25 * ((afterCharge?.Start ?? DateTime.Now.AddHours(3)) - t0).TotalHours;
+                        // Keep what we need so that we don't have to buy, but discharge the rest.
+                        double h = (plan!.Next!.Start - t0).TotalHours;
+                        double kwhForUse = 0.25 * h;
                         int percentForUse = _Batt.CapacityKiloWattHoursToPercent(kwhForUse);
-                        int percentTarget = (plan.Next?.Action?.ChargeFromGrid ?? 5) + percentForUse;
+                        int percentTarget = (plan!.Next!.Action!.ChargeFromGrid) + percentForUse;
                         if (battLevel >= percentTarget)
                         {
                             // Already got enough.
                             battChargeRateWanted = 100; // Use FORCE_CHARGE_LAST
                             chargeLastWanted = true;
+                            outEnabledWanted = true;
+                            outBatteryLimitPercent = percentTarget;
+                            outStartWanted = currentPeriod.Start;
+                            outStopWanted = plan?.Next?.Start ?? DateTime.Now.AddHours(4);
+                            battDischargeToGridRateWanted = _Batt.TransferKiloWattsToPercent((_Batt.CapacityPercentToKiloWattHours(battLevel) - _Batt.CapacityPercentToKiloWattHours(percentTarget)) / h);
                             why = $"{kwhForUse}kWh needed ({percentForUse}%) and charge target is {plan!.Next!.Action!.ChargeFromGrid}% but battery level is {battLevel}% > {percentTarget}%.";
                         }
                         else
@@ -434,9 +439,10 @@ from(bucket: ""solar"")
                         if (t0.Hour <= 9 && generationMax > 1500 && battLevel > 20)
                         {
                             // At 9am median generation is 1500.
-                            battChargeRateWanted = 100;
+                            battChargeRateWanted = 90;
                             chargeLastWanted = true;
                             why = "Keep battery empty in anticipation of high generation later today.";
+                            goto Apply;
                         }
                         else
                         {
@@ -506,6 +512,7 @@ from(bucket: ""solar"")
             }
 
             // A P P L Y   S E T T I N G S
+            Apply:
 
             // Charge from solar.
             if (battChargeRateWanted != battChargeRate)
