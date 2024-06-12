@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
