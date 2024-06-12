@@ -1,5 +1,4 @@
-﻿using InfluxDB.Client.Api.Domain;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Rwb.Luxopus.Services;
 using System;
@@ -25,7 +24,6 @@ namespace Rwb.Luxopus.Jobs
         private readonly IEmailService _Email;
         private readonly IBatteryService _Batt;
         private readonly IBurstLogService _BurstLog;
-        private readonly BatterySettings _BatterySettings;
 
         public PlanChecker(
             ILogger<LuxMonitor> logger,
@@ -35,7 +33,6 @@ namespace Rwb.Luxopus.Jobs
             IEmailService email,
             IBatteryService batt,
             IBurstLogService burstLog,
-            IOptions<BatterySettings> batterySettings
             )
             : base(logger)
         {
@@ -45,7 +42,6 @@ namespace Rwb.Luxopus.Jobs
             _Email = email;
             _Batt = batt;
             _BurstLog = burstLog;
-            _BatterySettings = batterySettings.Value;
         }
 
         //private const int _MedianHousePowerWatts = 240;
