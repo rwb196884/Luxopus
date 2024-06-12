@@ -32,7 +32,7 @@ namespace Rwb.Luxopus.Jobs
             IInfluxQueryService influxQuery,
             IEmailService email,
             IBatteryService batt,
-            IBurstLogService burstLog,
+            IBurstLogService burstLog
             )
             : base(logger)
         {
