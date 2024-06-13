@@ -431,7 +431,7 @@ from(bucket: ""solar"")
                              why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}% (expected {battLevelTarget}%).";
                          }
                          else */
-                        if (t0.Hour <= 9 && generationMax > 1500 && battLevel > 20)
+                        if (t0.Hour <= 9 /* up to 11AM BST */ && generationMax > 2100 && generationRecentMean > 1300 && generationMax > 2100 && battLevel > battLevelTarget - 5)
                         {
                             // At 9am median generation is 1500.
                             battChargeRateWanted = 90;
