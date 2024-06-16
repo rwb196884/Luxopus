@@ -268,7 +268,7 @@ namespace Rwb.Luxopus.Jobs
                 double hoursToCharge = (outStopWanted - (t0 > outStartWanted ? t0 : outStartWanted)).TotalHours;
                 double kW = powerRequiredKwh / hoursToCharge;
                 int b = _Batt.TransferKiloWattsToPercent(kW);
-                b = b < 0 ? 10 : b;
+                b = b <= 3 ? 8 : b;
                 battDischargeToGridRateWanted = _Batt.RoundPercent(b);
                 battChargeRateWanted = 100; // Use FORCE_CHARGE_LAST
                 chargeLastWanted = true;
@@ -335,6 +335,7 @@ namespace Rwb.Luxopus.Jobs
                             outStartWanted = currentPeriod.Start;
                             outStopWanted = plan?.Next?.Start ?? DateTime.Now.AddHours(4);
                             battDischargeToGridRateWanted = _Batt.TransferKiloWattsToPercent((_Batt.CapacityPercentToKiloWattHours(battLevel) - _Batt.CapacityPercentToKiloWattHours(percentTarget)) / h);
+                            battDischargeToGridRateWanted = battDischargeToGridRateWanted <= 3 ? 13 : battDischargeToGridRateWanted;
                             why = $"{kwhForUse}kWh needed ({percentForUse}%) and charge target is {plan!.Next!.Action!.ChargeFromGrid}% but battery level is {battLevel}% > {percentTarget}%.";
                         }
                         else
