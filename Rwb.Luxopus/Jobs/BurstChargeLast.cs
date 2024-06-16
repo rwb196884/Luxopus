@@ -265,11 +265,11 @@ from(bucket: ""solar"")
 
             if (outEnabledWanted && (!outEnabled || outBatteryLimitPercentWanted != outBatteryLimitPercent))
             {
+                await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
                 DateTime outStopWanted = plan.Next?.Start ?? currentPeriod.Start.AddHours(12);
                 bool o = false;
                 if (outStart != currentPeriod.Start) { await _Lux.SetDischargeToGridStartAsync(currentPeriod.Start); o = true; }
                 if (outStop != outStopWanted) { await _Lux.SetDischargeToGridStopAsync(outStopWanted); o = true; }
-                if (outBatteryLimitPercentWanted != outBatteryLimitPercent) { await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted); o = true; }
                 if (o)
                 {
                     await _Lux.SetBatteryDischargeToGridRateAsync(90);
