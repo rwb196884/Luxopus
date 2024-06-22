@@ -1,0 +1,8 @@
+import "date"
+
+from(bucket: "solar")
+  |> range(start: today(), stop: date.add(d: 2h, to: today()))
+  |> filter(fn: (r) => r["_measurement"] == "prediction")
+  |> filter(fn: (r) => r["_field"] == "MultivariateLinearRegression")
+  |> first()
+  |> yield(name: "mean")

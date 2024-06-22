@@ -323,7 +323,7 @@ namespace Rwb.Luxopus.Jobs
                         // Keep what we need so that we don't have to buy, but discharge the rest.
                         double h = (plan!.Next!.Start - t0).TotalHours;
                         double kwhForUse = 0.25 * h;
-                        int percentForUse = _Batt.CapacityKiloWattHoursToPercent(kwhForUse);
+                        int percentForUse = _Batt.CapacityKiloWattHoursToPercent(kwhForUse) / 2;
                         int percentTarget = (plan!.Next!.Action!.ChargeFromGrid) + percentForUse;
                         if (battLevel >= percentTarget)
                         {
@@ -348,7 +348,7 @@ namespace Rwb.Luxopus.Jobs
                             int b = _Batt.TransferKiloWattsToPercent(kW);
                             battChargeRateWanted = _Batt.RoundPercent(b);
                             chargeLastWanted = false;
-                            why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {percentTarget}% ({plan!.Next!.Action!.ChargeFromGrid}% charge target plus {kwhForUse:0.0}kWh {percentForUse}% for consumption) in {hoursToCharge:0.0} hours until {until:HH:mm} (mean rate {kW:0.0}kW).";
+                            why = $"Not continuing to discharge because {plan!.Next!.Action!.ChargeFromGrid}% charge target plus {kwhForUse:0.0}kWh {percentForUse}% for consumption = {percentTarget}% but battery level is {battLevel}%.";
                         }
                     }
                     else if (plan?.Next != null && Plan.DischargeToGridCondition(plan!.Next!))
@@ -383,11 +383,24 @@ from(bucket: ""solar"")
                            ).First().Records.First().GetValue<double>();
 
                         // Get fully charged before the discharge period.
-                        DateTime tBattChargeFrom = currentPeriod.Start < gStart ? gStart : currentPeriod.Start;
+                        DateTime tBattChargeFrom = plan.Current.Start < sunrise ? sunrise : plan.Current.Start;
+                        tBattChargeFrom = currentPeriod.Start < gStart ? gStart : tBattChargeFrom;
 
                         int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(currentPeriod.Start);
                         DateTime nextPlanCheck = DateTime.UtcNow.AddMinutes(21); // Just before.
-                        int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
+
+                        (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
+                        ScaleMethod sm = ScaleMethod.Linear;
+                        if (prediction > _Batt.CapacityPercentToKiloWattHours(150))
+                        {
+                            sm = ScaleMethod.Slow;
+                        }
+                        else if (prediction < _Batt.CapacityPercentToKiloWattHours(90))
+                        {
+                            sm = ScaleMethod.Fast;
+                        }
+
+                        int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, sm);
 
                         /*
                          if (generationMax > 2000

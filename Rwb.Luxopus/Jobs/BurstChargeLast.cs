@@ -136,8 +136,20 @@ namespace Rwb.Luxopus.Jobs
             DateTime nextPlanCheck = DateTime.UtcNow.Minute > 30  //Check if mins are greater than 30
                ? DateTime.UtcNow.AddHours(1).AddMinutes(-DateTime.UtcNow.Minute) // After half past so go to the next hour.
                : DateTime.UtcNow.AddMinutes(30 - DateTime.UtcNow.Minute); // Before half past so go to half past.
+
+            (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
+            ScaleMethod sm = ScaleMethod.Linear;
+            if(prediction > _Batt.CapacityPercentToKiloWattHours(150))
+            {
+                sm = ScaleMethod.Slow;
+            }
+            else if(prediction < _Batt.CapacityPercentToKiloWattHours(90))
+            {
+                sm = ScaleMethod.Fast;
+            }
+
             //int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
-            int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
+            int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, sm);
 
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {
