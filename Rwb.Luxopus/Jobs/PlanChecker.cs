@@ -503,7 +503,7 @@ from(bucket: ""solar"")
                             why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 90%.";
                         }
 
-                        if (generationRecentMax > 3000 && generationMeanDifference < 0)
+                        if (generationRecentMax < 3600 && battLevel < battLevelTarget + 5 && generationMeanDifference < 0)
                         {
                             battChargeRateWanted = battChargeRateWanted > 40 ? 90 : battChargeRateWanted * 2;
                             outEnabledWanted = false;
