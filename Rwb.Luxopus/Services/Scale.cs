@@ -18,13 +18,14 @@ namespace Rwb.Luxopus.Services
             if( scaleTime >= endTime) { return endValue; }
 
             decimal t = Convert.ToDecimal(scaleTime.Subtract(startTime).TotalSeconds) / Convert.ToDecimal(endTime.Subtract(startTime).TotalSeconds);
-
-            decimal s = Convert.ToDecimal(endValue);
+            decimal dy = Convert.ToDecimal(endValue - startValue);
+            decimal linear = Convert.ToDecimal(startValue) + dy * t;
+            decimal s = linear;
 
             switch (method)
             {
                 case (ScaleMethod.Linear):
-                    s = Convert.ToDecimal(startValue) + Convert.ToDecimal(endValue - startValue) * t;
+                    s = linear;
                     break;
                     //double l_totalMinutes = endTime.Subtract(startTime).TotalMinutes;
                     //double l_delta = Convert.ToDouble(endValue - startValue);
@@ -41,22 +42,13 @@ namespace Rwb.Luxopus.Services
                 //    if( f_scaleValue > endValue) { return endValue; }
                 //    return Convert.ToInt32(Math.Floor(f_scaleValue));
 
-                case (ScaleMethod.Slow):
-                    if( scaleTime < endTime.AddHours(-2))
-                    {
-                        // linear
-                        s = Convert.ToDecimal(startValue) + Convert.ToDecimal(endValue - startValue) * t * 0.75m;
-                    }
-                    else
-                    {
-                        // TODO: log/sigmoid
-                        s = Convert.ToDecimal(startValue) + Convert.ToDecimal(endValue - startValue) * t;
-                    }
-                    break;
                 case (ScaleMethod.Fast):
-                        // TODO: sigmoid
-                        s = Convert.ToDecimal(startValue) + Convert.ToDecimal(endValue - startValue) * t * 1.34m;
-                    if (s > endValue) { s = endValue; }
+                    s = startValue + dy * (-0.99m * t * t + 1.99m * t);
+                    break;
+                case (ScaleMethod.Slow):
+                    //s = linear - 0.5m * (1.0m - t) * (linear - Convert.ToDecimal(startValue));
+                    // y = axx + bx then a+b = 100 passes through (0,0) and (1, 100). Use a = 99
+                    s = startValue + dy * (0.99m * t * t + 0.01m * t);
                     break;
 
                 default:

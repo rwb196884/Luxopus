@@ -138,9 +138,18 @@ namespace Rwb.Luxopus.Jobs
                : DateTime.UtcNow.AddMinutes(30 - DateTime.UtcNow.Minute); // Before half past so go to half past.
 
             (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
+
+                long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
+from(bucket: ""solar"")
+  |> range(start: -45m, stop: now())
+  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+  |> max()")
+   ).First().Records.First().GetValue<long>();
+
             ScaleMethod sm = ScaleMethod.Linear;
-            if(prediction > _Batt.CapacityPercentToKiloWattHours(150))
+            if(prediction > _Batt.CapacityPercentToKiloWattHours(150) || generationMax > 2500)
             {
+                // High prediction / good day: charge slowly.
                 sm = ScaleMethod.Slow;
             }
             else if(prediction < _Batt.CapacityPercentToKiloWattHours(90))
@@ -191,13 +200,6 @@ namespace Rwb.Luxopus.Jobs
 
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                 battChargeRateNeeded = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(kW));
-
-                long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
-from(bucket: ""solar"")
-  |> range(start: -45m, stop: now())
-  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-  |> max()")
-   ).First().Records.First().GetValue<long>();
 
                 if (generation > 3000)
                 {

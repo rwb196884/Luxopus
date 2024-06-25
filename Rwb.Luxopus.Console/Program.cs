@@ -14,6 +14,12 @@ namespace Rwb.Luxopus.Console
             System.Console.WriteLine("-- Luxopus --");
             System.Console.WriteLine($"DOTNET_ENVIRONMENT = {Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")}");
 
+            //for(int i=0; i < 12 * 6; i++)
+            //{
+            //    DateTime t = DateTime.Today.AddMinutes(10 * i);
+            //    System.Console.WriteLine($"{i},{Scale.Apply(DateTime.Today, DateTime.Today.AddHours(12), t, 0, 100, ScaleMethod.Linear)}, {Scale.Apply(DateTime.Today, DateTime.Today.AddHours(12), t, 0, 100, ScaleMethod.Fast)}, {Scale.Apply(DateTime.Today, DateTime.Today.AddHours(12), t, 0, 100, ScaleMethod.Slow)}");
+            //}
+
             using (IHost host = Host.CreateDefaultBuilder(args)
                 .ConfigureLogging((context, cfg) =>
                 {

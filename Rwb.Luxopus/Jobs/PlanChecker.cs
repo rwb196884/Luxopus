@@ -391,8 +391,9 @@ from(bucket: ""solar"")
 
                         (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
                         ScaleMethod sm = ScaleMethod.Linear;
-                        if (prediction > _Batt.CapacityPercentToKiloWattHours(150))
+                        if (prediction > _Batt.CapacityPercentToKiloWattHours(150) || generationMax > 2500)
                         {
+                            // High prediction / good day: charge slowly.
                             sm = ScaleMethod.Slow;
                         }
                         else if (prediction < _Batt.CapacityPercentToKiloWattHours(90))
