@@ -465,6 +465,7 @@ from(bucket: ""solar"")
                         DateTime endOfCharge = gEnd < plan.Next.Start ? gEnd : plan.Next.Start;
                         double hoursToCharge = (endOfCharge - t0).TotalHours;
                         double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - battLevel);
+                        string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
 
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;
@@ -472,20 +473,19 @@ from(bucket: ""solar"")
                         {
                             extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
                             chargeLastWanted = false;
+                            double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
+                            int b = _Batt.TransferKiloWattsToPercent(kW);
+                            battChargeRateWanted = _Batt.RoundPercent(b);
+                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {100}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
                         }
                         else
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 90;
+                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {100}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} but ahead of target therefore charge last.";
                         }
 
-                        double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
-                        int b = _Batt.TransferKiloWattsToPercent(kW);
-
                         // Set the rate.
-                        battChargeRateWanted = _Batt.RoundPercent(b);
-                        string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
-                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {100}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
 
                         if (generationRecentMax < 3000 && extraPowerNeeded > 0)
                         {
@@ -521,8 +521,8 @@ from(bucket: ""solar"")
                 }
             }
 
-            // A P P L Y   S E T T I N G S
-            Apply:
+        // A P P L Y   S E T T I N G S
+        Apply:
 
             // Charge from solar.
             if (battChargeRateWanted != battChargeRate)
