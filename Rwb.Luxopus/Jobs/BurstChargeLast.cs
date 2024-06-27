@@ -248,7 +248,7 @@ from(bucket: ""solar"")
                             outEnabledWanted = true;
                             outBatteryLimitPercent = battLevelTarget - 5;
                         }
-                        actionInfo.AppendLine($"Generation peak of {generationMax} before 10AM UTC suggests that it could be a good day. Battery level {battLevel}, target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
+                        actionInfo.AppendLine($"Predicted to be a good day. Battery level {battLevel}, target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
                     }
                     else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3000 && battLevel > battLevelTarget + 2)
                     {
