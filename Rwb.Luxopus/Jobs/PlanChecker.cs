@@ -401,6 +401,9 @@ from(bucket: ""solar"")
                             sm = ScaleMethod.Fast;
                         }
 
+                        int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Fast);
+                        int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Linear);
+                        int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Slow);
                         int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, sm);
 
                         /*
@@ -446,12 +449,17 @@ from(bucket: ""solar"")
                              why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}% (expected {battLevelTarget}%).";
                          }
                          else */
-                        if (t0.Hour <= 9 /* up to 11AM BST */ && generationMax > 2100 && generationRecentMean > 1300 && generationMax > 2100 && battLevel > battLevelTarget - 5)
+                        if (t0.Hour <= 9 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 1000 )
                         {
                             // At 9am median generation is 1500.
                             battChargeRateWanted = 90;
                             chargeLastWanted = true;
-                            why = "Keep battery empty in anticipation of high generation later today.";
+                            why = $"Predicted to be a good day.  Battery level {battLevel}, target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.";
+                            if(battLevel > battLevelTarget - 5)
+                            {
+                                outEnabledWanted = true;
+                                outBatteryLimitPercent = battLevelTarget - 5;
+                            }
                             goto Apply;
                         }
                         else
@@ -465,7 +473,7 @@ from(bucket: ""solar"")
                         DateTime endOfCharge = gEnd < plan.Next.Start ? gEnd : plan.Next.Start;
                         double hoursToCharge = (endOfCharge - t0).TotalHours;
                         double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - battLevel);
-                        string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
+                        string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%))" : "";
 
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;

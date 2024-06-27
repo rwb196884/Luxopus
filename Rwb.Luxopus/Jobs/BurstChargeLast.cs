@@ -158,6 +158,9 @@ from(bucket: ""solar"")
             }
 
             //int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
+            int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Fast);
+            int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Linear);
+            int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Slow);
             int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, sm);
 
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
@@ -173,7 +176,7 @@ from(bucket: ""solar"")
                 actionInfo.AppendLine($"       Generation: {generation}W");
                 actionInfo.AppendLine($"  Inverter output: {inverterOutput}W");
                 actionInfo.AppendLine($"    Battery level: {battLevel}%");
-                actionInfo.AppendLine($"   Battery target: {battLevelTarget}%");
+                actionInfo.AppendLine($"   Battery target: {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%))");
                 if (outEnabled)
                 {
                     actionInfo.AppendLine($" Discharge target: {outBatteryLimitPercent}");
@@ -234,15 +237,18 @@ from(bucket: ""solar"")
                 else
                 {
                     // Low generation.
-                    if (t0.Hour <= 9 && generationMax > 1000 && battLevel > battLevelTarget - 5)
+                    if (t0.Hour <= 9 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 1000)
                     {
                         // It's early and it looks like it's going to be a good day.
                         // So keep the battery empty to make space for later.
-                        outEnabledWanted = true;
-                        outBatteryLimitPercentWanted = 8;
                         battChargeRateWanted = 91;
                         chargeLastWanted = true;
-                        actionInfo.AppendLine($"Generation peak of {generationMax} before 10AM UTC suggests that it could be a good day. Battery level {battLevel}, target of {battLevelTarget} therefore keep some space.");
+                        if (battLevel > battLevelTarget - 5)
+                        {
+                            outEnabledWanted = true;
+                            outBatteryLimitPercent = battLevelTarget - 5;
+                        }
+                        actionInfo.AppendLine($"Generation peak of {generationMax} before 10AM UTC suggests that it could be a good day. Battery level {battLevel}, target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
                     }
                     else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3000 && battLevel > battLevelTarget + 2)
                     {
@@ -257,7 +263,7 @@ from(bucket: ""solar"")
 
                 if (battChargeRateWanted < battChargeRate && battLevel < battLevelTarget)
                 {
-                    string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}%)" : "";
+                    string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%)))" : "";
                     actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {100}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
                     battChargeRateWanted = battChargeRate;
                 }
