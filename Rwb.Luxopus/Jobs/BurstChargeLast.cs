@@ -237,7 +237,7 @@ from(bucket: ""solar"")
                 else
                 {
                     // Low generation.
-                    if (t0.Hour <= 9 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && generationRecentMax > 1500)
+                    if (t0.Hour <= 9 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && battLevel > battLevelTarget - 13)
                     {
                         // It's early and it looks like it's going to be a good day.
                         // So keep the battery empty to make space for later.
