@@ -455,7 +455,7 @@ from(bucket: ""solar"")
                             battChargeRateWanted = 90;
                             chargeLastWanted = true;
                             why = $"Predicted to be a good day.  Battery level {battLevel}, target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.";
-                            if(battLevel > battLevelTarget - 5)
+                            if (battLevel > battLevelTarget - 5)
                             {
                                 outEnabledWanted = true;
                                 outBatteryLimitPercent = battLevelTarget - 5;
