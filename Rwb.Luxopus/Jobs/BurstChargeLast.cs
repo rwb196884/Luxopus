@@ -139,20 +139,20 @@ namespace Rwb.Luxopus.Jobs
 
             (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
 
-                long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
+            long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
   |> range(start: -45m, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")
-   ).First().Records.First().GetValue<long>();
+).First().Records.First().GetValue<long>();
 
             ScaleMethod sm = ScaleMethod.Linear;
-            if(prediction > _Batt.CapacityPercentToKiloWattHours(150) || generationMax > 2500)
+            if (prediction > _Batt.CapacityPercentToKiloWattHours(150) || generationMax > 2500)
             {
                 // High prediction / good day: charge slowly.
                 sm = ScaleMethod.Slow;
             }
-            else if(prediction < _Batt.CapacityPercentToKiloWattHours(90))
+            else if (prediction < _Batt.CapacityPercentToKiloWattHours(90))
             {
                 sm = ScaleMethod.Fast;
             }
@@ -237,7 +237,7 @@ from(bucket: ""solar"")
                 else
                 {
                     // Low generation.
-                    if (t0.Hour <= 9 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 1000)
+                    if (t0.Hour <= 9 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && generationRecentMax > 1500)
                     {
                         // It's early and it looks like it's going to be a good day.
                         // So keep the battery empty to make space for later.
@@ -258,6 +258,11 @@ from(bucket: ""solar"")
                         battChargeRateWanted = 91;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}, target of {battLevelTarget} therefore take opportunity to discharge.");
+                    }
+                    else
+                    {
+                        chargeLastWanted = false;
+                        outEnabledWanted = false;
                     }
                 }
 
