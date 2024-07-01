@@ -138,6 +138,7 @@ namespace Rwb.Luxopus.Jobs
                : DateTime.UtcNow.AddMinutes(30 - DateTime.UtcNow.Minute); // Before half past so go to half past.
 
             (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
+            prediction = prediction / 10;
 
             long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -298,6 +299,7 @@ from(bucket: ""solar"")
                 if (o)
                 {
                     await _Lux.SetBatteryDischargeToGridRateAsync(90);
+                    await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
                     actionInfo.AppendLine("Discharge to grid enabled.");
                     actionInfo.AppendLine($"SetDischargeToGridLevelAsync({outBatteryLimitPercentWanted}) was {outBatteryLimitPercent}%.");
                 }

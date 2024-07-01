@@ -331,7 +331,7 @@ namespace Rwb.Luxopus.Jobs
                             battChargeRateWanted = 100; // Use FORCE_CHARGE_LAST
                             chargeLastWanted = true;
                             outEnabledWanted = true;
-                            outBatteryLimitPercent = percentTarget;
+                            outBatteryLimitPercentWanted = percentTarget;
                             outStartWanted = currentPeriod.Start;
                             outStopWanted = plan?.Next?.Start ?? DateTime.Now.AddHours(4);
                             battDischargeToGridRateWanted = _Batt.TransferKiloWattsToPercent((_Batt.CapacityPercentToKiloWattHours(battLevel) - _Batt.CapacityPercentToKiloWattHours(percentTarget)) / h);
@@ -390,8 +390,17 @@ from(bucket: ""solar"")
                         DateTime nextPlanCheck = DateTime.UtcNow.AddMinutes(21); // Just before.
 
                         (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
+                        prediction = prediction / 10;
+                        int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Fast);
+                        int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Linear);
+                        int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Slow);
+                        
                         ScaleMethod sm = ScaleMethod.Linear;
-                        if (prediction > _Batt.CapacityPercentToKiloWattHours(150) || generationMax > 2500)
+                        if( battLevel < battLevelTargetS && generationRecentMean < 1500)
+                        {
+                            sm = ScaleMethod.Fast;
+                        }
+                        else if (prediction > _Batt.CapacityPercentToKiloWattHours(180) || generationMax > 2500)
                         {
                             // High prediction / good day: charge slowly.
                             sm = ScaleMethod.Slow;
@@ -401,9 +410,6 @@ from(bucket: ""solar"")
                             sm = ScaleMethod.Fast;
                         }
 
-                        int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Fast);
-                        int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Linear);
-                        int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Slow);
                         int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, sm);
 
                         /*
@@ -458,7 +464,7 @@ from(bucket: ""solar"")
                             if (battLevel > battLevelTarget - 5)
                             {
                                 outEnabledWanted = true;
-                                outBatteryLimitPercent = battLevelTarget - 5;
+                                outBatteryLimitPercentWanted = battLevelTarget - 5;
                             }
                             goto Apply;
                         }
@@ -564,7 +570,8 @@ from(bucket: ""solar"")
                 if (outEnabled)
                 {
                     await _Lux.SetDischargeToGridLevelAsync(100);
-                    actions.AppendLine($"SetDischargeToGridLevelAsync(100) to disable was {outBatteryLimitPercent} (enabled: {outEnabled}).");
+                    await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
+                    actions.AppendLine($"SetDischargeToGridLevelAsync(100) to disable was {outBatteryLimitPercent} (enabled: {outEnabled}) limit {outBatteryLimitPercentWanted}%.");
                 }
             }
             else
