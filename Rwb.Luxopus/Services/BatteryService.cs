@@ -22,6 +22,7 @@ namespace Rwb.Luxopus.Services
         (double powerKwh, double hours, double rateKw, int ratePercent) CalculateTransfer(int percentFrom, int percentTo, DateTime timeFrom, DateTime timeTo);
 
         int BatteryMinimumLimit { get; }
+        decimal Efficiency { get; }
     }
 
     public class BatterySettings : Settings
@@ -31,6 +32,7 @@ namespace Rwb.Luxopus.Services
         public int MaxBatteryW { get; set; } // 4000
         public int CapacityAmpHours { get; set; } // 189
         public int Voltage { get; set; } // 55
+        public int Efficiency { get; set; } // 96?!
     }
 
 
@@ -116,6 +118,14 @@ namespace Rwb.Luxopus.Services
             return 90;
         }
 
-        public int BatteryMinimumLimit {  get { return Settings.BatteryMinimumLimit; } }
+        public int BatteryMinimumLimit { get { return Settings.BatteryMinimumLimit; } }
+
+        public decimal Efficiency
+        {
+            get
+            {
+                return Convert.ToDecimal(Settings.Efficiency) / 100M;
+            }
+        }
     }
 }
