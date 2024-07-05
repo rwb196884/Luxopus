@@ -479,7 +479,7 @@ from(bucket: ""solar"")
                         DateTime endOfCharge = gEnd < plan.Next.Start ? gEnd : plan.Next.Start;
                         double hoursToCharge = (endOfCharge - t0).TotalHours;
                         double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - battLevel);
-                        string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%))" : "";
+                        string s = battLevelTarget != battLevel ? $" (prediction {prediction:0.0}kWh so battery level should be {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%))" : "";
 
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;

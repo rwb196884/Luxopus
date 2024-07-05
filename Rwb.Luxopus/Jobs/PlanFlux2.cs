@@ -234,12 +234,13 @@ namespace Rwb.Luxopus.Jobs
                         int chargeFromGrid = _Batt.BatteryMinimumLimit + battRequired;
                         notes.AppendLine($"     chargeFromGrid {_Batt.BatteryMinimumLimit + battRequired} = BatteryAbsoluteMinimum {_Batt.BatteryMinimumLimit} + battRequired {battRequired} (used)");
 
-                        if(next != null && _Batt.Efficiency * _Batt.Efficiency > p.Buy/next.Sell)
+                        if(next != null && 0.9M > p.Buy/next.Sell)
                         {
                             // 1 unit gets inverted once on the way in and again on the way out,
                             // So there's only 1 * _Batt.Efficiency * _Batt.Efficiency left.
+                            // What in import efficiency is different to export efficiency? Query for it.
                             //chargeFromGrid = 100;
-                            notes.AppendLine($"Fill your boots! Buy: {p.Buy:0.00}, Sell: {next.Sell:0.00}, quotient {100M * p.Buy / next.Sell:0}% < {100M * _Batt.Efficiency * _Batt.Efficiency:0}%.");
+                            notes.AppendLine($"Fill your boots! Buy: {p.Buy:0.00}, Sell: {next.Sell:0.00}, quotient {100M * p.Buy / next.Sell:0}% < {100M * 0.9M:0}%.");
                         }
 
                         DateTime tForecast = p.Start;

@@ -22,7 +22,6 @@ namespace Rwb.Luxopus.Services
         (double powerKwh, double hours, double rateKw, int ratePercent) CalculateTransfer(int percentFrom, int percentTo, DateTime timeFrom, DateTime timeTo);
 
         int BatteryMinimumLimit { get; }
-        decimal Efficiency { get; }
     }
 
     public class BatterySettings : Settings
@@ -119,13 +118,5 @@ namespace Rwb.Luxopus.Services
         }
 
         public int BatteryMinimumLimit { get { return Settings.BatteryMinimumLimit; } }
-
-        public decimal Efficiency
-        {
-            get
-            {
-                return Convert.ToDecimal(Settings.Efficiency) / 100M;
-            }
-        }
     }
 }
