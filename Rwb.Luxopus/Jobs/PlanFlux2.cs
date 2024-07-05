@@ -238,8 +238,8 @@ namespace Rwb.Luxopus.Jobs
                         {
                             // 1 unit gets inverted once on the way in and again on the way out,
                             // So there's only 1 * _Batt.Efficiency * _Batt.Efficiency left.
-                            chargeFromGrid = 100;
-                            notes.AppendLine($"Fill your boots! Buy: {p.Buy:0.00}, Sell: {next.Sell:0.00}, quotient {100M * p.Buy / next.Sell:0}% < {100M * _Batt.Efficiency * _Batt.Efficiency:0}.");
+                            //chargeFromGrid = 100;
+                            notes.AppendLine($"Fill your boots! Buy: {p.Buy:0.00}, Sell: {next.Sell:0.00}, quotient {100M * p.Buy / next.Sell:0}% < {100M * _Batt.Efficiency * _Batt.Efficiency:0}%.");
                         }
 
                         DateTime tForecast = p.Start;
