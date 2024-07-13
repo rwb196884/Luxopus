@@ -147,11 +147,26 @@ from(bucket: ""solar"")
   |> max()")
 ).First().Records.First().GetValue<long>();
 
+            double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
+from(bucket: ""solar"")
+  |> range(start: -45m, stop: now())
+  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+  |> mean()")
+).First().Records.First().GetValue<double>();
+
             ScaleMethod sm = ScaleMethod.Linear;
-            if (prediction > _Batt.CapacityPercentToKiloWattHours(150) || generationMax > 2500)
+            if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && generationRecentMean > 2500)
             {
                 // High prediction / good day: charge slowly.
                 sm = ScaleMethod.Slow;
+            }
+            else if (prediction < _Batt.CapacityPercentToKiloWattHours(90))
+            {
+                sm = ScaleMethod.Fast;
+            }
+            else if (generationRecentMean < 2000)
+            {
+                sm = ScaleMethod.Linear;
             }
             else if (prediction < _Batt.CapacityPercentToKiloWattHours(90))
             {
@@ -173,6 +188,11 @@ from(bucket: ""solar"")
                 int battLevel = r.Single(z => z.Name == "soc").Value.GetInt32();
                 int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
                 //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
+
+                if (battLevel < battLevelTargetS && generationRecentMean < 1500)
+                {
+                    battLevelStart = battLevelTargetF;
+                }
 
                 actionInfo.AppendLine($"       Generation: {generation}W");
                 actionInfo.AppendLine($"  Inverter output: {inverterOutput}W");

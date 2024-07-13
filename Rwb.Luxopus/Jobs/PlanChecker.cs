@@ -400,14 +400,18 @@ from(bucket: ""solar"")
                         {
                             sm = ScaleMethod.Fast;
                         }
-                        else if (prediction > _Batt.CapacityPercentToKiloWattHours(180) || generationMax > 2500)
-                        {
-                            // High prediction / good day: charge slowly.
-                            sm = ScaleMethod.Slow;
-                        }
                         else if (prediction < _Batt.CapacityPercentToKiloWattHours(90))
                         {
                             sm = ScaleMethod.Fast;
+                        }
+                        else if (generationRecentMean < 2000)
+                        {
+                            sm = ScaleMethod.Linear;
+                        }
+                        else if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && generationRecentMean > 2500)
+                        {
+                            // High prediction / good day: charge slowly.
+                            sm = ScaleMethod.Slow;
                         }
 
                         int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, sm);
