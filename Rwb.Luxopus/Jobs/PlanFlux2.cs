@@ -234,15 +234,6 @@ namespace Rwb.Luxopus.Jobs
                         int chargeFromGrid = _Batt.BatteryMinimumLimit + battRequired;
                         notes.AppendLine($"     chargeFromGrid {_Batt.BatteryMinimumLimit + battRequired} = BatteryAbsoluteMinimum {_Batt.BatteryMinimumLimit} + battRequired {battRequired} (used)");
 
-                        if(next != null && 0.9M > p.Buy/next.Sell)
-                        {
-                            // 1 unit gets inverted once on the way in and again on the way out,
-                            // So there's only 1 * _Batt.Efficiency * _Batt.Efficiency left.
-                            // What in import efficiency is different to export efficiency? Query for it.
-                            //chargeFromGrid = 100;
-                            notes.AppendLine($"Fill your boots! Buy: {p.Buy:0.00}, Sell: {next.Sell:0.00}, quotient {100M * p.Buy / next.Sell:0}% < {100M * 0.9M:0}%.");
-                        }
-
                         DateTime tForecast = p.Start;
                         if (tForecast.Hour > 12)
                         {
@@ -318,19 +309,30 @@ namespace Rwb.Luxopus.Jobs
                                 //}
                                 else
                                 {
+                                    bool buyToSell = false;
+                                    if (next != null && p.Buy / next.Sell < 0.89M)
+                                    {
+                                        // 1 unit gets inverted once on the way in and again on the way out,
+                                        // So there's only 1 * _Batt.Efficiency * _Batt.Efficiency left.
+                                        // Therefore require buy < e * e * sell, i.e., buy / sell < ee. Plus battery wear.
+                                        // What in import efficiency is different to export efficiency? Query for it.
+                                        notes.AppendLine($"Fill your boots! Buy: {p.Buy:0.00}, Sell: {next.Sell:0.00}, quotient {100M * p.Buy / next.Sell:0.0}% < {100M * 0.89M:0}%.");
+                                        buyToSell = true;
+                                    }
+
                                     double predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt);
                                     if (predictedGenerationToBatt > 90)
                                     {
                                         notes.AppendLine("     Generation prediction is high.");
-                                        if (chargeFromGrid > 21)
+                                        if (chargeFromGrid > (buyToSell ? 34 : 21))
                                         {
-                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to 21%.");
-                                            chargeFromGrid = 21;
+                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 34 : 21)}%.");
+                                            chargeFromGrid = buyToSell ? 34 : 21;
                                         }
-                                        else if(chargeFromGrid < 13)
+                                        else if(chargeFromGrid < (buyToSell ? 21 : 13))
                                         {
-                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to 13%.");
-                                            chargeFromGrid = 13;
+                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 21 : 13)}%.");
+                                            chargeFromGrid = buyToSell ? 21 : 13;
                                         }
                                     }
                                     else if (predictedGenerationToBatt < 10)
