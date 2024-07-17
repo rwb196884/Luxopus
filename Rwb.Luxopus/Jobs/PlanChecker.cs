@@ -574,7 +574,6 @@ from(bucket: ""solar"")
                 if (outEnabled)
                 {
                     await _Lux.SetDischargeToGridLevelAsync(100);
-                    await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
                     actions.AppendLine($"SetDischargeToGridLevelAsync(100) to disable was {outBatteryLimitPercent} (enabled: {outEnabled}) limit {outBatteryLimitPercentWanted}%.");
                 }
             }
