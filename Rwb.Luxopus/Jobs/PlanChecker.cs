@@ -265,8 +265,8 @@ namespace Rwb.Luxopus.Jobs
             else if (outEnabledWanted && outStartWanted <= currentPeriod.Start && outStopWanted > currentPeriod.Start && battLevel > outBatteryLimitPercentWanted)
             {
                 // Discharging to grid.
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - outBatteryLimitPercentWanted);
-                double hoursToCharge = (outStopWanted - (t0 > outStartWanted ? t0 : outStartWanted)).TotalHours;
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - currentPeriod.Action!.DischargeToGrid);
+                double hoursToCharge = ((plan.Next?.Start ?? currentPeriod.Start.AddHours(3)) - (t0 > outStartWanted ? t0 : outStartWanted)).TotalHours;
                 double kW = powerRequiredKwh / hoursToCharge;
                 int b = _Batt.TransferKiloWattsToPercent(kW);
                 b = b <= 3 ? 8 : b;
