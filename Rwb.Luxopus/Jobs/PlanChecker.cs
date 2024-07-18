@@ -127,7 +127,8 @@ namespace Rwb.Luxopus.Jobs
                 outBatteryLimitPercentWanted = runFirst.Action!.DischargeToGrid;
 
                 (IEnumerable<HalfHourPlan> run, HalfHourPlan? next) = plan.GetNextRun(runFirst, Plan.DischargeToGridCondition);
-                outStopWanted = (next?.Start ?? run.Last().Start.AddMinutes(30));
+                outStopWanted = next?.Start ?? run.Last().Start.AddMinutes(30);
+
                 // If there's more than one run in plansToCheck then there must be a gap,
                 // so in the first period in that gap the plan checker will set up for the next run.
 
