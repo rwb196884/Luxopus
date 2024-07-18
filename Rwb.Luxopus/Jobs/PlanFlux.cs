@@ -10,7 +10,8 @@ namespace Rwb.Luxopus.Jobs
     {
         Peak,
         Daytime,
-        Low
+        Low,
+        Evening
     }
 
     /// <summary>
@@ -45,6 +46,10 @@ namespace Rwb.Luxopus.Jobs
             else if (p.Start.Hour >= 15 && p.Start.Hour <= 17)
             {
                 return FluxCase.Peak;
+            }
+            else if( p.Start.Hour >= 19 && p.Start.Hour <= 23)
+            {
+                return FluxCase.Evening;
             }
             return FluxCase.Daytime;
 

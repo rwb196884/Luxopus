@@ -206,6 +206,15 @@ namespace Rwb.Luxopus.Jobs
                             //BatteryGridDischargeRate = 100,
                         };
                         break;
+                    case FluxCase.Evening:
+                        p.Action = new PeriodAction()
+                        {
+                            ChargeFromGrid = 0,
+                            DischargeToGrid = 8,
+                            //BatteryChargeRate = 75,
+                            //BatteryGridDischargeRate = 100,
+                        };
+                        break;
                     case FluxCase.Low:
                         // How much do we want?
                         next = plan.Plans.GetNext(p);
