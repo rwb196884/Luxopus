@@ -154,7 +154,7 @@ namespace Rwb.Luxopus.Jobs
                                 p.Action = new PeriodAction()
                                 {
                                     ChargeFromGrid = 0,
-                                    DischargeToGrid = Convert.ToInt32(8),
+                                    DischargeToGrid = 8,
                                 };
                                 break;
                             }
@@ -207,13 +207,28 @@ namespace Rwb.Luxopus.Jobs
                         };
                         break;
                     case FluxCase.Evening:
-                        p.Action = new PeriodAction()
+                        // Continue to discharge in BST (ish).
+                        next = plan.Plans.GetNext(p);
+                        HalfHourPlan? previous = plan.Plans.GetPrevious(p);
+                        if (p.Start.Month >= 5 && p.Start.Month <= 9
+                            && next != null && next.Buy < p.Sell 
+                            && previous != null && previous.Action != null && previous!.Action!.DischargeToGrid < 100)
                         {
-                            ChargeFromGrid = 0,
-                            DischargeToGrid = 8,
-                            //BatteryChargeRate = 75,
-                            //BatteryGridDischargeRate = 100,
-                        };
+                            p.Action = new PeriodAction()
+                            {
+                                ChargeFromGrid = 0,
+                                DischargeToGrid = previous.Action.DischargeToGrid,
+                            };
+                        }
+                        else
+                        {
+                            // Same as daytime.
+                            p.Action = new PeriodAction()
+                            {
+                                ChargeFromGrid = 0,
+                                DischargeToGrid = 100,
+                            };
+                        }
                         break;
                     case FluxCase.Low:
                         // How much do we want?
@@ -338,7 +353,7 @@ namespace Rwb.Luxopus.Jobs
                                             notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 34 : 21)}%.");
                                             chargeFromGrid = buyToSell ? 34 : 21;
                                         }
-                                        else if(chargeFromGrid < (buyToSell ? 21 : 13))
+                                        else if (chargeFromGrid < (buyToSell ? 21 : 13))
                                         {
                                             notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 21 : 13)}%.");
                                             chargeFromGrid = buyToSell ? 21 : 13;
