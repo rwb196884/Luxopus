@@ -225,7 +225,7 @@ from(bucket: ""solar"")
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                 battChargeRateNeeded = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(kW));
 
-                if (generation > 3000)
+                if (generation > 3200)
                 {
                     // Forced discharge causes clipping.
                     outEnabledWanted = false;
@@ -271,7 +271,7 @@ from(bucket: ""solar"")
                         }
                         actionInfo.AppendLine($"Predicted to be a good day. Battery level {battLevel}, target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
                     }
-                    else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3000 && battLevel > battLevelTarget + 2)
+                    else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > battLevelTarget + 2)
                     {
                         // It's gone quiet but it might get busy again: try to discharge some over-charge.
                         outBatteryLimitPercentWanted = battLevelTarget - 2;
