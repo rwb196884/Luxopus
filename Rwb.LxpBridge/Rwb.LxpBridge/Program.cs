@@ -7,6 +7,8 @@ using System.Text;
 
 // Maybe some clues at https://github.com/celsworth/lxp-packet/tree/master/lib/lxp/packet
 
+// The guy is a fucking nightmare. https://github.com/celsworth/lxp-bridge/discussions/193
+
 /* It would be nice to do something in (POSIX) sh.
 nc 192.168.0.60 8000 | stdbuf -i0 -o0 hexdump -v -e '1/1 "%.2x\n"' | while read line;
 do
@@ -34,15 +36,15 @@ namespace Rwb.LxpBridge
                             int received = s.Receive(buffer, SocketFlags.None);
                             // What was received may be more than one LUX message.
                             int from = 0;
-                            while(from < received)
+                            while (from < received)
                             {
                                 from = ProcessNextMessage(from, buffer);
                             }
-                            if(from > received)
+                            if (from > received)
                             {
                                 throw new IndexOutOfRangeException();
                             }
-                            for(int i=0; i < received; i++)
+                            for (int i = 0; i < received; i++)
                             {
                                 buffer[i] = 0;
                             }
@@ -65,6 +67,7 @@ namespace Rwb.LxpBridge
             switch (h.TcpFunction)
             {
                 case TcpFunction.Heartbeat:
+                    Console.WriteLine("Heartbeat");
                     break;
                 case TcpFunction.TraslatedData:
                     //ProcessTranslatedData(from, buffer, h);
@@ -90,7 +93,7 @@ namespace Rwb.LxpBridge
 
             public override string ToString()
             {
-                return $"{Prefix:X} / {ProtocolVersion} / L: {PacketLength} / {Address} / {TcpFunction} / {DatalogSerialNumber} ";
+                return $"{Prefix:X} / PV: {ProtocolVersion} / L: {PacketLength} / A: {Address} / TCPF: {TcpFunction} / SN: {DatalogSerialNumber}";
             }
         }
 
@@ -126,34 +129,51 @@ namespace Rwb.LxpBridge
 
             for (int i = 18; i < received; i++)
             {
-                Console.Write($"{i,5:#0} {i-6,5:#0} {buffer[from + i],5:X}");
-                if (i >= 18 && i < received - 1) { Console.Write($" {GetShort(buffer, from + i),5}"); }
+                Console.Write($"{i,5:#0} {i - 6,5:#0} {buffer[from + i],5:X}");
+                if (i == 32 || (i >= 35 && i < received - 1 && i % 2 == 1))
+                {
+                    Console.Write($" {GetShort(buffer, from + i),5}");
+                }
+                else
+                {
+                    Console.Write($" {"",5}");
+                }
 
                 int register = -1;
-                if( i >= 34 && i % 2 == 0)
+                if (i >= 35 && i % 2 == 1)
+                //if( i >= 34 && i % 2 == 0)
                 {
-                    register = r + (i - 34) / 2;
+                    //register = r + (i - 34) / 2;
+                    register = r + (i - 35) / 2;
                     Console.Write($" d{register} ");
                 }
 
-                if( i == 18)
+                if (i == 18)
                 {
                     Console.Write(" length");
                 }
-                else if(i == 20)
+                else if (i == 20)
                 {
-                    Console.Write(" device function");
+                    Console.Write(" ?");
                 }
-                else if(i == 22)
+                else if (i == 21)
+                {
+                    Console.Write(" device function (3: R-H, 4: R-I, 6: W-1, 10: W-+.");
+                }
+                else if (i == 22)
                 {
                     Console.Write(" " + ASCIIEncoding.Default.GetString(buffer, from + 22, 10));
                 }
-                else if( i == 32)
+                else if (i == 32)
                 {
-                    Console.Write(" data length"); // NO, it's the register index start: 0, 40, 80, 120.
+                    Console.Write(" start register ~~data length~~"); // NO, it's the register index start: 0, 40, 80, 120.
+                }
+                else if (i == 34)
+                {
+                    Console.Write(" ?"); 
                 }
 
-                if(register >= 0 && Registers.Key.ContainsKey(register))
+                if (register >= 0 && Registers.Key.ContainsKey(register))
                 {
                     Console.Write(" " + Registers.Key[register]);
                 }
@@ -195,7 +215,7 @@ namespace Rwb.LxpBridge
             for (int i = from + slap + 12; i < from + slap + dataLength; i += 2)
             {
                 byte r = Convert.ToByte(40 * bank + i - 14);
-                Console.WriteLine($"{i,3:#0} ({(i-20)/2,3:#0}): {GetShort(buffer, i)} {(Registers.Key.ContainsKey(r) ? Registers.Key[r] : "?")}");
+                Console.WriteLine($"{i,3:#0} ({(i - 20) / 2,3:#0}): {GetShort(buffer, i)} {(Registers.Key.ContainsKey(r) ? Registers.Key[r] : "?")}");
             }
         }
 
@@ -213,6 +233,47 @@ namespace Rwb.LxpBridge
             public byte DeviceFunction { get; set; }
             public string InverterSerialNumber { get; set; }
             public short DataLength { get; set; }
+        }
+
+        private static class Foo
+        {
+            private static byte[] RequestReadInputs = new byte[]
+            {
+0xA1, //  0: Prefix
+0x1A, //  1: Prefix
+0x02, //  2: Protocol version
+0x00, //  3: Protocol version
+0x6F, //  4: Message length (low byte) 111
+0x00, //  5: Message length (high byte)
+0x01, //  6: Address -- always 1
+0xC2, //  7: TCP function
+0x42, //  8: SN
+0x41, //  9: SN
+0x31, // 10: SN
+0x32, // 11: SN
+0x32, // 12: SN
+0x35, // 13: SN
+0x30, // 14: SN
+0x33, // 15: SN
+0x37, // 16: SN
+0x30, // 17: SN
+0x00, // 18: Length
+0x00, // 19: Length
+0x00, // 20: ?
+0x04, // 21: device function. 4 is 'read inputs'.
+
+
+
+
+
+
+
+
+
+
+
+
+            };
         }
     }
 }
