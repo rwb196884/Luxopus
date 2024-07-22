@@ -64,7 +64,7 @@ namespace Rwb.Luxopus
             AddJob(octopusPrices, $"5,34 16,17 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
             AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
             AddJob(sunPosition, "8 * * * *"); // Every 8 minutes.
-            AddJob(sunrise, "0 10 * * *"); // Every day.
+            AddJob(sunrise, "0 4 * * *"); // Every day -- before sunrise.
             AddJob(openweathermap, "0 */7 * * *"); // Every 7 hours.
             AddJob(planChecker, "1,31 * * * *"); // At the start of every half hour.
             // Make plan after getting prices and before evening peak.
