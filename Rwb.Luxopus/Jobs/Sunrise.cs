@@ -62,8 +62,8 @@ namespace Rwb.Luxopus.Jobs
         {
             string flux = $@"
 from(bucket:""{_InfluxQuery.Bucket}"")
-  |> range(start: -1y, stop: 2d)
-  |> filter(fn: (r) => r[""_measurement""] == ""sun"" and r[""_field""] == ""risen"")
+  |> range(start: -1w, stop: 2d)
+  |> filter(fn: (r) => r[""_measurement""] == ""sun"" and r[""_field""] == ""risen"" and r[""_value""] == 1)
   |> last()
 ";
             List<FluxTable> q = await _InfluxQuery.QueryAsync(flux);
