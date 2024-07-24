@@ -115,6 +115,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 settings = await _Lux.GetSettingsAsync();
             }
+            if (settings.Any(z => z.Value == "DEVICE_OFFLINE")) { return; }
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
             int battChargeRateWanted = battChargeRate; // No change.
             int battChargeRateNeeded = battChargeRate;

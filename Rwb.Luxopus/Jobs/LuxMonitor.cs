@@ -14,10 +14,10 @@ namespace Rwb.Luxopus.Jobs
         private readonly ILuxService _Lux;
         private readonly IInfluxWriterService _Influx;
 
-        public LuxMonitor(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxWriterService influx)  :base(logger)
+        public LuxMonitor(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxWriterService influx) : base(logger)
         {
-            _Lux= lux;
-            _Influx= influx;
+            _Lux = lux;
+            _Influx = influx;
         }
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
@@ -28,6 +28,11 @@ namespace Rwb.Luxopus.Jobs
             {
                 JsonElement.ObjectEnumerator r = j.RootElement.EnumerateObject();
 
+                JsonProperty st = r.SingleOrDefault(z => z.Name == "statusText");
+                if ( st.Value.ValueKind != JsonValueKind.Undefined && st.Value.GetString()  == "offline")
+                {
+                    return;
+                }
                 //DateTime t = r.Single(z => z.Name == "serverTime").GetDate().Value;
 
                 lines.Add(Measurement, "generation", r.Single(z => z.Name == "ppv").Value.GetInt32());
@@ -41,7 +46,7 @@ namespace Rwb.Luxopus.Jobs
                 lines.Add(Measurement, "consumption", r.Single(z => z.Name == "consumptionPower").Value.GetInt32());
                 //lines.Add("battery", "level", r.Single(z => z.Name == "soc").Value.GetInt32()); // Old version.
             }
-           await _Influx.WriteAsync(lines);
+            await _Influx.WriteAsync(lines);
         }
     }
 }
