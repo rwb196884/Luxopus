@@ -251,17 +251,23 @@ namespace Rwb.Luxopus.Jobs
             }
             string why = "no change";
 
-            if (inEnabledWanted && inStartWanted <= currentPeriod.Start && inStopWanted > currentPeriod.Start && battLevel < inBatteryLimitPercentWanted)
+            if (inEnabledWanted && inStartWanted <= currentPeriod.Start && inStopWanted > currentPeriod.Start)
             {
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(inBatteryLimitPercentWanted - battLevel);
-                double hoursToCharge = (inStopWanted - (t0 > inStartWanted ? t0 : inStartWanted)).TotalHours;
-                double kW = powerRequiredKwh / hoursToCharge;
-                int b = _Batt.TransferKiloWattsToPercent(kW);
-                b = b < 0 ? 10 : b;
-                battChargeFromGridRateWanted = _Batt.RoundPercent(b);
-                battChargeRateWanted = battChargeFromGridRateWanted > battChargeRateWanted ? battChargeFromGridRateWanted : battChargeRateWanted;
-                chargeLastWanted = false;
-                why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {inBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {inStopWanted:HH:mm} (mean rate {kW:0.0}kW {battChargeFromGridRateWanted}%).";
+                if (battLevel < inBatteryLimitPercentWanted)
+                {
+                    double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(inBatteryLimitPercentWanted - battLevel);
+                    double hoursToCharge = (inStopWanted - (t0 > inStartWanted ? t0 : inStartWanted)).TotalHours;
+                    double kW = powerRequiredKwh / hoursToCharge;
+                    int b = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kW));
+                    battChargeFromGridRateWanted = _Batt.RoundPercent(b);
+                    battChargeRateWanted = battChargeFromGridRateWanted > battChargeRateWanted ? battChargeFromGridRateWanted : battChargeRateWanted;
+                    chargeLastWanted = false;
+                    why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {inBatteryLimitPercentWanted}% in {hoursToCharge:0.0} hours until {inStopWanted:HH:mm} (mean rate {kW:0.0}kW {battChargeFromGridRateWanted}%).";
+                }
+                else
+                {
+                    why = $"Battery charged to {battLevel}% (wanted {inBatteryLimitPercentWanted}%). Continue to import until {inStopWanted:HH:mm}.";
+                }
             }
             else if (outEnabledWanted && outStartWanted <= currentPeriod.Start && outStopWanted > currentPeriod.Start && battLevel > outBatteryLimitPercentWanted)
             {
@@ -269,8 +275,7 @@ namespace Rwb.Luxopus.Jobs
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - currentPeriod.Action!.DischargeToGrid);
                 double hoursToCharge = ((plan.Next?.Start ?? currentPeriod.Start.AddHours(3)) - (t0 > outStartWanted ? t0 : outStartWanted)).TotalHours;
                 double kW = powerRequiredKwh / hoursToCharge;
-                int b = _Batt.TransferKiloWattsToPercent(kW);
-                b = b <= 3 ? 8 : b;
+                int b = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kW));
                 battDischargeToGridRateWanted = _Batt.RoundPercent(b);
                 battChargeRateWanted = 100; // Use FORCE_CHARGE_LAST
                 chargeLastWanted = true;
