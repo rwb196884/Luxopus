@@ -200,17 +200,6 @@ namespace Rwb.Luxopus.Jobs
                     actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}).");
                 }
             }
-            else if (battLevel >= inBatteryLimitPercentWanted)
-            {
-                // Run from the battery if possible.
-                // If inEnabled then the inverter will power the house from the grid instead of from the battery
-                // even if the battery level is greater than the cutoff.
-                if (inEnabled)
-                {
-                    await _Lux.SetChargeFromGridLevelAsync(0);
-                    actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}). The battery level is {battLevel}% and the charge limit is {inBatteryLimitPercentWanted}%.");
-                }
-            }
             else
             {
                 if (inStart.TimeOfDay != inStartWanted.TimeOfDay)
