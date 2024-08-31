@@ -210,6 +210,12 @@ from(bucket: ""solar"")
                 double hoursToCharge = (gEnd - t0).TotalHours;
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - battLevel);
 
+                // Can we get some free power?
+                // Guess at 3 units per hour.
+                double futureFree = plan.Plans.Where(z => z.Start > plan.Current.Start && z.Buy <= 0).Count() * 3;
+                powerRequiredKwh = futureFree < powerRequiredKwh ? powerRequiredKwh - futureFree : 0.5;
+                actionInfo.AppendLine($"   Free import of: {futureFree}kWh.");
+
                 // Are we behind schedule?
                 double extraPowerNeeded = 0.0;
                 if (battLevel < battLevelTarget)
@@ -230,6 +236,15 @@ from(bucket: ""solar"")
                 {
                     // Forced discharge causes clipping.
                     outEnabledWanted = false;
+
+                    // So does charge from grid.
+                    (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
+                    if(inEnabled)
+                    {
+                        // Could be plan or because of zero or negative price; it's not important why. We just want to prevent clipping.
+                        await _Lux.SetChargeFromGridLevelAsync(0);
+                        actionInfo.AppendLine($"SetChargeFromGridLevelAsync(0) was {inBatteryLimitPercent}.");
+                    }
 
                     // Generation probably not limited therefore send less to battery.
                     if (battLevel >= battLevelTarget)
@@ -285,6 +300,26 @@ from(bucket: ""solar"")
                     {
                         chargeLastWanted = false;
                         outEnabledWanted = false;
+                    }
+
+                    if(plan.Current.Buy <= 0 )
+                    {
+                        // Fill your boots.
+                        (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
+                        if( inStart != plan.Current.Start)
+                        {
+                            await _Lux.SetChargeFromGridStartAsync(plan.Current.Start);
+                        }
+                        if (inStart != plan.Next.Start)
+                        {
+                            await _Lux.SetChargeFromGridStartAsync(plan.Next.Start);
+                        }
+                        if ( !inEnabled)
+                        {
+                            await _Lux.SetChargeFromGridLevelAsync(100);
+                            await _Lux.SetBatteryChargeFromGridRateAsync(100);
+                            actionInfo.AppendLine($"SetChargeFromGridLevelAsync(0) was disabled.");
+                        }
                     }
                 }
 
