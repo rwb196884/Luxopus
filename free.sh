@@ -33,8 +33,15 @@ pAfter=$( echo "$p" | jq --arg djj "$djj" ' .Start |= $djj ' )
 r=$( cat ${planDir}/${f} | jq --argjson pNew "$pNew" --argjson pAfter "$pAfter" ' [ .Plans[], $pNew, $pAfter ] | sort_by( .Start | fromdateiso8601 ) | { Plans: . } ' )
 
 echo "$r" 
+
+echo "--- EXIT ---"
 exit 1
 
+# Replace file.
 cat "${planDir}/$f" | jq ".Plans[].Action.ChargeFromGrid |= if . > 0 then $1 else . end" > "${planDir}/${f}.tmp"
 mv "${planDir}/${f}.tmp" "${planDir}/$f"
 
+# Update influx in case a new plan is generated which supersedes this one.
+token="Hb9Hv6jvOe6RqPVZKTPArOouN5DBZ46nmRonNuTio94edn70Ayqgg5TWxKtTKuceQhnL5UKQqhgdWB4uwEwuKA=="
+dns=$( $( date date -u -d "$1" +"%s *1000000000" | bc )
+influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,tarriff=E-1R-FLUX-IMPORT-23-02-14-E prices=0.0 $dns"

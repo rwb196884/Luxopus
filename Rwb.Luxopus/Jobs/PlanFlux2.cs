@@ -345,7 +345,7 @@ namespace Rwb.Luxopus.Jobs
                                     }
 
                                     double predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt);
-                                    if (predictedGenerationToBatt > 90)
+                                    if (predictedGenerationToBatt > 200)
                                     {
                                         notes.AppendLine("     Generation prediction is high.");
                                         if (chargeFromGrid > (buyToSell ? 34 : 21))
