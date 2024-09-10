@@ -34,6 +34,8 @@ r=$( cat ${planDir}/${f} | jq --argjson pNew "$pNew" --argjson pAfter "$pAfter" 
 
 echo "$r" 
 
+echo "influx write --org mini31 --bucket solar --token <t> \"prices,fuel=electricity,tarriff=E-1R-FLUX-IMPORT-23-02-14-E prices=0.0 $( date date -u -d "$1" +"%s *1000000000" | bc )\"
+
 echo "--- EXIT ---"
 exit 1
 
@@ -43,5 +45,5 @@ mv "${planDir}/${f}.tmp" "${planDir}/$f"
 
 # Update influx in case a new plan is generated which supersedes this one.
 token="Hb9Hv6jvOe6RqPVZKTPArOouN5DBZ46nmRonNuTio94edn70Ayqgg5TWxKtTKuceQhnL5UKQqhgdWB4uwEwuKA=="
-dns=$( $( date date -u -d "$1" +"%s *1000000000" | bc )
-influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,tarriff=E-1R-FLUX-IMPORT-23-02-14-E prices=0.0 $dns"
+dns=$( date -u -d "$1" +"%s *1000000000" | bc )
+influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=buy,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=0.0 $dns"
