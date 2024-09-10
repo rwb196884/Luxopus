@@ -240,7 +240,7 @@ t1 = {stop.ToString("yyyy-MM-ddTHH:mm:ss")}Z
 
 from(bucket: ""{Settings.Bucket}"")
   |> range(start: t0, stop: t1)
-  |> filter(fn: (r) => r[""_measurement""] == ""prices"" and (r[""tariff""] == ""{importTariff}"" or r[""tariff""] == ""{exportTariff}""))
+  |> filter(fn: (r) => r[""_measurement""] == ""prices"" and (( r[""type""] == ""buy"" and r[""tariff""] == ""{importTariff}"") or (r[""type""] == ""sell"" and r[""tariff""] == ""{exportTariff}"")))
   |> keep(columns: [""_time"", ""_value"", ""type""])
   |> group(columns: [])"; // if not group then it comes out in two tables.
 

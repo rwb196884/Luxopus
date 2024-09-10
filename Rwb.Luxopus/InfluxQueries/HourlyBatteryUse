@@ -1,7 +1,7 @@
 import "date"
 
 from(bucket: "solar")
-  |> range(start: -1y, stop: now())
+  |> range(start: -3mo, stop: now())
   |> filter(fn: (r) => r["_measurement"] == "inverter")
   |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
   |> map(fn: (r) => ({

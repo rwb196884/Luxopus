@@ -55,6 +55,24 @@ namespace Rwb.Luxopus.Services
                 return new List<T>();
             }
         }
+
+        public static double FutureFreeHoursBeforeNextDischarge<T>(this IEnumerable<T> things, HalfHourPlan current) where T : HalfHourPlan
+        {
+            double h = 0;
+            T c = things.Single(z => z.Start == current.Start);
+            T? next = things.GetNext(current);
+            while (next != null)
+            {
+                if (Plan.DischargeToGridCondition(c))  { return h; }
+                if (c.Buy <= 0)
+                {
+                    h += next.Start.Subtract(c.Start).TotalHours;
+                }
+                c = next;
+                next = things.GetNext(next);
+            }
+            return h;
+        }
     }
 
     public class Plan //: IQueryable<HalfHourPlan>

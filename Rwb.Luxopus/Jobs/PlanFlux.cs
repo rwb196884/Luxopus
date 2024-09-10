@@ -11,7 +11,8 @@ namespace Rwb.Luxopus.Jobs
         Peak,
         Daytime,
         Low,
-        Evening
+        Evening,
+        Zero
     }
 
     /// <summary>
@@ -38,6 +39,8 @@ namespace Rwb.Luxopus.Jobs
             //{
             //    return FluxCase.Peak;
             //}
+
+            if(p.Buy <= 0) { return FluxCase.Zero; }
 
             if (p.Start.Hour < 4)
             {

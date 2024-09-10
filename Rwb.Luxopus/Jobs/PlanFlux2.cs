@@ -87,14 +87,14 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            DateTime t0 = DateTime.UtcNow.AddHours(-3);
+            DateTime t0 = DateTime.UtcNow.AddHours(-1); 
             //Plan? current = PlanService.Load(t0);
             StringBuilder notes = new StringBuilder();
 
             List<FluxTable> bupH = await InfluxQuery.QueryAsync(Query.HourlyBatteryUse, t0);
             BatteryUsageProfile bup = new BatteryUsageProfile(bupH);
 
-            DateTime start = t0.StartOfHalfHour().AddDays(-1);
+            DateTime start = t0.StartOfHalfHour().AddDays(-1);// Longest period is 5AM while 4PM (local).
             DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 21, 0, 0)).AddDays(1);
             TariffCode ti = await _Octopus.GetElectricityCurrentTariff(TariffType.Import, start);
             TariffCode te = await _Octopus.GetElectricityCurrentTariff(TariffType.Export, start);
@@ -307,18 +307,22 @@ namespace Rwb.Luxopus.Jobs
                                 ldb.Add("prediction", "MultivariateLinearRegression", tomorrow * 10, tForecast.AddDays(2));
                                 tomorrow = await GenerationPredictionFromMultivariateLinearRegression(tForecast.AddDays(3));
                                 ldb.Add("prediction", "MultivariateLinearRegression", tomorrow * 10, tForecast.AddDays(3));
-
                                 await _InfluxWriter.WriteAsync(ldb);
 
                                 // Back to today...
                                 double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
                                 powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, peak.Start.Hour);
                                 battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
-
                                 notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kW ({battPrediction:0}%).");
                                 notes.AppendLine($"     Predicted        use of {powerRequired:0.0}kW ({battRequired:0}%).");
 
-                                double powerAvailableForBatt = generationPrediction - powerRequired;
+                                double freeKw = plan.Plans.FutureFreeHoursBeforeNextDischarge(p) * 3.2;
+                                if(freeKw > 0 )
+                                {
+                                    notes.AppendLine($"    Free: {freeKw:0.0}kW.");
+                                }
+
+                                double powerAvailableForBatt = generationPrediction - powerRequired + freeKw;
 
                                 if (powerAvailableForBatt < 0)
                                 {
@@ -386,6 +390,15 @@ namespace Rwb.Luxopus.Jobs
                         p.Action = new PeriodAction()
                         {
                             ChargeFromGrid = Convert.ToInt32(chargeFromGrid),
+                            DischargeToGrid = 100,
+                            //BatteryChargeRate = 100,
+                            //BatteryGridDischargeRate = 0,
+                        };
+                        break;
+                    case FluxCase.Zero:
+                        p.Action = new PeriodAction()
+                        {
+                            ChargeFromGrid = 100,
                             DischargeToGrid = 100,
                             //BatteryChargeRate = 100,
                             //BatteryGridDischargeRate = 0,

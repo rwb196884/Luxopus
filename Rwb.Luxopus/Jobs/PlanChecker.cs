@@ -111,8 +111,9 @@ namespace Rwb.Luxopus.Jobs
             int battDischargeToGridRate = _Lux.GetBatteryDischargeToGridRate(settings);
             bool chargeLast = _Lux.GetChargeLast(settings);
             bool chargeLastWanted = chargeLast;
+            int battChargeRateWanted = battChargeRate; // No change.
 
-            // Discharge to grid.
+            // Discharge to grid.//////////////////////////////////////////////
             (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDischargeToGrid(settings);
             bool outEnabledWanted = outEnabled;
             DateTime outStartWanted = outStart;
@@ -162,9 +163,11 @@ namespace Rwb.Luxopus.Jobs
                 {
                     actions.AppendLine($"DischargeToGridLevel not overridden because house not occupied query failed: ${e.Message}.");
                 }
+
+                //goto Apply;
             }
 
-            // Charge from grid.
+            // Charge from grid.///////////////////////////////////////////////
             (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
             bool inEnabledWanted = inEnabled;
             DateTime inStartWanted = inStart;
@@ -191,16 +194,14 @@ namespace Rwb.Luxopus.Jobs
             }
 
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
-
-            if (!inEnabledWanted)
+            int battLevelEnd = 100;
+            if ((plan.Next?.Buy ?? 1) <= 0)
             {
-                if (inEnabled)
-                {
-                    await _Lux.SetChargeFromGridLevelAsync(0);
-                    actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}).");
-                }
+                battLevelEnd -= _Batt.CapacityKiloWattHoursToPercent(plan.Plans.FutureFreeHoursBeforeNextDischarge(currentPeriod) * 3.2);
+                battLevelEnd = battLevelEnd < battLevel ? battLevel : battLevelEnd;
             }
-            else
+
+            if (inEnabledWanted)
             {
                 if (inStart.TimeOfDay != inStartWanted.TimeOfDay)
                 {
@@ -220,9 +221,16 @@ namespace Rwb.Luxopus.Jobs
                     actions.AppendLine($"SetChargeFromGridLevelAsync({inBatteryLimitPercentWanted}) was {inBatteryLimitPercent} (enabled: {inEnabledWanted} was {inEnabled}).");
                 }
             }
+            else
+            {
+                if (inEnabled)
+                {
+                    await _Lux.SetChargeFromGridLevelAsync(0);
+                    actions.AppendLine($"SetChargeFromGridLevelAsync(0) to disable was {inBatteryLimitPercent} (enabled: {inEnabled}).");
+                }
+            }
 
-            // Batt charge.
-            int battChargeRateWanted = battChargeRate; // No change.
+            // Batt charge. ///////////////////////////////////////////////////
             DateTime sunrise = DateTime.Today.AddHours(9); // TODO: Move to configuration.
             DateTime sunset = DateTime.Today.AddHours(16);
             DateTime gStart = sunrise;
@@ -352,9 +360,9 @@ from(bucket: ""solar"")
 
                     (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
                     prediction = prediction / 10;
-                    int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Fast);
-                    int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Linear);
-                    int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Slow);
+                    int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Fast);
+                    int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Linear);
+                    int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Slow);
 
                     ScaleMethod sm = ScaleMethod.Linear;
                     if (battLevel < battLevelTargetS && generationRecentMean < 1500)
@@ -375,7 +383,7 @@ from(bucket: ""solar"")
                         sm = ScaleMethod.Slow;
                     }
 
-                    int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, sm);
+                    int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, sm);
 
                     /*
                      if (generationMax > 2000
@@ -443,7 +451,7 @@ from(bucket: ""solar"")
 
                     DateTime endOfCharge = gEnd < plan.Next.Start ? gEnd : plan.Next.Start;
                     double hoursToCharge = (endOfCharge - t0).TotalHours;
-                    double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - battLevel);
+                    double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd - battLevel);
                     string s = battLevelTarget != battLevel ? $" (prediction {prediction:0.0}kWh so battery level should be {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%))" : "";
 
                     // Are we behind schedule?
@@ -455,13 +463,13 @@ from(bucket: ""solar"")
                         double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                         int b = _Batt.TransferKiloWattsToPercent(kW);
                         battChargeRateWanted = _Batt.RoundPercent(b);
-                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {100}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
                     }
                     else
                     {
                         chargeLastWanted = true;
                         battChargeRateWanted = 90;
-                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {100}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} but ahead of target therefore charge last.";
+                        why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} but ahead of target therefore charge last.";
                     }
 
                     // Set the rate.
@@ -493,7 +501,7 @@ from(bucket: ""solar"")
                 else
                 {
                     // No plan. Set defaults.
-                    battChargeRateWanted = 50;
+                    battChargeRateWanted = 71;
                     chargeLastWanted = false;
                     why = $"No information.";
                 }

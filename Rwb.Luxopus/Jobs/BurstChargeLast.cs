@@ -174,11 +174,6 @@ from(bucket: ""solar"")
                 sm = ScaleMethod.Fast;
             }
 
-            //int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
-            int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Fast);
-            int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Linear);
-            int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, ScaleMethod.Slow);
-            int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, 100, sm);
 
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {
@@ -189,6 +184,19 @@ from(bucket: ""solar"")
                 int battLevel = r.Single(z => z.Name == "soc").Value.GetInt32();
                 int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
                 //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
+
+                int battLevelEnd = 100;
+                if (plan.Next.Buy <= 0)
+                {
+                    battLevelEnd -= _Batt.CapacityKiloWattHoursToPercent(plan.Plans.FutureFreeHoursBeforeNextDischarge(currentPeriod) * 3.2);
+                    battLevelEnd = battLevelEnd < battLevel ? battLevel : battLevelEnd;
+                }
+
+                //int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
+                int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Fast);
+                int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Linear);
+                int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Slow);
+                int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, sm);
 
                 if (battLevel < battLevelTargetS && generationRecentMean < 1500)
                 {
@@ -207,14 +215,8 @@ from(bucket: ""solar"")
                 actionInfo.AppendLine($"Discharge to grid: {(outEnabled ? "yes" : "no")}");
 
                 // Plan A
-                double hoursToCharge = (gEnd - t0).TotalHours;
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - battLevel);
-
-                // Can we get some free power?
-                // Guess at 3 units per hour.
-                double futureFree = plan.Plans.Where(z => z.Start > plan.Current.Start && z.Buy <= 0).Count() * 3;
-                powerRequiredKwh = futureFree < powerRequiredKwh ? powerRequiredKwh - futureFree : 0.5;
-                actionInfo.AppendLine($"   Free import of: {futureFree}kWh.");
+                double hoursToCharge = ((gEnd < plan.Next.Start ? gEnd : plan.Next.Start) - t0).TotalHours;
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd - battLevel);
 
                 // Are we behind schedule?
                 double extraPowerNeeded = 0.0;
@@ -239,7 +241,7 @@ from(bucket: ""solar"")
 
                     // So does charge from grid.
                     (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
-                    if(inEnabled)
+                    if (inEnabled)
                     {
                         // Could be plan or because of zero or negative price; it's not important why. We just want to prevent clipping.
                         await _Lux.SetChargeFromGridLevelAsync(0);
@@ -302,11 +304,11 @@ from(bucket: ""solar"")
                         outEnabledWanted = false;
                     }
 
-                    if(plan.Current.Buy <= 0 )
+                    if (plan.Current.Buy <= 0)
                     {
                         // Fill your boots.
                         (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
-                        if( inStart != plan.Current.Start)
+                        if (inStart != plan.Current.Start)
                         {
                             await _Lux.SetChargeFromGridStartAsync(plan.Current.Start);
                         }
@@ -314,7 +316,7 @@ from(bucket: ""solar"")
                         {
                             await _Lux.SetChargeFromGridStartAsync(plan.Next.Start);
                         }
-                        if ( !inEnabled)
+                        if (!inEnabled)
                         {
                             await _Lux.SetChargeFromGridLevelAsync(100);
                             await _Lux.SetBatteryChargeFromGridRateAsync(100);
