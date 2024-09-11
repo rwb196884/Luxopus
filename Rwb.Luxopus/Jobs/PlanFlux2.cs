@@ -372,6 +372,7 @@ namespace Rwb.Luxopus.Jobs
                                     {
                                         notes.AppendLine($"     Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
                                         chargeFromGrid = 100 - Convert.ToInt32(predictedGenerationToBatt);
+                                        chargeFromGrid = chargeFromGrid < 13 ? 13 : chargeFromGrid;
                                         notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}%.");
                                         if (chargeFromGrid > 89)
                                         {
