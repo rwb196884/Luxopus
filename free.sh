@@ -25,25 +25,42 @@ echo "dj is $dj"
 echo "djj is $djj"
 
 # Find the last entry where .Start is before d and slap it about.
-p=$( cat ${planDir}/${f} | jq --arg d "$d" '[ .Plans[] | select ( .Start | fromdateiso8601 < $d ) ] | last ' )
+p=$( cat ${planDir}/${f} | jq --arg dj "$dj" '[ .Plans[] | select ( .Start | fromdateiso8601 < $dj ) ] | last ' )
+
+if [ -z "$p" ]; then
+	echo "No plan found."
+	exit 1
+fi
+
 #pNew=$( echo "$p" | jq  --arg dj "$dj" ' .Start |= $dj | .Buy |= 0 | .Action.ChargeFromGrid |= 100 | .Action.DischargeToGrid |= 100 | .New |= "NEW" ' )
 pNew=$( echo "$p" | jq  --arg dj "$dj" ' .Start |= $dj | .Buy |= 0 ' )
 pAfter=$( echo "$p" | jq --arg djj "$djj" ' .Start |= $djj ' )
 
 r=$( cat ${planDir}/${f} | jq --argjson pNew "$pNew" --argjson pAfter "$pAfter" ' [ .Plans[], $pNew, $pAfter ] | sort_by( .Start | fromdateiso8601 ) | { Plans: . } ' )
 
-echo "$r" 
+#echo "$r" 
 
-echo "influx write --org mini31 --bucket solar --token <t> \"prices,fuel=electricity,tarriff=E-1R-FLUX-IMPORT-23-02-14-E prices=0.0 $( date date -u -d "$1" +"%s *1000000000" | bc )\"
-
-echo "--- EXIT ---"
-exit 1
+#echo "--- EXIT ---"
+#exit 1
 
 # Replace file.
-cat "${planDir}/$f" | jq ".Plans[].Action.ChargeFromGrid |= if . > 0 then $1 else . end" > "${planDir}/${f}.tmp"
+echo "$r" > "${planDir}/${f}.tmp"
 mv "${planDir}/${f}.tmp" "${planDir}/$f"
 
 # Update influx in case a new plan is generated which supersedes this one.
 token="Hb9Hv6jvOe6RqPVZKTPArOouN5DBZ46nmRonNuTio94edn70Ayqgg5TWxKtTKuceQhnL5UKQqhgdWB4uwEwuKA=="
-dns=$( date -u -d "$1" +"%s *1000000000" | bc )
-influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=buy,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=0.0 $dns"
+
+djns=$( date -u -d "$dj" +"%s *1000000000" | bc )
+
+influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=buy,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=0.0 $djns"
+
+pSell=$( echo "$p" | jq -r '.Sell' )
+influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=sell,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=$pSell $djns"
+
+djjns=$( date -u -d "$djj" +"%s *1000000000" | bc )
+
+pBuy=$(  echo "$pAfter" | jq -r '.Buy' )
+influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=buy,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=$pBuy $djjns"
+
+influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=sell,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=$pSell $djjns"
+
