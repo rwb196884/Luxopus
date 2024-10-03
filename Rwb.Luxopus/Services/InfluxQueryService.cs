@@ -168,7 +168,9 @@ namespace Rwb.Luxopus.Services
         PredictionData2,
 
         GenerationMedianLastHour,
-        PredictionToday
+        PredictionToday,
+
+        GenerationMedianForMonth
     }
 
     public class InfluxQueryService : InfluxService, IInfluxQueryService, IDisposable

@@ -311,9 +311,17 @@ namespace Rwb.Luxopus.Jobs
 
                                 // Back to today...
                                 double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
+                                notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%).");
+                                double generationMedianForMonth = (double)(await InfluxQuery.QueryAsync(Query.GenerationMedianForMonth, DateTime.UtcNow)).Single().Records[0].Values["_value"];
+                                generationMedianForMonth = generationMedianForMonth / 10.0;
+                                if (generationPrediction > generationMedianForMonth)
+                                {
+                                    generationPrediction = (generationPrediction + generationMedianForMonth) / 2.0;
+                                    battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
+                                    notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%) adjusted towards monthly median of {generationMedianForMonth}kWH.");
+                                }
                                 powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, peak.Start.Hour);
                                 battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
-                                notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kW ({battPrediction:0}%).");
                                 notes.AppendLine($"     Predicted        use of {powerRequired:0.0}kW ({battRequired:0}%).");
 
                                 double freeKw = plan.Plans.FutureFreeHoursBeforeNextDischarge(p) * 3.2;

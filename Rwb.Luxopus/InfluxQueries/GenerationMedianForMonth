@@ -1,0 +1,11 @@
+import "date"
+
+from(bucket: "solar")
+  |> range(start: -10y, stop: today())
+  |> filter(fn: (r) => true
+    and date.month(t: r["_time"]) == date.month(t: today())
+    and r["_measurement"] == "daily" 
+    and r["_field"] == "generation"
+  )
+  |> group(columns: [])
+  |> median()
