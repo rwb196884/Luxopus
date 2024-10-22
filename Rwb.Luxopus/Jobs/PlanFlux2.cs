@@ -87,7 +87,7 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            DateTime t0 = DateTime.UtcNow.AddHours(-1); 
+            DateTime t0 = DateTime.UtcNow.AddHours(-1);
             //Plan? current = PlanService.Load(t0);
             StringBuilder notes = new StringBuilder();
 
@@ -211,7 +211,7 @@ namespace Rwb.Luxopus.Jobs
                         next = plan.Plans.GetNext(p);
                         HalfHourPlan? previous = plan.Plans.GetPrevious(p);
                         if (p.Start.Month >= 5 && p.Start.Month <= 9
-                            && next != null && next.Buy < p.Sell 
+                            && next != null && next.Buy < p.Sell
                             && previous != null && previous.Action != null && previous!.Action!.DischargeToGrid < 100)
                         {
                             p.Action = new PeriodAction()
@@ -325,36 +325,33 @@ namespace Rwb.Luxopus.Jobs
                                 notes.AppendLine($"     Predicted        use of {powerRequired:0.0}kW ({battRequired:0}%).");
 
                                 double freeKw = plan.Plans.FutureFreeHoursBeforeNextDischarge(p) * 3.2;
-                                if(freeKw > 0 )
+                                if (freeKw > 0)
                                 {
                                     notes.AppendLine($"    Free: {freeKw:0.0}kW.");
                                 }
 
                                 double powerAvailableForBatt = generationPrediction - powerRequired + freeKw;
 
-                                if (powerAvailableForBatt < 0)
+                                bool buyToSell = false;
+                                if (next != null && p.Buy / next.Sell < 0.89M)
                                 {
-                                    // Not enough generation. Charge to 89%.
-                                    notes.AppendLine("     Generation prediction is very low ({powerAvailableForBatt:#,##0}kWh): charge to 89%.");
-                                    chargeFromGrid = 89;
+                                    // 1 unit gets inverted once on the way in and again on the way out,
+                                    // So there's only 1 * _Batt.Efficiency * _Batt.Efficiency left.
+                                    // Therefore require buy < e * e * sell, i.e., buy / sell < ee. Plus battery wear.
+                                    // What in import efficiency is different to export efficiency? Query for it.
+                                    notes.AppendLine($"Fill your boots! Buy: {p.Buy:0.00}, Sell: {next.Sell:0.00}, quotient {100M * p.Buy / next.Sell:0.0}% < {100M * 0.89M:0}%.");
+                                    buyToSell = true;
                                 }
-                                //else if(burstPrediction < 3000 && chargeFromGrid < 66)
-                                //{
-                                //    notes.AppendLine($"     Burst prediction is low ({burstPrediction:#,##0}kW): charge to 89%.");
-                                //    chargeFromGrid = 89;
-                                //}
-                                else
+
+                                bool buyToSellAtPeak = false;
+                                if (peak != null && next != null && (peak.Sell - p.Buy) > next.Sell)
                                 {
-                                    bool buyToSell = false;
-                                    if (next != null && p.Buy / next.Sell < 0.89M)
-                                    {
-                                        // 1 unit gets inverted once on the way in and again on the way out,
-                                        // So there's only 1 * _Batt.Efficiency * _Batt.Efficiency left.
-                                        // Therefore require buy < e * e * sell, i.e., buy / sell < ee. Plus battery wear.
-                                        // What in import efficiency is different to export efficiency? Query for it.
-                                        notes.AppendLine($"Fill your boots! Buy: {p.Buy:0.00}, Sell: {next.Sell:0.00}, quotient {100M * p.Buy / next.Sell:0.0}% < {100M * 0.89M:0}%.");
-                                        buyToSell = true;
-                                    }
+                                    buyToSellAtPeak = true;
+                                    notes.AppendLine($"     peak sell {peak.Sell} - buy now {p.Buy} = {peak.Sell = p.Buy} >= sell next {next.Sell} therefore do not buy to sell at peak.");
+                                }
+
+                                if (powerAvailableForBatt > 0 && (buyToSell || buyToSellAtPeak))
+                                {
 
                                     double predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt);
                                     if (predictedGenerationToBatt > 200)
@@ -388,6 +385,11 @@ namespace Rwb.Luxopus.Jobs
                                             chargeFromGrid = 89;
                                         }
                                     }
+                                }
+                                else
+                                {
+                                    notes.AppendLine("     Generation prediction is very low ({powerAvailableForBatt:#,##0}kWh): charge to 89%.");
+                                    chargeFromGrid = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(powerRequired));
                                 }
                             }
                         }
