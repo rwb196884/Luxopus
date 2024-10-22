@@ -347,13 +347,16 @@ namespace Rwb.Luxopus.Jobs
                                 if (peak != null && next != null && (peak.Sell - p.Buy) > next.Sell)
                                 {
                                     buyToSellAtPeak = true;
-                                    notes.AppendLine($"     peak sell {peak.Sell} - buy now {p.Buy} = {peak.Sell = p.Buy} >= sell next {next.Sell} therefore do not buy to sell at peak.");
+                                    notes.AppendLine($"     peak sell {peak.Sell} - buy now {p.Buy} = {peak.Sell - p.Buy} >= sell next {next.Sell} therefore buy to sell at peak.");
+                                }
+                                else
+                                {
+                                    notes.AppendLine($"     peak sell {peak?.Sell ?? -1} - buy now {p.Buy} = {(peak?.Sell ?? 0) - (p.Buy)} < sell next {next?.Sell ?? -1} therefore do not buy to sell at peak.");
                                 }
 
-                                if (powerAvailableForBatt > 0 && (buyToSell || buyToSellAtPeak))
+                                if (buyToSell || buyToSellAtPeak)
                                 {
-
-                                    double predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt);
+                                    double predictedGenerationToBatt = powerAvailableForBatt > 0 ? _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt) : 0;
                                     if (predictedGenerationToBatt > 200)
                                     {
                                         notes.AppendLine("     Generation prediction is high.");
@@ -388,8 +391,16 @@ namespace Rwb.Luxopus.Jobs
                                 }
                                 else
                                 {
-                                    notes.AppendLine("     Generation prediction is very low ({powerAvailableForBatt:#,##0}kWh): charge to 89%.");
                                     chargeFromGrid = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(powerRequired));
+                                    if (generationPrediction > powerRequired)
+                                    {
+                                        chargeFromGrid = 13;
+                                    }
+                                    else
+                                    {
+                                        chargeFromGrid = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(powerRequired));
+                                    }
+                                    notes.AppendLine($"     Not economic to buy. Estimated generation to battery ({powerAvailableForBatt:#,##0}kWh).Charge to {chargeFromGrid}%.");
                                 }
                             }
                         }
