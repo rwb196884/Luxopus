@@ -352,55 +352,46 @@ namespace Rwb.Luxopus.Jobs
                                 else
                                 {
                                     notes.AppendLine($"     peak sell {peak?.Sell ?? -1} - buy now {p.Buy} = {(peak?.Sell ?? 0) - (p.Buy)} < sell next {next?.Sell ?? -1} therefore do not buy to sell at peak.");
+                                    // Make sure that all solar goes to battery.
+                                    // Therefore be cautious about how much to buy.
                                 }
 
-                                if (buyToSell || buyToSellAtPeak)
+                                double predictedGenerationToBatt = powerAvailableForBatt > 0 ? _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt) : 0;
+                                if (predictedGenerationToBatt > 200)
                                 {
-                                    double predictedGenerationToBatt = powerAvailableForBatt > 0 ? _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt) : 0;
-                                    if (predictedGenerationToBatt > 200)
+                                    notes.AppendLine("     Generation prediction is high.");
+                                    if (chargeFromGrid > (buyToSell ? 34 : 21))
                                     {
-                                        notes.AppendLine("     Generation prediction is high.");
-                                        if (chargeFromGrid > (buyToSell ? 34 : 21))
-                                        {
-                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 34 : 21)}%.");
-                                            chargeFromGrid = buyToSell ? 34 : 21;
-                                        }
-                                        else if (chargeFromGrid < (buyToSell ? 21 : 13))
-                                        {
-                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 21 : 13)}%.");
-                                            chargeFromGrid = buyToSell ? 21 : 13;
-                                        }
+                                        notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 34 : 21)}%.");
+                                        chargeFromGrid = buyToSell ? 34 : 21;
                                     }
-                                    else if (predictedGenerationToBatt < 10)
+                                    else if (chargeFromGrid < (buyToSell ? 21 : 13))
                                     {
-                                        notes.AppendLine("     Generation prediction is low: charge to 90%. ");
-                                        chargeFromGrid = 89;
+                                        notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 21 : 13)}%.");
+                                        chargeFromGrid = buyToSell ? 21 : 13;
                                     }
-                                    else
-                                    {
-                                        notes.AppendLine($"     Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
-                                        chargeFromGrid = 100 - Convert.ToInt32(predictedGenerationToBatt);
-                                        chargeFromGrid = chargeFromGrid < 13 ? 13 : chargeFromGrid;
-                                        notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}%.");
-                                        if (chargeFromGrid > 89)
-                                        {
-                                            notes.AppendLine($"     chargeFromGrid limited to 89%.");
-                                            chargeFromGrid = 89;
-                                        }
-                                    }
+                                }
+                                else if (predictedGenerationToBatt < 10)
+                                {
+                                    notes.AppendLine("     Generation prediction is low: charge to 90%. ");
+                                    chargeFromGrid = 89;
                                 }
                                 else
                                 {
-                                    chargeFromGrid = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(powerRequired));
-                                    if (generationPrediction > powerRequired)
+                                    notes.AppendLine($"     Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
+                                    chargeFromGrid = 100 - Convert.ToInt32(predictedGenerationToBatt);
+                                    chargeFromGrid = chargeFromGrid < 13 ? 13 : chargeFromGrid;
+                                    if (!buyToSellAtPeak && chargeFromGrid > 55)
                                     {
-                                        chargeFromGrid = 13;
+                                        notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}% reduced to 55% because all generation must go to battery.");
+                                        chargeFromGrid = 55;
                                     }
-                                    else
+                                    notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}%.");
+                                    if (chargeFromGrid > 89)
                                     {
-                                        chargeFromGrid = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(powerRequired));
+                                        notes.AppendLine($"     chargeFromGrid limited to 89%.");
+                                        chargeFromGrid = 89;
                                     }
-                                    notes.AppendLine($"     Not economic to buy. Estimated generation to battery ({powerAvailableForBatt:#,##0}kWh).Charge to {chargeFromGrid}%.");
                                 }
                             }
                         }
