@@ -63,7 +63,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     Logger.LogInformation($"No prices need getting from {from:yyyy-MM-dd HH:mm} to {to:yyyy-MM-dd HH:mm}.");
                     // No prices need getting.
-                    return;
+                    continue;
                 }
 
                 IEnumerable<Price> prices = (await _Octopus.GetElectricityPrices(p, t, from, to)).Where(z => z.ValidFrom >= from /* UTC fuckery */);
