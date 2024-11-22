@@ -61,7 +61,7 @@ namespace Rwb.Luxopus.Jobs
 
                 if( from >= to || from.Date > DateTime.Now.Date)
                 {
-                    Logger.LogInformation($"No prices need getting from {from:yyyy-MM-dd HH:mm} to {to:yyyy-MM-dd HH:mm}.");
+                    Logger.LogInformation($"No prices need getting for ${t} from {from:yyyy-MM-dd HH:mm} to {to:yyyy-MM-dd HH:mm}.");
                     // No prices need getting.
                     continue;
                 }
