@@ -61,7 +61,7 @@ namespace Rwb.Luxopus.Jobs
 
                 if( from >= to || from.Date > DateTime.Now.Date)
                 {
-                    Logger.LogInformation($"No prices need getting for ${t} from {from:yyyy-MM-dd HH:mm} to {to:yyyy-MM-dd HH:mm}.");
+                    Logger.LogInformation($"No prices need getting for {t} from {from:yyyy-MM-dd HH:mm} to {to:yyyy-MM-dd HH:mm}.");
                     // No prices need getting.
                     continue;
                 }
@@ -150,6 +150,7 @@ namespace Rwb.Luxopus.Jobs
 from(bucket:""{_InfluxQuery.Bucket}"")
   |> range(start: -1y, stop: 2d)
   |> filter(fn: (r) => r[""_measurement""] == ""prices"" and r[""tariff""] == ""{tariffCode}"")
+  |> group(columns: [""tariff""])
   |> last()
 ";
             List<FluxTable> q = await _InfluxQuery.QueryAsync(flux);
