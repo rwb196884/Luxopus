@@ -303,7 +303,7 @@ namespace Rwb.Luxopus.Jobs
                                 // Do some future predictions too.
                                 double tomorrow = await GenerationPredictionFromMultivariateLinearRegression(tForecast.AddDays(1));
                                 ldb.Add("prediction", "MultivariateLinearRegression", tomorrow * 10, tForecast.AddDays(1));
-                                tomorrow = await GenerationPredictionFromMultivariateLinearRegression(tForecast.AddDays(3));
+                                tomorrow = await GenerationPredictionFromMultivariateLinearRegression(tForecast.AddDays(2));
                                 ldb.Add("prediction", "MultivariateLinearRegression", tomorrow * 10, tForecast.AddDays(2));
                                 tomorrow = await GenerationPredictionFromMultivariateLinearRegression(tForecast.AddDays(3));
                                 ldb.Add("prediction", "MultivariateLinearRegression", tomorrow * 10, tForecast.AddDays(3));
