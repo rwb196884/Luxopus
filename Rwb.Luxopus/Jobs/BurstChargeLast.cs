@@ -276,7 +276,7 @@ from(bucket: ""solar"")
                 else
                 {
                     // Low generation.
-                    if (t0.Hour <= 9 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && battLevel > battLevelTarget - 8)
+                    if (t0.Hour <= 9 /* up to 11AM BST && sm == ScaleMethod.Slow */ && generationMax > 1000 && battLevel > battLevelTarget - 8)
                     {
                         // It's early and it looks like it's going to be a good day.
                         // So keep the battery empty to make space for later.
@@ -287,7 +287,7 @@ from(bucket: ""solar"")
                             outEnabledWanted = true;
                             outBatteryLimitPercentWanted = battLevelTarget - 5;
                         }
-                        actionInfo.AppendLine($"Predicted to be a good day. Battery level {battLevel}, target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
+                        actionInfo.AppendLine($"Looks like it could be a good day. Battery level {battLevel}, target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
                     }
                     else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > battLevelTarget + 2)
                     {
