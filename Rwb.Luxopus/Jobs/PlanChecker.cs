@@ -428,7 +428,14 @@ from(bucket: ""solar"")
                          why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}% (expected {battLevelTarget}%).";
                      }
                      else */
-                    if (t0.Hour <= 9 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && battLevel > battLevelTarget - 13)
+                    if (DateTime.Now.Hour != 8 && sm == ScaleMethod.Slow & battLevel >= 8)
+                    {
+                        chargeLastWanted = true;
+                        battChargeRateWanted = 90;
+                        why += "Predicted to be a good day therefore charge last before 9am.";
+                        goto Apply;
+                    }
+                    else if (t0.Hour <= 9 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && battLevel > battLevelTarget - 13)
                     {
                         // At 9am median generation is 1500.
                         battChargeRateWanted = 90;
