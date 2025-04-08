@@ -227,11 +227,21 @@ namespace Rwb.Luxopus.Services
 
         public async Task<IEnumerable<Price>> GetElectricityPrices(string product, string tariff, DateTime from, DateTime to)
         {
+            //using (HttpClient httpClient = GetHttpClient())
+            //{
+            //    HttpResponseMessage response = await httpClient.GetAsync($"/v1/products?brand=OCTOPUS_ENERGY");
+            //    string? json = await response.Content.ReadAsStringAsync();
+            //}
+            //using (HttpClient httpClient = GetHttpClient())
+            //{
+            //    HttpResponseMessage response = await httpClient.GetAsync($"/v1/products/AGILE-24-10-01/");
+            //    string? json = await response.Content.ReadAsStringAsync();
+            //}
+
             List<Price> prices = new List<Price>();
             if (to <= from) { return prices; }
             using (HttpClient httpClient = GetHttpClient())
             {
-
                 HttpResponseMessage response = await httpClient.GetAsync($"/v1/products/{product}/electricity-tariffs/{tariff}/standard-unit-rates/?period_from={from.ToString(DateFormat)}Z&period_to={to.ToString(DateFormat)}Z");
                 response.EnsureSuccessStatusCode();
                 string? json = await response.Content.ReadAsStringAsync();
