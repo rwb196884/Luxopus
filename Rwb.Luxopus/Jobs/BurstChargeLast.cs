@@ -234,7 +234,13 @@ from(bucket: ""solar"")
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                 battChargeRateNeeded = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(kW));
 
-                if (generation > 3200)
+                if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 1300) && battLevel >= 9)
+                {
+                    chargeLastWanted = true;
+                    battChargeRateWanted = 90;
+                    actionInfo.AppendLine("Predicted to be a good day therefore charge last before 9am.");
+                }
+                else if (generation > 3200)
                 {
                     // Forced discharge causes clipping.
                     outEnabledWanted = false;
