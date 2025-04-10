@@ -428,7 +428,7 @@ from(bucket: ""solar"")
                          why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}% (expected {battLevelTarget}%).";
                      }
                      else */
-                    if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 1300 ) && battLevel >= 9)
+                    if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800 ) && battLevel >= 9)
                     {
                         chargeLastWanted = true;
                         battChargeRateWanted = 90;
