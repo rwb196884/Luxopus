@@ -61,6 +61,8 @@ namespace Rwb.Luxopus.Services
 
         int KwhToBatt(int kWh);
         int BattToKwh(int batt);
+
+        Task<(double today, double tomorrow)> Forecast();
     }
 
     public class LuxService : Service<LuxSettings>, ILuxService, IDisposable
@@ -113,7 +115,8 @@ namespace Rwb.Luxopus.Services
                 Logger.LogError($"Ignoring invlaid SSL certificate for {cert.Subject}");
                 return true;
             };
-            _Client = new HttpClient(_Handler) { 
+            _Client = new HttpClient(_Handler)
+            {
                 BaseAddress = new Uri(Settings.BaseAddress),
                 Timeout = TimeSpan.FromSeconds(15)
             };
@@ -179,9 +182,9 @@ namespace Rwb.Luxopus.Services
                         break;
                     }
                 }
-                catch( Exception e)
+                catch (Exception e)
                 {
-                    if(!e.Message.Contains("Timeout") || tries >= 8)
+                    if (!e.Message.Contains("Timeout") || tries >= 8)
                     {
                         throw;
                     }
@@ -536,6 +539,24 @@ namespace Rwb.Luxopus.Services
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
+        }
+
+        public async Task<(double today, double tomorrow)> Forecast()
+        {
+            HttpResponseMessage r = await PostAsync("/WManage/api/weather/forecast", new Dictionary<string, string>()
+            {
+                {"serialNum", Settings.Station },
+                { "refreshCache", "false"},
+            });
+            string json = await r.Content.ReadAsStringAsync();
+            double today = 0;
+            double tomorrow = 0;
+            using (JsonDocument j = JsonDocument.Parse(json))
+            {
+                today = j.RootElement.GetProperty("ePvPredict").GetProperty("todayPvEnergy").GetDouble();
+                tomorrow = j.RootElement.GetProperty("ePvPredict").GetProperty("tomorrowPvEnergy").GetDouble(); 
+            }
+            return (today, tomorrow);
         }
     }
 }

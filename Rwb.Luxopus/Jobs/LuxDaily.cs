@@ -50,6 +50,12 @@ namespace Rwb.Luxopus.Jobs
                 lines.Add(Measurement, "to_batt", r.Single(z => z.Name == "todayCharging").Value.GetInt32());
                 lines.Add(Measurement, "from_batt", r.Single(z => z.Name == "todayDischarging").Value.GetInt32());
             }
+
+            (double today, double tomorrow) = await _Lux.Forecast();
+            lines.Add(Measurement, "forecast_today", today);
+            lines.Add(Measurement, "forecast_tomorrow", tomorrow);
+
+
             _Email.SendEmail("LUX daily", string.Join(Environment.NewLine, lines.GetLineData()));
             await _Influx.WriteAsync(lines);
         }
