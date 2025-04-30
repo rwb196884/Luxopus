@@ -23,6 +23,11 @@ namespace Rwb.Luxopus.Jobs
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             LineDataBuilder lines = new LineDataBuilder();
+
+            (double today, double tomorrow) = await _Lux.Forecast();
+            lines.Add("forecast", "today", today);
+            lines.Add("forecast", "tomorrow", tomorrow);
+
             string json = await _Lux.GetInverterRuntimeAsync();
             using (JsonDocument j = JsonDocument.Parse(json))
             {
