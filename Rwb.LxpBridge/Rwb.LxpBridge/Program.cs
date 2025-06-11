@@ -9,6 +9,9 @@ using System.Text;
 
 // The guy is a fucking nightmare. https://github.com/celsworth/lxp-bridge/discussions/193
 
+// https://github.com/zonyl/luxpower-ha/issues/2
+// https://github.com/jaredmauch/eg4-bridge/issues/8
+
 /* It would be nice to do something in (POSIX) sh.
 nc 192.168.0.60 8000 | stdbuf -i0 -o0 hexdump -v -e '1/1 "%.2x\n"' | while read line;
 do
@@ -70,7 +73,7 @@ namespace Rwb.LxpBridge
                     Console.WriteLine("Heartbeat");
                     break;
                 case TcpFunction.TraslatedData:
-                    //ProcessTranslatedData(from, buffer, h);
+                    ProcessTranslatedData(from, buffer, h);
                     break;
                 default:
                     throw new NotImplementedException();
