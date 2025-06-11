@@ -350,10 +350,23 @@ from(bucket: ""solar"")
             if (outEnabled && !outEnabledWanted)
             {
                 actionInfo.AppendLine($"Discharge to grid disabled because battery needed to store generation.");
-                await _Lux.SetDischargeToGridLevelAsync(100);
+                HalfHourPlan? pd = plan.Plans.FirstOrDefault(z => z.Action != null && z.Action.DischargeToGrid < 100);
+                if( pd != null)
+                {
+                    if (outStart != pd.Start)
+                    {
+                        await _Lux.SetDischargeToGridStartAsync(pd.Start);
+                        await _Lux.SetDischargeToGridStopAsync(pd.Start.AddHours(1));
+                        await _Lux.SetDischargeToGridLevelAsync(pd.Action!.DischargeToGrid);
+                    }
+                }
+                else
+                {
+                    await _Lux.SetDischargeToGridLevelAsync(100);
+                }
             }
 
-            if (outEnabledWanted && (!outEnabled || outBatteryLimitPercentWanted != outBatteryLimitPercent))
+            if (outEnabledWanted && (!outEnabled || outBatteryLimitPercentWanted != outBatteryLimitPercent || outStart != currentPeriod.Start))
             {
                 await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
                 DateTime outStopWanted = plan.Next?.Start ?? currentPeriod.Start.AddHours(12);
