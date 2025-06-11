@@ -29,6 +29,7 @@ namespace Rwb.Luxopus
         public Luxopus(ILuxopusServiceResolver luxopusServiceResolver, ILogger<Luxopus> logger, IScheduler scheduler,
             LuxMonitor luxMonitor,
             LuxDaily luxDaily,
+            LuxForecast luxForecast,
             OctopusMeters octopusMeters,
             OctopusPrices octopusPrices,
             Solcast solcast,
@@ -60,10 +61,11 @@ namespace Rwb.Luxopus
 
             AddJob(luxMonitor, "* * * * *"); // every minute -- the most that cron will allow.
             AddJob(luxDaily, "51 * * * *"); // at the end of every day. Try every hour because of time zone nuissance.
+            AddJob(luxForecast, "13 6-16 * * *"); // Hourly.
             AddJob(octopusMeters, "53 16 * * *"); // will get yesterday's meters.
-            AddJob(octopusPrices, $"5,34 16,17 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
+            AddJob(octopusPrices, "5,34 16,17 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
             AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
-            AddJob(sunPosition, "8 * * * *"); // Every 8 minutes.
+            AddJob(sunPosition, "*/13 * * * *"); // Every 13 minutes.
             AddJob(sunrise, "0 4 * * *"); // Every day -- before sunrise.
             AddJob(openweathermap, "0 */7 * * *"); // Every 7 hours.
             AddJob(planChecker, "1,31 * * * *"); // At the start of every half hour.

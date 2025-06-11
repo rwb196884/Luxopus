@@ -58,6 +58,7 @@ namespace Rwb.Luxopus
                     // Jobs.
                     services.AddScoped<LuxMonitor>();
                     services.AddScoped<LuxDaily>();
+                    services.AddScoped<LuxForecast>();
                     services.AddScoped<OctopusMeters>();
                     services.AddScoped<OctopusPrices>();
                     services.AddScoped<Solcast>();
