@@ -21,8 +21,9 @@ namespace Rwb.Luxopus.Jobs
         private readonly IEmailService _Email;
         private readonly ISmsService _Sms;
         private readonly IAtService _At;
+        private readonly Planner _Planner;
 
-        public OctopusPrices(ILogger<LuxMonitor> logger, IOctopusService octopus, IInfluxQueryService influxQuery, IInfluxWriterService influxWrite, IEmailService email, ISmsService sms, IAtService at)  :base(logger)
+        public OctopusPrices(ILogger<LuxMonitor> logger, IOctopusService octopus, IInfluxQueryService influxQuery, IInfluxWriterService influxWrite, IEmailService email, ISmsService sms, IAtService at, Planner planner)  :base(logger)
         {
             _Octopus = octopus;
             _InfluxQuery = influxQuery;
@@ -30,6 +31,7 @@ namespace Rwb.Luxopus.Jobs
             _Email = email;
             _Sms = sms;
             _At = at;
+            _Planner = planner;
         }
 
         private static string GetProductOfTariff(string tariffCode)
@@ -45,6 +47,10 @@ namespace Rwb.Luxopus.Jobs
         {
             Dictionary<string, List<Price>> negativePrices = new Dictionary<string, List<Price>>();
             bool somePricesMightBeMissing = false;
+
+            TariffCode ti = await _Octopus.GetElectricityCurrentTariff(TariffType.Import, DateTime.Today);
+            TariffCode te = await _Octopus.GetElectricityCurrentTariff(TariffType.Export, DateTime.Today);
+            bool gotPrices = false;
 
             foreach (string t in ( await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code) )
             {
@@ -118,7 +124,6 @@ namespace Rwb.Luxopus.Jobs
 
                 Logger.LogWarning("Recheduling OctopusPrices becuase prices might be missing.");
                 _At.Schedule(async () => await this.RunAsync(CancellationToken.None), t);
-                // Might also need to reschedule the plan service.
             }
 
             foreach (string t in (await _Octopus.GetGasTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Distinct())
@@ -139,8 +144,15 @@ namespace Rwb.Luxopus.Jobs
                 {
                     lines.Add(Measurement, tags, "prices", price.Pence, price.ValidFrom);
                 }
+                gotPrices = gotPrices || ((ti.Code == t || te.Code == t) && prices.Count() > 0);
                 Logger.LogInformation($"Got {prices.Count()} prices for tariff {t} from {from.ToString("dd MMM HH:mm")} to {to.ToString("dd MMM HH:mm")}.");
                 await _InfluxWrite.WriteAsync(lines);
+            }
+
+            if (gotPrices)
+            {
+                // Got some prices therefore update the plan.
+                await _Planner.RunAsync(cancellationToken);
             }
         }
 

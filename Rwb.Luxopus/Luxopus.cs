@@ -13,7 +13,6 @@ namespace Rwb.Luxopus
 {
     public class LuxopusSettings : Settings
     {
-        public string Plan { get; set; }
         public string Check { get; set; }
         public string Burst { get; set; }
     }
@@ -63,7 +62,7 @@ namespace Rwb.Luxopus
             AddJob(luxDaily, "51 * * * *"); // at the end of every day. Try every hour because of time zone nuissance.
             AddJob(luxForecast, "13 6-16 * * *"); // Hourly.
             AddJob(octopusMeters, "53 16 * * *"); // will get yesterday's meters.
-            AddJob(octopusPrices, "5,34 16,17 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
+            AddJob(octopusPrices, "34 9,16,17 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
             AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
             AddJob(sunPosition, "*/13 * * * *"); // Every 13 minutes.
             AddJob(sunrise, "0 4 * * *"); // Every day -- before sunrise.
@@ -72,7 +71,7 @@ namespace Rwb.Luxopus
             // Make plan after getting prices and before evening peak.
             //AddJob(planA, "34 16 * * *"); 
             //AddJob(planZero, "38 16 * * *");
-            AddJob(planner, "38 16 * * *");
+            //AddJob(planner, "38 10,16 * * *"); // Is now called from octopusPrices whenever there are new prices.
             AddJob(burst, "* 8-15 * * *");
             AddJob(at, "*/8 * * * *");
 
@@ -172,7 +171,8 @@ namespace Rwb.Luxopus
 
         public Job GetPlanJob()
         {
-            return GetJob(Settings.Plan);
+            //return GetJob(Settings.Plan);
+            return _ServiceProvider.GetRequiredService<Planner>();
         }
 
         public Job GetCheckJob()
