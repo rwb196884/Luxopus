@@ -428,7 +428,7 @@ from(bucket: ""solar"")
                          why = $"Generation peak of {generationMax}. Allow export with battery target of {outBatteryLimitPercentWanted}% (expected {battLevelTarget}%).";
                      }
                      else */
-                    if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800 ) && battLevel >= 9)
+                    if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800) && battLevel >= 9)
                     {
                         chargeLastWanted = true;
                         battChargeRateWanted = 90;
@@ -548,8 +548,22 @@ from(bucket: ""solar"")
             {
                 if (outEnabled)
                 {
-                    await _Lux.SetDischargeToGridLevelAsync(100);
-                    actions.AppendLine($"SetDischargeToGridLevelAsync(100) to disable was {outBatteryLimitPercent} (enabled: {outEnabled}) limit {outBatteryLimitPercentWanted}%.");
+                    HalfHourPlan? pd = plan.Plans.FirstOrDefault(z => z.Action != null && z.Action.DischargeToGrid < 100);
+                    if (pd != null)
+                    {
+                        if (outStart != pd.Start)
+                        {
+                            await _Lux.SetDischargeToGridStartAsync(pd.Start);
+                            await _Lux.SetDischargeToGridStopAsync(pd.Start.AddHours(1));
+                            await _Lux.SetDischargeToGridLevelAsync(pd.Action!.DischargeToGrid);
+                            actions.AppendLine($"SetDischargeToGridLevelAsync({pd.Action!.DischargeToGrid}) from {pd.Start:HH:mm} to disable now was {outBatteryLimitPercent} (enabled: {outEnabled}) limit {outBatteryLimitPercentWanted}%.");
+                        }
+                    }
+                    else
+                    {
+                        await _Lux.SetDischargeToGridLevelAsync(100);
+                        actions.AppendLine($"SetDischargeToGridLevelAsync(100) to disable was {outBatteryLimitPercent} (enabled: {outEnabled}) limit {outBatteryLimitPercentWanted}%.");
+                    }
                 }
             }
             else
