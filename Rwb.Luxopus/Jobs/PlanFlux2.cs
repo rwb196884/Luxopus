@@ -427,7 +427,7 @@ namespace Rwb.Luxopus.Jobs
                 {
                     HalfHourPlan? p2 = plan.Plans.GetNext(p1);
                     HalfHourPlan? p3 = plan.Plans.GetNext(p2);
-                    if (p2 != null && GetFluxCase(plan, p2) == FluxCase.Daytime && p3 != null && Plan.ChargeFromGridCondition(p2))
+                    if (p2 != null && GetFluxCase(plan, p2) == FluxCase.Daytime && p3 != null && Plan.ChargeFromGridCondition(p3))
                     {
                         DateTime gEnd = p1.Start;
                         try
