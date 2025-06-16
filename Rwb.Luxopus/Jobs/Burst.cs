@@ -11,12 +11,19 @@ using System.Threading.Tasks;
 namespace Rwb.Luxopus.Jobs
 {
 
+    public abstract class BurstManager : Job
+    {
+        protected BurstManager(ILogger<Job> logger) : base(logger)
+        {
+        }
+    }
+
     /// <summary>
     /// <para>
     /// Absorb bursts of production.
     /// </para>
     /// </summary>
-    public class Burst : Job
+    public class Burst : BurstManager
     {
         private readonly IBurstLogService _BurstLog;
         private readonly ILuxopusPlanService _Plans;
@@ -81,9 +88,15 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
 
-            (DateTime sunrise, _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
-            (DateTime sunset, _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
-            if (t0 < sunrise || t0 > sunset) { return; }
+            //(DateTime sunrise, _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
+            //(DateTime sunset, _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
+            //if (t0 < sunrise || t0 > sunset) { return; }
+            // Generation start and end. Guess from yesterday.
+            DateTime gStart = DateTime.Today.AddHours(9); //sunrise;
+            DateTime gEnd = DateTime.Today.AddHours(16); // sunset
+            (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
+            (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
+            if (t0 < gStart || t0 > gEnd) { return; }
 
             (DateTime _, long generationMax) = (await _InfluxQuery.QueryAsync(@$"
             from(bucket: ""solar"")
@@ -97,15 +110,6 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // We're good to go...
-
-            // Generation start and end. Guess from yesterday.
-            DateTime gStart = sunrise;
-            DateTime gEnd = sunset;
-            gStart = sunrise;
-            gEnd = sunset;
-            (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
-            (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
-            if (t0 < gStart || t0 > gEnd) { return; }
 
             StringBuilder actions = new StringBuilder();
             StringBuilder actionInfo = new StringBuilder();
@@ -126,8 +130,7 @@ namespace Rwb.Luxopus.Jobs
 
             string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
 
-            DateTime tBattChargeFrom = plan.Current.Start < sunrise ? sunrise : plan.Current.Start;
-            tBattChargeFrom = tBattChargeFrom < gStart ? gStart : tBattChargeFrom;
+            DateTime tBattChargeFrom = gStart > currentPeriod.Start ? gStart : currentPeriod.Start;
 
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
             DateTime nextPlanCheck = DateTime.UtcNow.Minute > 30  //Check if mins are greater than 30
@@ -136,7 +139,7 @@ namespace Rwb.Luxopus.Jobs
 
             (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
             ScaleMethod sm = ScaleMethod.Linear;
-            if (prediction > _Batt.CapacityPercentToKiloWattHours(150))
+            if (prediction > _Batt.CapacityPercentToKiloWattHours(200))
             {
                 sm = ScaleMethod.Slow;
             }

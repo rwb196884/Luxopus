@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Jobs;
 using Rwb.Luxopus.Services;
 using System;
@@ -49,7 +50,6 @@ namespace Rwb.Luxopus
                     services.Register<IBurstLogService, BurstLogService, BurstLogSettings>(context);
                     services.Register<IBatteryService, BatteryService, BatterySettings>(context);
                     services.Register<IAtService, AtService, AtSettings>(context);
-                    services.Register<ILuxopusServiceResolver, LuxopusServiceResolver, LuxopusSettings>(context);
                     //services.Register<IGenerationForecastService, GenerationForecastService, GenerationForecastSettings>(context);
 
                     // Main thingy.
@@ -69,13 +69,22 @@ namespace Rwb.Luxopus
 
                     services.AddScoped<PlanChecker>();
                     //services.AddScoped<Burst>();
-                    services.AddScoped<BurstChargeLast>();
+
+                    LuxopusSettings s = new LuxopusSettings();
+                    context.Configuration.GetSection("Luxopus").Bind(s);
+
+                    services.AddScoped(typeof(BurstManager), GetJobType(s.Burst));
 
                     //services.AddScoped<PlanZero>();
                     //services.AddScoped<PlanA>();
                     //services.AddScoped<PlanFlux1>();
-                    services.AddScoped<Planner, PlanFlux2>();
+                    services.AddScoped(typeof(Planner), GetJobType(s.Plan));
                 });
+        }
+
+        private static Type GetJobType(string name)
+        {
+           return Type.GetType($"Rwb.Luxopus.Jobs.{name}");
         }
     }
 }

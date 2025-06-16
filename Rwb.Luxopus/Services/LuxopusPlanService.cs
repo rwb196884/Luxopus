@@ -19,9 +19,9 @@ namespace Rwb.Luxopus.Services
             return things.OrderByDescending(z => z.Start).Where(z => z.Start < current.Start && (where == null || where(z))).Take(1).SingleOrDefault();
         }
 
-        public static T? GetNext<T>(this IEnumerable<T> things, HalfHourPlan? current, Func< T, bool> where = null) where T : HalfHour
+        public static T? GetNext<T>(this IEnumerable<T> things, HalfHourPlan? current, Func<T, bool> where = null) where T : HalfHour
         {
-            if( current == null) { return null; }
+            if (current == null) { return null; }
             return things.OrderBy(z => z.Start).Where(z => z.Start > current.Start && (where == null || where(z))).Take(1).SingleOrDefault();
         }
 
@@ -40,15 +40,15 @@ namespace Rwb.Luxopus.Services
             using (IEnumerator<T> e = things.GetEnumerator())
             {
                 bool moveNext = e.MoveNext();
-                while( moveNext && e.Current != start) { moveNext = e.MoveNext(); }
-                if( e.Current == null) {  return gap; }
+                while (moveNext && e.Current != start) { moveNext = e.MoveNext(); }
+                if (e.Current == null) { return gap; }
                 moveNext = e.MoveNext();
                 while (moveNext && condition(e.Current))
                 {
                     gap.Add(e.Current);
                     moveNext = e.MoveNext();
                 }
-                if(moveNext && e.Current != start && !condition(e.Current))
+                if (moveNext && e.Current != start && !condition(e.Current))
                 {
                     return gap;
                 }
@@ -63,7 +63,7 @@ namespace Rwb.Luxopus.Services
             T? next = things.GetNext(current);
             while (next != null)
             {
-                if (Plan.DischargeToGridCondition(c))  { return h; }
+                if (Plan.DischargeToGridCondition(c)) { return h; }
                 if (c.Buy <= 0)
                 {
                     h += next.Start.Subtract(c.Start).TotalHours;
@@ -73,6 +73,14 @@ namespace Rwb.Luxopus.Services
             }
             return h;
         }
+    }
+
+    public class PlanSettings
+    {
+        public bool ChargeFromGrid { get; set; }
+        public int ChargeFromGridLevel { get; set; }
+        public DateTime ChargeFromGridStart { get; set; }
+        public DateTime ChargeFromGridStop { get; set; }
     }
 
     public class Plan //: IQueryable<HalfHourPlan>

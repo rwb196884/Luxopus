@@ -129,14 +129,14 @@ namespace Rwb.Luxopus.Jobs
             }
 
             DateTime pLast = prices.OrderBy(z => z.Start).Last().Start;
-            if (DateTime.Now > pLast.ToLocalTime())
+            if (DateTime.UtcNow > pLast)
             {
                 // We're probably in the last period.
                 Logger.LogWarning($"Rescheduling PlanFlux2 at {tReschedule: yyyy-MM-dd HH:mm} because current period is the last.");
                 _At.Schedule(async () => await this.WorkAsync(CancellationToken.None), tReschedule);
             }
 
-            Plan plan = new Plan(prices.Where(z => z.Start >= priceNow.Start));
+            Plan plan = new Plan(prices.Where(z => z.Start >= priceNow.Start.AddHours(-12)));
 
             HalfHourPlan? next = null;
 
@@ -419,6 +419,26 @@ namespace Rwb.Luxopus.Jobs
                         break;
                 }
             }
+
+            //// check for discharge, z, charge.
+            //foreach ( HalfHourPlan p1 in plan.Plans.Where(z => Plan.DischargeToGridCondition(z)))
+            //{
+            //   HalfHourPlan? p2 = plan.Plans.GetNext(p1);
+            //    HalfHourPlan? p3 = plan.Plans.GetNext(p2);
+            //    if( p2 != null && GetFluxCase(plan, p2) == FluxCase.Daytime && p3 != null && Plan.ChargeFromGridCondition(p2))
+            //    {
+            //        DateTime gEnd = p1.Start;
+            //        try
+            //        {
+            //            (gEnd, _) = (await InfluxQuery.QueryAsync(Query.EndOfGeneration, p1.Start)).First().FirstOrDefault<double>();
+            //        }
+            //        catch { }
+            //        if(gEnd > p1.Start)
+            //        {
+            //            p2.Action.DischargeToGrid = p3.Action.ChargeFromGrid;
+            //        }
+            //    }
+            //}
 
             PlanService.Save(plan);
             Email.SendPlanEmail(plan, notes.ToString());
