@@ -16,13 +16,13 @@ namespace Rwb.Luxopus.Services
         public static T? GetPrevious<T>(this IEnumerable<T> things, HalfHourPlan? current, Func<T, bool> where = null) where T : HalfHour
         {
             if (current == null) { return null; }
-            return things.OrderByDescending(z => z.Start).Where(z => z.Start < current.Start && (where == null || where(z))).Take(1).SingleOrDefault();
+            return things.Where(z => z.Start < current.Start).OrderBy(z => z.Start).LastOrDefault();
         }
 
         public static T? GetNext<T>(this IEnumerable<T> things, HalfHourPlan? current, Func<T, bool> where = null) where T : HalfHour
         {
             if (current == null) { return null; }
-            return things.OrderBy(z => z.Start).Where(z => z.Start > current.Start && (where == null || where(z))).Take(1).SingleOrDefault();
+            return things.Where(z => z.Start > current.Start).OrderBy(z => z.Start).FirstOrDefault();
         }
 
         /// <summary>

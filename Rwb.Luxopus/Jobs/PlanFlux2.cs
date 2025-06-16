@@ -206,30 +206,30 @@ namespace Rwb.Luxopus.Jobs
                             //BatteryGridDischargeRate = 100,
                         };
                         break;
-                    case FluxCase.Evening:
-                        // Continue to discharge in BST (ish).
-                        next = plan.Plans.GetNext(p);
-                        HalfHourPlan? previous = plan.Plans.GetPrevious(p);
-                        if (p.Start.Month >= 5 && p.Start.Month <= 9
-                            && next != null && next.Buy < p.Sell
-                            && previous != null && previous.Action != null && previous!.Action!.DischargeToGrid < 100)
-                        {
-                            p.Action = new PeriodAction()
-                            {
-                                ChargeFromGrid = 0,
-                                DischargeToGrid = previous.Action.DischargeToGrid,
-                            };
-                        }
-                        else
-                        {
-                            // Same as daytime.
-                            p.Action = new PeriodAction()
-                            {
-                                ChargeFromGrid = 0,
-                                DischargeToGrid = 100,
-                            };
-                        }
-                        break;
+                    //case FluxCase.Evening:
+                    //    // Continue to discharge in BST (ish).
+                    //    next = plan.Plans.GetNext(p);
+                    //    HalfHourPlan? previous = plan.Plans.GetPrevious(p);
+                    //    if (p.Start.Month >= 5 && p.Start.Month <= 9
+                    //        && next != null && GetFluxCase(plan, next) == FluxCase.Low
+                    //        && previous != null && previous.Action != null && previous!.Action!.DischargeToGrid < 100)
+                    //    {
+                    //        p.Action = new PeriodAction()
+                    //        {
+                    //            ChargeFromGrid = 0,
+                    //            DischargeToGrid = previous.Action.DischargeToGrid,
+                    //        };
+                    //    }
+                    //    else
+                    //    {
+                    //        // Same as daytime.
+                    //        p.Action = new PeriodAction()
+                    //        {
+                    //            ChargeFromGrid = 0,
+                    //            DischargeToGrid = 100,
+                    //        };
+                    //    }
+                    //    break;
                     case FluxCase.Low:
                         // How much do we want?
                         next = plan.Plans.GetNext(p);
@@ -420,25 +420,28 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
-            //// check for discharge, z, charge.
-            //foreach ( HalfHourPlan p1 in plan.Plans.Where(z => Plan.DischargeToGridCondition(z)))
-            //{
-            //   HalfHourPlan? p2 = plan.Plans.GetNext(p1);
-            //    HalfHourPlan? p3 = plan.Plans.GetNext(p2);
-            //    if( p2 != null && GetFluxCase(plan, p2) == FluxCase.Daytime && p3 != null && Plan.ChargeFromGridCondition(p2))
-            //    {
-            //        DateTime gEnd = p1.Start;
-            //        try
-            //        {
-            //            (gEnd, _) = (await InfluxQuery.QueryAsync(Query.EndOfGeneration, p1.Start)).First().FirstOrDefault<double>();
-            //        }
-            //        catch { }
-            //        if(gEnd > p1.Start)
-            //        {
-            //            p2.Action.DischargeToGrid = p3.Action.ChargeFromGrid;
-            //        }
-            //    }
-            //}
+            // check for discharge, z, charge.
+            if (DateTime.Today.Month >= 5 && DateTime.Today.Month <= 9)
+            {
+                foreach (HalfHourPlan p1 in plan.Plans.Where(z => Plan.DischargeToGridCondition(z)))
+                {
+                    HalfHourPlan? p2 = plan.Plans.GetNext(p1);
+                    HalfHourPlan? p3 = plan.Plans.GetNext(p2);
+                    if (p2 != null && GetFluxCase(plan, p2) == FluxCase.Daytime && p3 != null && Plan.ChargeFromGridCondition(p2))
+                    {
+                        DateTime gEnd = p1.Start;
+                        try
+                        {
+                            (gEnd, _) = (await InfluxQuery.QueryAsync(Query.EndOfGeneration, p1.Start)).First().FirstOrDefault<double>();
+                        }
+                        catch { }
+                        if (gEnd > p1.Start)
+                        {
+                            p2.Action.DischargeToGrid = p3.Action.ChargeFromGrid;
+                        }
+                    }
+                }
+            }
 
             PlanService.Save(plan);
             Email.SendPlanEmail(plan, notes.ToString());
