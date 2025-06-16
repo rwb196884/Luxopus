@@ -303,10 +303,10 @@ from(bucket: ""solar"")
                         {
                             outEnabledWanted = true;
                             outStartWanted = currentPeriod.Start;
-                            outStopWanted = plan.Next.Start;
+                            outStopWanted = outStop > plan.Next.Start ? outStop : plan.Next.Start;
                             outBatteryLimitPercentWanted = battLevelTarget - 5;
                         }
-                        actionInfo.AppendLine($"Looks like it could be a good day. Battery level {battLevel}, target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
+                        actionInfo.AppendLine($"Looks like it could be a good day. Battery level {battLevel}%, target of {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
                     }
                     else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > battLevelTarget + 2)
                     {
@@ -315,10 +315,10 @@ from(bucket: ""solar"")
                         battDischargeToGridRateWanted = 91;
                         outEnabledWanted = true;
                         outStartWanted = currentPeriod.Start;
-                        outStopWanted = plan.Next.Start;
+                        outStopWanted = outStop > plan.Next.Start ? outStop : plan.Next.Start;
                         battChargeRateWanted = 91;
                         chargeLastWanted = true;
-                        actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}, target of {battLevelTarget} therefore take opportunity to discharge.");
+                        actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {battLevelTarget}% therefore take opportunity to discharge.");
                     }
                     else
                     {
