@@ -136,7 +136,7 @@ namespace Rwb.Luxopus.Jobs
                 _At.Schedule(async () => await this.WorkAsync(CancellationToken.None), tReschedule);
             }
 
-            Plan plan = new Plan(prices.Where(z => z.Start >= priceNow.Start.AddHours(-12)));
+            Plan plan = new Plan(prices.Where(z => z.Start >= priceNow.Start.AddHours(-4)));
 
             HalfHourPlan? next = null;
 
