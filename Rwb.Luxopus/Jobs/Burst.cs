@@ -124,7 +124,7 @@ namespace Rwb.Luxopus.Jobs
             int battChargeRateWanted = battChargeRate; // No change.
             int battChargeRateNeeded = battChargeRate;
 
-            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDischargeToGrid(settings);
+            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent, int battDischargeToGridRate) = _Lux.GetDischargeToGrid(settings);
             bool outEnabledWanted = outEnabled;
             int outBatteryLimitPercentWanted = outBatteryLimitPercent;
 
