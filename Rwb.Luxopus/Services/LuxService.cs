@@ -33,12 +33,10 @@ namespace Rwb.Luxopus.Services
 
         Task<Dictionary<string, string>> GetSettingsAsync();
 
-        (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetChargeFromGrid(Dictionary<string, string> settings);
-        (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDischargeToGrid(Dictionary<string, string> settings);
+        (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent, int battChargeFromGridRate) GetChargeFromGrid(Dictionary<string, string> settings);
+        (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent, int battDischargeToGridRate) GetDischargeToGrid(Dictionary<string, string> settings);
         int GetBatteryChargeRate(Dictionary<string, string> settings);
-        int GetBatteryChargeFromGridRate(Dictionary<string, string> settings);
         int GetBatteryDischargeRate(Dictionary<string, string> settings);
-        int GetBatteryDischargeToGridRate(Dictionary<string, string> settings);
 
         bool GetChargeLast(Dictionary<string, string> settings);
 
@@ -303,7 +301,7 @@ namespace Rwb.Luxopus.Services
             return settings;
         }
 
-        public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetChargeFromGrid(Dictionary<string, string> settings)
+        public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent, int battChargeFromGridRate) GetChargeFromGrid(Dictionary<string, string> settings)
         {
             bool enabled = settings["FUNC_AC_CHARGE"].ToUpper() == "TRUE";
             int startH = int.Parse(settings["HOLD_AC_CHARGE_START_HOUR"]);
@@ -318,7 +316,8 @@ namespace Rwb.Luxopus.Services
                 enabled,
                 GetDate(startH, startM, t),
                 GetDate(endH, endM, t),
-                lim
+                lim,
+                int.Parse(settings["HOLD_AC_CHARGE_POWER_CMD"])
                 );
         }
 
@@ -330,7 +329,7 @@ namespace Rwb.Luxopus.Services
             return u < DateTime.UtcNow ? u.AddDays(1) : u; // The next time that the time will happen.
         }
 
-        public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent) GetDischargeToGrid(Dictionary<string, string> settings)
+        public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent, int battDischargeToGridRate) GetDischargeToGrid(Dictionary<string, string> settings)
         {
             bool enabled = settings["FUNC_FORCED_DISCHG_EN"].ToUpper() == "TRUE";
             int startH = int.Parse(settings["HOLD_FORCED_DISCHARGE_START_HOUR"]);
@@ -346,7 +345,8 @@ namespace Rwb.Luxopus.Services
                 enabled,
                 GetDate(startH, startM, t),
                 GetDate(endH, endM, t),
-                lim
+                lim,
+                int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"])
                 );
         }
 
@@ -354,20 +354,12 @@ namespace Rwb.Luxopus.Services
         {
             return int.Parse(settings["HOLD_CHARGE_POWER_PERCENT_CMD"]);
         }
-        public int GetBatteryChargeFromGridRate(Dictionary<string, string> settings)
-        {
-            return int.Parse(settings["HOLD_AC_CHARGE_POWER_CMD"]);
-        }
 
         public int GetBatteryDischargeRate(Dictionary<string, string> settings)
         {
             return int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"]);
         }
 
-        public int GetBatteryDischargeToGridRate(Dictionary<string, string> settings)
-        {
-            return int.Parse(settings["HOLD_FORCED_DISCHG_POWER_CMD"]);
-        }
         public bool GetChargeLast(Dictionary<string, string> settings)
         {
             return bool.Parse(settings["FUNC_CHARGE_LAST"]);
@@ -557,6 +549,25 @@ namespace Rwb.Luxopus.Services
                 tomorrow = j.RootElement.GetProperty("ePvPredict").GetProperty("tomorrowPvEnergy").GetDouble(); 
             }
             return (today, tomorrow);
+        }
+    }
+
+    public struct LuxActionSettings
+    {
+        public DateTime Start { get; set; }
+        public DateTime End { get; set; }
+        public int Limit { get; set; }
+        public int Rate { get; set; }
+
+        public LuxActionSettings Clone()
+        {
+            return new LuxActionSettings()
+            {
+                Start = Start,
+                End = End,
+                Limit = Limit,
+                Rate = Rate
+            };
         }
     }
 }

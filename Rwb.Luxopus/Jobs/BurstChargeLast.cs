@@ -114,12 +114,11 @@ namespace Rwb.Luxopus.Jobs
             int battChargeRateNeeded = battChargeRate;
 
             // Get the planned discharge settings -- we may override them.
-            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent) = _Lux.GetDischargeToGrid(settings);
+            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent, int battDischargeToGridRate) = _Lux.GetDischargeToGrid(settings);
             bool outEnabledWanted = outEnabled;
             DateTime outStartWanted = outStart;
             DateTime outStopWanted = outStop;
             int outBatteryLimitPercentWanted = outBatteryLimitPercent;
-            int battDischargeToGridRate = _Lux.GetBatteryDischargeToGridRate(settings);
             int battDischargeToGridRateWanted = battDischargeToGridRate;
 
             outEnabledWanted = plan.Plans.Any(z => Plan.DischargeToGridCondition(z));
@@ -141,6 +140,11 @@ namespace Rwb.Luxopus.Jobs
                     // No need to change it.
                     outStartWanted = outStart;
                 }
+
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - runFirst.Action!.DischargeToGrid);
+                double hoursToCharge = plan.Plans.FutureFreeHoursBeforeNextDischarge(runFirst);
+                double kW = powerRequiredKwh / hoursToCharge;
+                battDischargeToGridRateWanted = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kW));
             }
 
             bool chargeLast = _Lux.GetChargeLast(settings);
@@ -257,7 +261,7 @@ from(bucket: ""solar"")
                     // Forced discharge causes clipping.
 
                     // So does charge from grid.
-                    (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
+                    (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent, int battChargeFromGridRate) = _Lux.GetChargeFromGrid(settings);
                     if (inEnabled)
                     {
                         // Could be plan or because of zero or negative price; it's not important why. We just want to prevent clipping.
@@ -328,7 +332,7 @@ from(bucket: ""solar"")
                     if (plan.Current.Buy <= 0)
                     {
                         // Fill your boots.
-                        (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent) = _Lux.GetChargeFromGrid(settings);
+                        (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent, int chargeFromGridRate) = _Lux.GetChargeFromGrid(settings);
                         if (inStart != plan.Current.Start)
                         {
                             await _Lux.SetChargeFromGridStartAsync(plan.Current.Start);
