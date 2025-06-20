@@ -142,7 +142,7 @@ namespace Rwb.Luxopus.Jobs
                 }
 
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - runFirst.Action!.DischargeToGrid);
-                double hoursToCharge = plan.Plans.FutureFreeHoursBeforeNextDischarge(runFirst);
+                double hoursToCharge = (next.Start - (runFirst?.Start ?? next.Start.AddHours(1))).TotalHours;
                 double kW = powerRequiredKwh / hoursToCharge;
                 battDischargeToGridRateWanted = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kW));
             }
