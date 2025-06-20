@@ -362,7 +362,13 @@ from(bucket: ""solar"")
 
                         int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, sm);
 
-                        if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800) && battLevel >= 9)
+                        if( DateTime.Now.Hour < 9 && prediction > 20)
+                        {
+                            chargeLastWanted = true;
+                            battChargeRateWanted = 90;
+                            why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW therefore charge last before 9am..";
+                        }
+                        else if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800) && battLevel >= 9)
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 90;
@@ -374,11 +380,11 @@ from(bucket: ""solar"")
                                 outStopWanted = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12);
                                 outBatteryLimitPercentWanted = battLevelTarget - 5;
                                 battDischargeToGridRateWanted = 91;
-                                why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW, recent mean {generationRecentMean / 1000:#0.0}kW) therefore charge last before 9am. Discharge to grid because battery level {battLevel}% is ahead of target target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%).";
+                                why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW, recent mean {generationRecentMean / 1000:#0.0}kW) therefore charge last before 10am. Discharge to grid because battery level {battLevel}% is ahead of target target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%).";
                             }
                             else
                             {
-                                why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW, generation mean {generationRecentMean / 1000:#0.0}kW) therefore charge last before 9am. Battery level {battLevel}% target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%).";
+                                why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW, generation mean {generationRecentMean / 1000:#0.0}kW) therefore charge last before 10am. Battery level {battLevel}% target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%).";
                             }
                             goto Apply;
                         }
