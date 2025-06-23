@@ -381,13 +381,13 @@ from(bucket: ""solar"")
             if (battDischargeToGridRateWanted != battDischargeToGridRate)
             {
                 await _Lux.SetBatteryDischargeToGridRateAsync(battDischargeToGridRateWanted);
-                actions.AppendLine($"SetBatteryDischargeToGridRateAsync({battDischargeToGridRateWanted:HH:mm}) was {battDischargeToGridRate:HH:mm}");
+                actions.AppendLine($"SetBatteryDischargeToGridRateAsync({battDischargeToGridRateWanted}) was {battDischargeToGridRate}");
             }
 
             if (outBatteryLimitPercentWanted != outBatteryLimitPercent)
             {
                 await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
-                actions.AppendLine($"SetDischargeToGridLevelAsync({outBatteryLimitPercentWanted:HH:mm}) was {outBatteryLimitPercent:HH:mm}");
+                actions.AppendLine($"SetDischargeToGridLevelAsync({outBatteryLimitPercentWanted}) was {outBatteryLimitPercent}");
             }
 
 
