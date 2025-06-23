@@ -307,7 +307,7 @@ from(bucket: ""solar"")
                         {
                             outEnabledWanted = true;
                             outStartWanted = currentPeriod.Start;
-                            outStopWanted = outStop > plan.Next.Start ? outStop : plan.Next.Start;
+                            outStopWanted = outStop >= plan.Next.Start ? outStop : plan.Next.Start;
                             outBatteryLimitPercentWanted = battLevelTarget - 5;
                         }
                         actionInfo.AppendLine($"Looks like it could be a good day. Battery level {battLevel}%, target of {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
@@ -319,7 +319,7 @@ from(bucket: ""solar"")
                         battDischargeToGridRateWanted = 91;
                         outEnabledWanted = true;
                         outStartWanted = currentPeriod.Start;
-                        outStopWanted = outStop > plan.Next.Start ? outStop : plan.Next.Start;
+                        outStopWanted = outStop >= plan.Next.Start ? outStop : plan.Next.Start;
                         battChargeRateWanted = 91;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {battLevelTarget}% therefore take opportunity to discharge.");
@@ -352,8 +352,7 @@ from(bucket: ""solar"")
 
                 if (battChargeRateWanted < battChargeRate && battLevel < battLevelTarget)
                 {
-                    string s = battLevelTarget != battLevel ? $" (should be {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%)))" : "";
-                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {100}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
+                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}% (should be {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%)) to {100}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
                     battChargeRateWanted = battChargeRate;
                 }
             }
@@ -374,8 +373,8 @@ from(bucket: ""solar"")
 
             if (outStopWanted != outStop)
             {
-                await _Lux.SetDischargeToGridStopAsync(outStartWanted);
-                actions.AppendLine($"SetDischargeToGridStopAsync({outStartWanted:HH:mm}) was {outStop:HH:mm}");
+                await _Lux.SetDischargeToGridStopAsync(outStopWanted);
+                actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted:HH:mm}) was {outStop:HH:mm}");
             }
 
             if (battDischargeToGridRateWanted != battDischargeToGridRate)
