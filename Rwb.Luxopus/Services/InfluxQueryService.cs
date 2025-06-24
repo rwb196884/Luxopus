@@ -262,7 +262,7 @@ from(bucket: ""{Settings.Bucket}"")
         }
     }
 
-    public abstract class HalfHour
+    public abstract class Period
     {
         public DateTime Start { get; set; }
     }
@@ -275,7 +275,7 @@ from(bucket: ""{Settings.Bucket}"")
         }
     }
 
-    public class ElectricityPrice : HalfHour
+    public class ElectricityPrice : Period
     {
         public decimal Buy { get; set; }
         public decimal Sell { get; set; }

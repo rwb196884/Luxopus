@@ -3,7 +3,7 @@ using Rwb.Luxopus.Services;
 
 namespace Rwb.Luxopus.Jobs
 {
-    public class HalfHourPlan : ElectricityPrice
+    public class PeriodPlan : ElectricityPrice
     {
         // Base class: date, buy price, sell price.
 
@@ -17,7 +17,7 @@ namespace Rwb.Luxopus.Jobs
         //public PeriodState ActualStartState { get; set; }
         //public PeriodState ActualEndState { get; set; }
 
-        public HalfHourPlan(ElectricityPrice e)
+        public PeriodPlan(ElectricityPrice e)
         {
             Start = e.Start;
             Buy = e.Buy;
@@ -29,7 +29,7 @@ namespace Rwb.Luxopus.Jobs
         /// Required for System.Text.Json.JsonSerializer.Deserialize.
         /// </summary>
         /// <param name="plans"></param>
-        public HalfHourPlan()
+        public PeriodPlan()
         {
 
         }

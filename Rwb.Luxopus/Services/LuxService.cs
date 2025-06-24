@@ -1,12 +1,14 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NodaTime;
+using Rwb.Luxopus.Jobs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -33,27 +35,19 @@ namespace Rwb.Luxopus.Services
 
         Task<Dictionary<string, string>> GetSettingsAsync();
 
-        (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent, int battChargeFromGridRate) GetChargeFromGrid(Dictionary<string, string> settings);
-        (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent, int battDischargeToGridRate) GetDischargeToGrid(Dictionary<string, string> settings);
+        LuxAction GetChargeFromGrid(Dictionary<string, string> settings);
+        LuxAction GetDischargeToGrid(Dictionary<string, string> settings);
+
         int GetBatteryChargeRate(Dictionary<string, string> settings);
         int GetBatteryDischargeRate(Dictionary<string, string> settings);
 
         bool GetChargeLast(Dictionary<string, string> settings);
 
-        //Task SetChargeFromGridEnabledAsync(bool enabled);
-        Task SetChargeFromGridStartAsync(DateTime start);
-        Task SetChargeFromGridStopAsync(DateTime stop);
-        Task SetChargeFromGridLevelAsync(int batteryLimitPercent);
-
-        //Task SetDischargeToGridEnabledAsync(bool enabled);
-        Task SetDischargeToGridStartAsync(DateTime start);
-        Task SetDischargeToGridStopAsync(DateTime stop);
-        Task SetDischargeToGridLevelAsync(int batteryLimitPercent);
+        Task<bool> SetChargeFromGrid(LuxAction current, LuxAction required);
+        Task<bool> SetDischargeToGrid(LuxAction current, LuxAction required);
 
         Task SetBatteryChargeRateAsync(int batteryChargeRatePercent);
-        Task SetBatteryChargeFromGridRateAsync(int batteryChargeFromGridRatePercent);
         Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent);
-        Task SetBatteryDischargeToGridRateAsync(int batteryChargeFromGridRatePercent);
 
         Task SetChargeLastAsync(bool enabled);
 
@@ -61,6 +55,84 @@ namespace Rwb.Luxopus.Services
         int BattToKwh(int batt);
 
         Task<(double today, double tomorrow)> Forecast();
+    }
+
+    public class LuxAction
+    {
+        public bool Enable { get; set; }
+        public DateTime Start { get; set; }
+        public DateTime End { get; set; }
+        public int Limit { get; set; }
+        public int Rate { get; set; }
+
+        public override string ToString()
+        {
+            return $"{(Enable ? "" : "OFF ")}{Start:HH:mm} to {End:HH:mm} limit {Limit}% rate {Rate}%.";
+        }
+
+        public LuxAction Clone()
+        {
+            return new LuxAction()
+            {
+                Enable = Enable,
+                Start = Start,
+                End = End,
+                Limit = Limit,
+                Rate = Rate
+            };
+        }
+
+        public static LuxAction NextCharge(Plan plan, LuxAction current)
+        {
+            LuxAction a = current.Clone();
+
+            a.Enable = plan.Plans.Any(z => Plan.ChargeFromGridCondition(z));
+            if (plan != null && a.Enable)
+            {
+                PeriodPlan? currentPeriod = plan?.Current;
+                PeriodPlan runFirst = plan.Plans.OrderBy(z => z.Start).First(z => Plan.ChargeFromGridCondition(z));
+                a.Start = runFirst.Start;
+                a.Limit = runFirst.Action!.ChargeFromGrid;
+
+                (IEnumerable<PeriodPlan> run, PeriodPlan? next) = plan.GetNextRun(runFirst, Plan.ChargeFromGridCondition);
+                a.End = (next?.Start ?? run.Last().Start.AddMinutes(30));
+
+                // If we're charging now and started already then no change is needed.
+                if (Plan.ChargeFromGridCondition(currentPeriod) && a.Start > currentPeriod.Start)
+                {
+                    a.Start = currentPeriod.Start;
+                }
+
+                a.Rate = a.Limit > 50 ? 90 : 40;
+            }
+            return a;
+        }
+
+        public static LuxAction NextDisharge(Plan plan, LuxAction current)
+        {
+            LuxAction a = current.Clone();
+
+            a.Enable = plan.Plans.Any(z => Plan.DischargeToGridCondition(z));
+            if (plan != null && a.Enable)
+            {
+                PeriodPlan? currentPeriod = plan?.Current;
+                PeriodPlan runFirst = plan.Plans.OrderBy(z => z.Start).First(z => Plan.DischargeToGridCondition(z));
+                a.Start = runFirst.Start;
+                a.Limit = runFirst.Action!.ChargeFromGrid;
+
+                (IEnumerable<PeriodPlan> run, PeriodPlan? next) = plan.GetNextRun(runFirst, Plan.DischargeToGridCondition);
+                a.End = (next?.Start ?? run.Last().Start.AddMinutes(30));
+
+                // If we're charging now and started already then no change is needed.
+                if (Plan.DischargeToGridCondition(currentPeriod) && a.Start > currentPeriod.Start)
+                {
+                    a.Start = currentPeriod.Start;
+                }
+
+                a.Rate = a.Limit < 50 ? 90 : 40;
+            }
+            return a;
+        }
     }
 
     public class LuxService : Service<LuxSettings>, ILuxService, IDisposable
@@ -301,53 +373,12 @@ namespace Rwb.Luxopus.Services
             return settings;
         }
 
-        public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent, int battChargeFromGridRate) GetChargeFromGrid(Dictionary<string, string> settings)
-        {
-            bool enabled = settings["FUNC_AC_CHARGE"].ToUpper() == "TRUE";
-            int startH = int.Parse(settings["HOLD_AC_CHARGE_START_HOUR"]);
-            int startM = int.Parse(settings["HOLD_AC_CHARGE_START_MINUTE"]);
-            int endH = int.Parse(settings["HOLD_AC_CHARGE_END_HOUR"]);
-            int endM = int.Parse(settings["HOLD_AC_CHARGE_END_MINUTE"]);
-            int lim = int.Parse(settings["HOLD_AC_CHARGE_SOC_LIMIT"]);
-
-            DateTime t = DateTime.Parse(settings["inverterRuntimeDeviceTime"]);
-
-            return (
-                enabled,
-                GetDate(startH, startM, t),
-                GetDate(endH, endM, t),
-                lim,
-                int.Parse(settings["HOLD_AC_CHARGE_POWER_CMD"])
-                );
-        }
-
         private DateTime GetDate(int hours, int minutes, DateTime relativeTo)
         {
             DateTime t = DateTime.Parse($"{relativeTo.ToString("yyyy-MM-dd")}T{hours.ToString("00")}:{minutes.ToString("00")}:00");
             t = DateTime.SpecifyKind(t, DateTimeKind.Local);
             DateTime u = ToUtc(t);
             return u < DateTime.UtcNow ? u.AddDays(1) : u; // The next time that the time will happen.
-        }
-
-        public (bool enabled, DateTime start, DateTime stop, int batteryLimitPercent, int battDischargeToGridRate) GetDischargeToGrid(Dictionary<string, string> settings)
-        {
-            bool enabled = settings["FUNC_FORCED_DISCHG_EN"].ToUpper() == "TRUE";
-            int startH = int.Parse(settings["HOLD_FORCED_DISCHARGE_START_HOUR"]);
-            int startM = int.Parse(settings["HOLD_FORCED_DISCHARGE_START_MINUTE"]);
-            int endH = int.Parse(settings["HOLD_FORCED_DISCHARGE_END_HOUR"]);
-            int endM = int.Parse(settings["HOLD_FORCED_DISCHARGE_END_MINUTE"]);
-            int lim = int.Parse(settings["HOLD_FORCED_DISCHG_SOC_LIMIT"]);
-
-            DateTime t = DateTime.Parse(settings["inverterRuntimeDeviceTime"]);
-            t = DateTime.SpecifyKind(t, DateTimeKind.Local);
-
-            return (
-                enabled,
-                GetDate(startH, startM, t),
-                GetDate(endH, endM, t),
-                lim,
-                int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"])
-                );
         }
 
         public int GetBatteryChargeRate(Dictionary<string, string> settings)
@@ -373,75 +404,144 @@ namespace Rwb.Luxopus.Services
             }
         }
 
-        public async Task SetChargeFromGridStartAsync(DateTime start)
-        {
-            DateTime localStart = ToLocal(start);
-            await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_AC_CHARGE_START_TIME", localStart));
-        }
-
-        public async Task SetChargeFromGridStopAsync(DateTime stop)
-        {
-            DateTime localStop = ToLocal(stop);
-            await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_AC_CHARGE_END_TIME", localStop));
-        }
-
-        public async Task SetChargeFromGridLevelAsync(int batteryLimitPercent)
-        {
-            bool enable = batteryLimitPercent > 0 && batteryLimitPercent <= 100;
-            await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_AC_CHARGE", enable)); // SetChargeFromGridEnabledAsync
-            if (enable)
-            {
-                await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_SOC_LIMIT", batteryLimitPercent.ToString()));
-            }
-        }
-
-        public async Task SetDischargeToGridStartAsync(DateTime start)
-        {
-            DateTime localStart = ToLocal(start);
-            await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_START_TIME", localStart));
-        }
-
-        public async Task SetDischargeToGridStopAsync(DateTime stop)
-        {
-            DateTime localStop = ToLocal(stop);
-            await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_END_TIME", localStop));
-        }
-
-        public async Task SetDischargeToGridLevelAsync(int batteryLimitPercent)
-        {
-            bool enable = batteryLimitPercent > 0 && batteryLimitPercent < 100;
-            await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_FORCED_DISCHG_EN", enable)); // SetDischargeToGridEnabledAsync
-            if (enable)
-            {
-                await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_SOC_LIMIT", batteryLimitPercent.ToString()));
-            }
-        }
-
         public async Task SetBatteryChargeRateAsync(int batteryChargeRatePercent)
         {
             int rate = batteryChargeRatePercent < 0 || batteryChargeRatePercent > 100 ? 90 : batteryChargeRatePercent;
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_CHARGE_POWER_PERCENT_CMD", rate.ToString()));
         }
 
-        public async Task SetBatteryChargeFromGridRateAsync(int batteryChargeFromGridRatePercent)
-        {
-            int rate = batteryChargeFromGridRatePercent < 0 || batteryChargeFromGridRatePercent > 100 ? 90 : batteryChargeFromGridRatePercent;
-            await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_POWER_CMD", rate.ToString()));
-        }
         public async Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent)
         {
             int rate = batteryDischargeRatePercent < 0 || batteryDischargeRatePercent > 100 ? 90 : batteryDischargeRatePercent;
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_DISCHG_POWER_PERCENT_CMD", rate.ToString())); // !
         }
-        public async Task SetBatteryDischargeToGridRateAsync(int batteryChargeFromGridRatePercent)
-        {
-            int rate = batteryChargeFromGridRatePercent < 0 || batteryChargeFromGridRatePercent > 100 ? 90 : batteryChargeFromGridRatePercent;
-            await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_POWER_CMD", rate.ToString())); // !
-        }
 
         public async Task SetChargeLastAsync(bool enabled)
         {
             await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_CHARGE_LAST", enabled));
+        }
+
+        public LuxAction GetChargeFromGrid(Dictionary<string, string> settings)
+        {
+            bool enabled = settings["FUNC_AC_CHARGE"].ToUpper() == "TRUE";
+            int startH = int.Parse(settings["HOLD_AC_CHARGE_START_HOUR"]);
+            int startM = int.Parse(settings["HOLD_AC_CHARGE_START_MINUTE"]);
+            int endH = int.Parse(settings["HOLD_AC_CHARGE_END_HOUR"]);
+            int endM = int.Parse(settings["HOLD_AC_CHARGE_END_MINUTE"]);
+            int lim = int.Parse(settings["HOLD_AC_CHARGE_SOC_LIMIT"]);
+
+            DateTime t = DateTime.Parse(settings["inverterRuntimeDeviceTime"]);
+
+            return new LuxAction()
+            {
+                Enable = enabled,
+                Start = GetDate(startH, startM, t),
+                End = GetDate(endH, endM, t),
+                Limit = lim,
+                Rate = int.Parse(settings["HOLD_AC_CHARGE_POWER_CMD"])
+            };
+        }
+
+        public async Task<bool> SetChargeFromGrid(LuxAction current, LuxAction required)
+        {
+            bool changes = false;
+
+            if (current.Enable != required.Enable)
+            {
+                await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_AC_CHARGE", required.Enable));
+                changes = true;
+            }
+
+            if (current.Start.TimeOfDay != required.Start.TimeOfDay)
+            {
+                DateTime localStart = ToLocal(required.Start);
+                await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_AC_CHARGE_START_TIME", localStart));
+                changes = true;
+            }
+
+            if (current.End.TimeOfDay != required.End.TimeOfDay)
+            {
+                DateTime localStop = ToLocal(required.End);
+                await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_AC_CHARGE_END_TIME", localStop));
+                changes = true;
+            }
+
+            if (current.Limit != required.Limit)
+            {
+                await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_SOC_LIMIT", current.Limit.ToString()));
+                changes = true;
+            }
+
+            if (current.Rate != required.Rate)
+            {
+                int rate = required.Rate < 0 || required.Rate > 100 ? 90 : required.Rate;
+                await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_POWER_CMD", rate.ToString()));
+                changes = true;
+            }
+
+            return changes;
+        }
+
+        public LuxAction GetDischargeToGrid(Dictionary<string, string> settings)
+        {
+            bool enabled = settings["FUNC_FORCED_DISCHG_EN"].ToUpper() == "TRUE";
+            int startH = int.Parse(settings["HOLD_FORCED_DISCHARGE_START_HOUR"]);
+            int startM = int.Parse(settings["HOLD_FORCED_DISCHARGE_START_MINUTE"]);
+            int endH = int.Parse(settings["HOLD_FORCED_DISCHARGE_END_HOUR"]);
+            int endM = int.Parse(settings["HOLD_FORCED_DISCHARGE_END_MINUTE"]);
+            int lim = int.Parse(settings["HOLD_FORCED_DISCHG_SOC_LIMIT"]);
+
+            DateTime t = DateTime.Parse(settings["inverterRuntimeDeviceTime"]);
+            t = DateTime.SpecifyKind(t, DateTimeKind.Local);
+
+            return new LuxAction()
+            {
+                Enable = enabled,
+                Start = GetDate(startH, startM, t),
+                End = GetDate(endH, endM, t),
+                Limit = lim,
+                Rate = int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"])
+            };
+        }
+
+        public async Task<bool> SetDischargeToGrid(LuxAction current, LuxAction required)
+        {
+            bool changes = false;
+
+            if (current.Enable != required.Enable)
+            {
+                await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_FORCED_DISCHG_EN", required.Enable));
+                changes = true;
+            }
+
+            if (current.Start.TimeOfDay != required.Start.TimeOfDay)
+            {
+                DateTime localStart = ToLocal(required.Start);
+                await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_START_TIME", localStart));
+                changes = true;
+            }
+
+            if (current.End.TimeOfDay != required.End.TimeOfDay)
+            {
+                DateTime localStop = ToLocal(required.End);
+                await PostAsync(UrlToWriteTime, GetTimeParams("HOLD_FORCED_DISCHARGE_END_TIME", localStop));
+                changes = true;
+            }
+
+            if (current.Limit != required.Limit)
+            {
+                await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_SOC_LIMIT", required.Limit.ToString()));
+                changes = true;
+            }
+
+            if (current.Rate != required.Rate)
+            {
+                int rate = required.Rate < 0 || required.Rate > 100 ? 90 : required.Rate;
+                await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_POWER_CMD", rate.ToString())); // !
+                changes = true;
+            }
+
+            return changes;
         }
 
         private Dictionary<string, string> GetHoldParams(string holdParam, string valueText)
@@ -546,7 +646,7 @@ namespace Rwb.Luxopus.Services
             using (JsonDocument j = JsonDocument.Parse(json))
             {
                 today = j.RootElement.GetProperty("ePvPredict").GetProperty("todayPvEnergy").GetDouble();
-                tomorrow = j.RootElement.GetProperty("ePvPredict").GetProperty("tomorrowPvEnergy").GetDouble(); 
+                tomorrow = j.RootElement.GetProperty("ePvPredict").GetProperty("tomorrowPvEnergy").GetDouble();
             }
             return (today, tomorrow);
         }

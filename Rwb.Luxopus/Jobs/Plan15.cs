@@ -58,7 +58,7 @@ namespace Rwb.Luxopus.Jobs
             Plan plan = new Plan(prices);
 
             // When is it economical to buy?
-            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < ExportPrice * 0.8M))
+            foreach (PeriodPlan p in plan.Plans.Where(z => z.Buy < ExportPrice * 0.8M))
             {
                 p.Action = new PeriodAction()
                 {
@@ -70,9 +70,9 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Empty the battery ready to buy.
-            foreach (HalfHourPlan p in plan.Plans.Where(z => Plan.ChargeFromGridCondition(z)))
+            foreach (PeriodPlan p in plan.Plans.Where(z => Plan.ChargeFromGridCondition(z)))
             {
-                HalfHourPlan? pp = plan.Plans.GetPrevious(p);
+                PeriodPlan? pp = plan.Plans.GetPrevious(p);
                 if (pp == null || Plan.ChargeFromGridCondition(pp)) { continue; }
 
                 if (pp.Action != null)
@@ -103,7 +103,7 @@ namespace Rwb.Luxopus.Jobs
         private void SendEmail(Plan plan)
         {
             StringBuilder message = new StringBuilder();
-            foreach (HalfHourPlan p in plan.Plans.OrderBy(z => z.Start))
+            foreach (PeriodPlan p in plan.Plans.OrderBy(z => z.Start))
             {
                 message.AppendLine(p.ToString());
             }

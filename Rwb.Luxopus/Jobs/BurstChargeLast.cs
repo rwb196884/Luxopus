@@ -55,7 +55,7 @@ namespace Rwb.Luxopus.Jobs
                 if (plan != null)
                 {
                     Logger.LogWarning($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}. Using plan from {plan.Current.Start.ToString("yyyy-MM-dd HH:mm")}.");
-                    foreach (HalfHourPlan p in plan.Plans)
+                    foreach (PeriodPlan p in plan.Plans)
                     {
                         p.Start = p.Start.AddDays(2);
                     }
@@ -69,7 +69,7 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
 
-            HalfHourPlan? currentPeriod = plan?.Current;
+            PeriodPlan? currentPeriod = plan?.Current;
 
             if (currentPeriod == null || currentPeriod.Action == null)
             {
@@ -114,38 +114,8 @@ namespace Rwb.Luxopus.Jobs
             int battChargeRateNeeded = battChargeRate;
 
             // Get the planned discharge settings -- we may override them.
-            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent, int battDischargeToGridRate) = _Lux.GetDischargeToGrid(settings);
-            bool outEnabledWanted = outEnabled;
-            DateTime outStartWanted = outStart;
-            DateTime outStopWanted = outStop;
-            int outBatteryLimitPercentWanted = outBatteryLimitPercent;
-            int battDischargeToGridRateWanted = battDischargeToGridRate;
-
-            outEnabledWanted = plan.Plans.Any(z => Plan.DischargeToGridCondition(z));
-            if (plan != null && outEnabledWanted)
-            {
-                HalfHourPlan runFirst = plan.Plans.OrderBy(z => z.Start).First(z => Plan.DischargeToGridCondition(z));
-                outStartWanted = runFirst.Start;
-                outBatteryLimitPercentWanted = runFirst.Action!.DischargeToGrid;
-
-                (IEnumerable<HalfHourPlan> run, HalfHourPlan? next) = plan.GetNextRun(runFirst, Plan.DischargeToGridCondition);
-                outStopWanted = next?.Start ?? run.Last().Start.AddMinutes(30);
-
-                // If there's more than one run in plansToCheck then there must be a gap,
-                // so in the first period in that gap the plan checker will set up for the next run.
-
-                // If we're discharging now and started already then no change is needed.
-                if (Plan.DischargeToGridCondition(currentPeriod) && outStart <= currentPeriod.Start && outStartWanted <= currentPeriod.Start)
-                {
-                    // No need to change it.
-                    outStartWanted = outStart;
-                }
-
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - runFirst.Action!.DischargeToGrid);
-                double hoursToCharge = (next.Start - (runFirst?.Start ?? next.Start.AddHours(1))).TotalHours;
-                double kW = powerRequiredKwh / hoursToCharge;
-                battDischargeToGridRateWanted = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kW));
-            }
+            LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
+            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent);
 
             bool chargeLast = _Lux.GetChargeLast(settings);
             bool chargeLastWanted = chargeLast;
@@ -155,9 +125,7 @@ namespace Rwb.Luxopus.Jobs
             DateTime tBattChargeFrom = gStart > currentPeriod.Start ? gStart : currentPeriod.Start;
 
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(tBattChargeFrom);
-            DateTime nextPlanCheck = DateTime.UtcNow.Minute > 30  //Check if mins are greater than 30
-               ? DateTime.UtcNow.AddHours(1).AddMinutes(-DateTime.UtcNow.Minute) // After half past so go to the next hour.
-               : DateTime.UtcNow.AddMinutes(30 - DateTime.UtcNow.Minute); // Before half past so go to half past.
+            DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
 
             (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
             prediction = prediction / 10;
@@ -228,7 +196,7 @@ from(bucket: ""solar"")
                 actionInfo.AppendLine($"    Battery level: {battLevel}%");
                 actionInfo.AppendLine($"   Battery target: {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%))");
                 actionInfo.AppendLine($"      Charge last: {(chargeLast ? "yes" : "no")}");
-                actionInfo.AppendLine($"Discharge to grid: {outBatteryLimitPercent} from {outStart:HH:mm} to {outStop:HH:mm} ({(outEnabled ? "enabled" : "disabled")})");
+                actionInfo.AppendLine($"Discharge to grid: {dischargeToGridCurrent})");
 
                 // Plan A
                 double hoursToCharge = ((gEnd < plan.Next.Start ? gEnd : plan.Next.Start) - t0).TotalHours;
@@ -261,12 +229,20 @@ from(bucket: ""solar"")
                     // Forced discharge causes clipping.
 
                     // So does charge from grid.
-                    (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent, int battChargeFromGridRate) = _Lux.GetChargeFromGrid(settings);
-                    if (inEnabled)
+                    LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
+                    LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent);
+                    if (chargeFromGridCurrent.Enable && chargeFromGridCurrent.Start < DateTime.UtcNow && chargeFromGridCurrent.End > DateTime.UtcNow)
                     {
                         // Could be plan or because of zero or negative price; it's not important why. We just want to prevent clipping.
-                        await _Lux.SetChargeFromGridLevelAsync(0);
-                        actionInfo.AppendLine($"SetChargeFromGridLevelAsync(0) was {inBatteryLimitPercent}.");
+                        chargeFromGridWanted.Enable = false;
+                        // TODO: revert to plan.
+                        bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
+                        if (changedCharge)
+                        {
+                            actionInfo.AppendLine($"Charge from grid enabled: true -> false.");
+                            actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
+                            actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
+                        }
                     }
 
                     // Generation probably not limited therefore send less to battery.
@@ -305,21 +281,21 @@ from(bucket: ""solar"")
                         chargeLastWanted = true;
                         if (battLevel > battLevelTarget - 5)
                         {
-                            outEnabledWanted = true;
-                            outStartWanted = currentPeriod.Start;
-                            outStopWanted = outStop >= plan.Next.Start ? outStop : plan.Next.Start;
-                            outBatteryLimitPercentWanted = battLevelTarget - 5;
+                            dischargeToGridWanted.Enable = true;
+                            dischargeToGridWanted.Start = currentPeriod.Start;
+                            dischargeToGridWanted.End = dischargeToGridCurrent.End >= plan.Next.Start ? dischargeToGridCurrent.End : plan.Next.Start;
+                            dischargeToGridWanted.Limit = battLevelTarget - 5;
                         }
                         actionInfo.AppendLine($"Looks like it could be a good day. Battery level {battLevel}%, target of {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
                     }
                     else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > battLevelTarget + 2)
                     {
                         // It's gone quiet but it might get busy again: try to discharge some over-charge.
-                        outBatteryLimitPercentWanted = battLevelTarget - 2;
-                        battDischargeToGridRateWanted = 91;
-                        outEnabledWanted = true;
-                        outStartWanted = currentPeriod.Start;
-                        outStopWanted = outStop >= plan.Next.Start ? outStop : plan.Next.Start;
+                        dischargeToGridWanted.Limit = battLevelTarget - 2;
+                        dischargeToGridWanted.Rate = 91;
+                        dischargeToGridWanted.Enable = true;
+                        dischargeToGridWanted.Start = currentPeriod.Start;
+                        dischargeToGridWanted.End = dischargeToGridCurrent.End >= plan.Next.Start ? dischargeToGridCurrent.End : plan.Next.Start;
                         battChargeRateWanted = 91;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {battLevelTarget}% therefore take opportunity to discharge.");
@@ -332,20 +308,20 @@ from(bucket: ""solar"")
                     if (plan.Current.Buy <= 0)
                     {
                         // Fill your boots.
-                        (bool inEnabled, DateTime inStart, DateTime inStop, int inBatteryLimitPercent, int chargeFromGridRate) = _Lux.GetChargeFromGrid(settings);
-                        if (inStart != plan.Current.Start)
+                        LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
+                        LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent);
+                        chargeFromGridWanted.Enable = true;
+                        chargeFromGridWanted.Start = plan.Current.Start;
+                        chargeFromGridWanted.End = plan.Next.Start;
+                        chargeFromGridWanted.Limit = 100;
+                        chargeFromGridWanted.Rate = 100;
+
+                        bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
+                        if (changedCharge)
                         {
-                            await _Lux.SetChargeFromGridStartAsync(plan.Current.Start);
-                        }
-                        if (inStart != plan.Next.Start)
-                        {
-                            await _Lux.SetChargeFromGridStartAsync(plan.Next.Start);
-                        }
-                        if (!inEnabled)
-                        {
-                            await _Lux.SetChargeFromGridLevelAsync(100);
-                            await _Lux.SetBatteryChargeFromGridRateAsync(100);
-                            actionInfo.AppendLine($"SetChargeFromGridLevelAsync(0) was disabled.");
+                            actionInfo.AppendLine($"Charge from grid because buy price is {plan.Current.Buy:#,##0.000}.");
+                            actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
+                            actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
                         }
                     }
                 }
@@ -358,37 +334,18 @@ from(bucket: ""solar"")
             }
 
             // Apply any changes.
-
             if (chargeLast != chargeLastWanted)
             {
                 await _Lux.SetChargeLastAsync(chargeLastWanted);
                 actions.AppendLine($"SetChargeLastAsync({chargeLastWanted}) was {chargeLast}.");
             }
 
-            if (outStartWanted != outStart)
+            bool changedDischarge = await _Lux.SetDischargeToGrid(dischargeToGridCurrent, dischargeToGridWanted);
+            if (changedDischarge)
             {
-                await _Lux.SetDischargeToGridStartAsync(outStartWanted);
-                actions.AppendLine($"SetDischargeToGridStartAsync({outStartWanted:HH:mm}) was {outStart:HH:mm}");
+                actions.AppendLine($"Discharge to grid was: {dischargeToGridCurrent}");
+                actions.AppendLine($" Discharge to grid is: {dischargeToGridWanted}");
             }
-
-            if (outStopWanted != outStop)
-            {
-                await _Lux.SetDischargeToGridStopAsync(outStopWanted);
-                actions.AppendLine($"SetDischargeToGridStopAsync({outStopWanted:HH:mm}) was {outStop:HH:mm}");
-            }
-
-            if (battDischargeToGridRateWanted != battDischargeToGridRate)
-            {
-                await _Lux.SetBatteryDischargeToGridRateAsync(battDischargeToGridRateWanted);
-                actions.AppendLine($"SetBatteryDischargeToGridRateAsync({battDischargeToGridRateWanted}) was {battDischargeToGridRate}");
-            }
-
-            if (outBatteryLimitPercentWanted != outBatteryLimitPercent)
-            {
-                await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted);
-                actions.AppendLine($"SetDischargeToGridLevelAsync({outBatteryLimitPercentWanted}) was {outBatteryLimitPercent}");
-            }
-
 
             if (battChargeRateWanted < battChargeRateNeeded)
             {

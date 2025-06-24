@@ -138,9 +138,9 @@ namespace Rwb.Luxopus.Jobs
 
             Plan plan = new Plan(prices.Where(z => z.Start >= priceNow.Start.AddHours(-4)));
 
-            HalfHourPlan? next = null;
+            PeriodPlan? next = null;
 
-            foreach (HalfHourPlan p in plan.Plans)
+            foreach (PeriodPlan p in plan.Plans)
             {
                 switch (GetFluxCase(plan, p))
                 {
@@ -164,8 +164,8 @@ namespace Rwb.Luxopus.Jobs
 
                         // How much do we need?
                         // Batt absolute min plus use until ~~morning generation~~ the low.
-                        HalfHourPlan? dischargeEnd = plan.Plans.GetNext(p);
-                        HalfHourPlan? low = plan.Plans.GetNext(p, z => GetFluxCase(plan, z) == FluxCase.Low);
+                        PeriodPlan? dischargeEnd = plan.Plans.GetNext(p);
+                        PeriodPlan? low = plan.Plans.GetNext(p, z => GetFluxCase(plan, z) == FluxCase.Low);
                         int dischargeToGrid = 21;
                         if (dischargeEnd != null && low != null)
                         {
@@ -293,7 +293,7 @@ namespace Rwb.Luxopus.Jobs
                             }
                             */
                             // !
-                            HalfHourPlan? peak = plan.Plans.FirstOrDefault(z => z.Start > p.Start && GetFluxCase(plan, z) == FluxCase.Peak);
+                            PeriodPlan? peak = plan.Plans.FirstOrDefault(z => z.Start > p.Start && GetFluxCase(plan, z) == FluxCase.Peak);
                             if (next != null && peak != null)
                             {
                                 double generationPrediction = await GenerationPredictionFromMultivariateLinearRegression(tForecast);
@@ -423,10 +423,10 @@ namespace Rwb.Luxopus.Jobs
             // check for discharge, z, charge.
             if (DateTime.Today.Month >= 5 && DateTime.Today.Month <= 9)
             {
-                foreach (HalfHourPlan p1 in plan.Plans.Where(z => Plan.DischargeToGridCondition(z)))
+                foreach (PeriodPlan p1 in plan.Plans.Where(z => Plan.DischargeToGridCondition(z)))
                 {
-                    HalfHourPlan? p2 = plan.Plans.GetNext(p1);
-                    HalfHourPlan? p3 = plan.Plans.GetNext(p2);
+                    PeriodPlan? p2 = plan.Plans.GetNext(p1);
+                    PeriodPlan? p3 = plan.Plans.GetNext(p2);
                     if (p2 != null && GetFluxCase(plan, p2) == FluxCase.Daytime && p3 != null && Plan.ChargeFromGridCondition(p3))
                     {
                         DateTime gEnd = p1.Start;

@@ -13,13 +13,13 @@ namespace Rwb.Luxopus.Services
 {
     internal static class IEnumerableExtensions
     {
-        public static T? GetPrevious<T>(this IEnumerable<T> things, HalfHourPlan? current, Func<T, bool> where = null) where T : HalfHour
+        public static T? GetPrevious<T>(this IEnumerable<T> things, PeriodPlan? current, Func<T, bool> where = null) where T : Period
         {
             if (current == null) { return null; }
             return things.Where(z => z.Start < current.Start).OrderBy(z => z.Start).LastOrDefault();
         }
 
-        public static T? GetNext<T>(this IEnumerable<T> things, HalfHourPlan? current, Func<T, bool> where = null) where T : HalfHour
+        public static T? GetNext<T>(this IEnumerable<T> things, PeriodPlan? current, Func<T, bool> where = null) where T : Period
         {
             if (current == null) { return null; }
             return things.Where(z => z.Start > current.Start).OrderBy(z => z.Start).FirstOrDefault();
@@ -56,7 +56,7 @@ namespace Rwb.Luxopus.Services
             }
         }
 
-        public static double FutureFreeHoursBeforeNextDischarge<T>(this IEnumerable<T> things, HalfHourPlan current) where T : HalfHourPlan
+        public static double FutureFreeHoursBeforeNextDischarge<T>(this IEnumerable<T> things, PeriodPlan current) where T : PeriodPlan
         {
             double h = 0;
             T c = things.Single(z => z.Start == current.Start);
@@ -89,11 +89,11 @@ namespace Rwb.Luxopus.Services
 
         // Simply extending List<> doens't work with JsonSerializer.
         // Implementing IQueryable<HalfHourPlan> fucks it up too.
-        public List<HalfHourPlan> Plans { get; set; }
+        public List<PeriodPlan> Plans { get; set; }
 
         public Plan(IEnumerable<ElectricityPrice> prices)
         {
-            Plans = prices.Select(z => new HalfHourPlan(z)).ToList();
+            Plans = prices.Select(z => new PeriodPlan(z)).ToList();
         }
 
         /// <summary>
@@ -103,7 +103,7 @@ namespace Rwb.Luxopus.Services
         public Plan() { }
 
         [JsonIgnore]
-        public HalfHourPlan? Current
+        public PeriodPlan? Current
         {
             get
             {
@@ -112,7 +112,7 @@ namespace Rwb.Luxopus.Services
         }
 
         [JsonIgnore]
-        public HalfHourPlan? Previous
+        public PeriodPlan? Previous
         {
             get
             {
@@ -121,7 +121,7 @@ namespace Rwb.Luxopus.Services
         }
 
         [JsonIgnore]
-        public HalfHourPlan? Next
+        public PeriodPlan? Next
         {
             get
             {
@@ -132,7 +132,7 @@ namespace Rwb.Luxopus.Services
         public override string ToString()
         {
             if (Plans.Count == 0) { return "Ce n'est pas un plan."; }
-            IEnumerable<HalfHourPlan> plans = Plans.OrderBy(z => z.Start);
+            IEnumerable<PeriodPlan> plans = Plans.OrderBy(z => z.Start);
             return $"{plans.First().Start.ToString("dd MMM HH:mm")} to {plans.Last().Start.ToString("dd MMM HH:mm")}";
         }
 
@@ -142,10 +142,10 @@ namespace Rwb.Luxopus.Services
         /// <param name="start"></param>
         /// <param name="condition"></param>
         /// <returns></returns>
-        public (IEnumerable<HalfHourPlan>, HalfHourPlan?) GetNextRun(HalfHourPlan start, Func<HalfHourPlan, bool> condition)
+        public (IEnumerable<PeriodPlan>, PeriodPlan?) GetNextRun(PeriodPlan start, Func<PeriodPlan, bool> condition)
         {
-            List<HalfHourPlan> run = new List<HalfHourPlan>();
-            HalfHourPlan? p = start;
+            List<PeriodPlan> run = new List<PeriodPlan>();
+            PeriodPlan? p = start;
             // Move to the start of the next run;
             while(p != null && !condition(p))
             {
@@ -159,9 +159,9 @@ namespace Rwb.Luxopus.Services
             return (run, p);
         }
 
-        public static Func<HalfHourPlan, bool> DischargeToGridCondition { get { return (HalfHourPlan p) => (p.Action?.DischargeToGrid ?? 100) < 100; } }
-        public static Func<HalfHourPlan, bool> ChargeFromGridCondition { get { return (HalfHourPlan p) => (p.Action?.ChargeFromGrid ?? 0) > 0; } }
-        public static Func<HalfHourPlan, bool> FreeElectricityCondition { get { return (HalfHourPlan p) => p.Buy < 0; } }
+        public static Func<PeriodPlan, bool> DischargeToGridCondition { get { return (PeriodPlan p) => (p.Action?.DischargeToGrid ?? 100) < 100; } }
+        public static Func<PeriodPlan, bool> ChargeFromGridCondition { get { return (PeriodPlan p) => (p.Action?.ChargeFromGrid ?? 0) > 0; } }
+        public static Func<PeriodPlan, bool> FreeElectricityCondition { get { return (PeriodPlan p) => p.Buy < 0; } }
 
         #region IQueryable
         /*
@@ -208,7 +208,7 @@ namespace Rwb.Luxopus.Services
 
         private static string GetFilename(Plan p)
         {
-            IEnumerable<HalfHourPlan> o = p.Plans.OrderBy(z => z.Start);
+            IEnumerable<PeriodPlan> o = p.Plans.OrderBy(z => z.Start);
             return o.First().Start.ToString(FileDateFormat) + "__" + o.Last().Start.ToString(FileDateFormat);
         }
 

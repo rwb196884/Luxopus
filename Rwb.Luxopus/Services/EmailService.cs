@@ -107,7 +107,7 @@ namespace Rwb.Luxopus.Services
         public void SendPlanEmail(Plan plan, string notes)
         {
             StringBuilder message = new StringBuilder();
-            foreach (HalfHourPlan p in plan.Plans.OrderBy(z => z.Start))
+            foreach (PeriodPlan p in plan.Plans.OrderBy(z => z.Start))
             {
                 message.AppendLine(p.ToString());
             }

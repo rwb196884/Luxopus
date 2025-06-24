@@ -24,7 +24,7 @@ namespace Rwb.Luxopus.Jobs
     {
         protected readonly IEmailService Email;
 
-        protected static FluxCase GetFluxCase(Plan plan, HalfHourPlan p)
+        protected static FluxCase GetFluxCase(Plan plan, PeriodPlan p)
         {
             //List<decimal> ps = plan.Plans.Select(z => z.Sell).Distinct().OrderBy(z => z).ToList();
             //if(p.Sell == ps[0])
@@ -68,7 +68,7 @@ namespace Rwb.Luxopus.Jobs
         protected void SendEmail(Plan plan, string notes)
         {
             StringBuilder message = new StringBuilder();
-            foreach (HalfHourPlan p in plan.Plans.OrderBy(z => z.Start))
+            foreach (PeriodPlan p in plan.Plans.OrderBy(z => z.Start))
             {
                 message.AppendLine(p.ToString());
             }

@@ -61,7 +61,7 @@ namespace Rwb.Luxopus.Jobs
                 if (plan != null)
                 {
                     Logger.LogWarning($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}. Using plan from {plan.Current.Start.ToString("yyyy-MM-dd HH:mm")}.");
-                    foreach (HalfHourPlan p in plan.Plans)
+                    foreach (PeriodPlan p in plan.Plans)
                     {
                         p.Start = p.Start.AddDays(2);
                     }
@@ -75,7 +75,7 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
 
-            HalfHourPlan? currentPeriod = plan?.Current;
+            PeriodPlan? currentPeriod = plan?.Current;
 
             if (currentPeriod == null || currentPeriod.Action == null)
             {
@@ -124,18 +124,15 @@ namespace Rwb.Luxopus.Jobs
             int battChargeRateWanted = battChargeRate; // No change.
             int battChargeRateNeeded = battChargeRate;
 
-            (bool outEnabled, DateTime outStart, DateTime outStop, int outBatteryLimitPercent, int battDischargeToGridRate) = _Lux.GetDischargeToGrid(settings);
-            bool outEnabledWanted = outEnabled;
-            int outBatteryLimitPercentWanted = outBatteryLimitPercent;
+            LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
+            LuxAction dischargeToGridWanted = _Lux.GetDischargeToGrid(settings);
 
             string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
 
             DateTime tBattChargeFrom = gStart > currentPeriod.Start ? gStart : currentPeriod.Start;
 
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
-            DateTime nextPlanCheck = DateTime.UtcNow.Minute > 30  //Check if mins are greater than 30
-               ? DateTime.UtcNow.AddHours(1).AddMinutes(-DateTime.UtcNow.Minute) // After half past so go to the next hour.
-               : DateTime.UtcNow.AddMinutes(30 - DateTime.UtcNow.Minute); // Before half past so go to half past.
+            DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
 
             (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
             ScaleMethod sm = ScaleMethod.Linear;
@@ -194,7 +191,7 @@ from(bucket: ""solar"")
 
                 if (generation > 2700)
                 {
-                    outEnabledWanted = false;
+                    dischargeToGridWanted.Enable = false;
 
                     if (inverterOutput > 3200)
                     {
@@ -234,8 +231,8 @@ from(bucket: ""solar"")
                     else if (generationMax > 4000 && generationRecentMax > 3000 && inverterOutput < 3000 && battLevel > battLevelTarget + 2)
                     {
                         // It's gone quiet but it might get busy again: try to discharge some over-charge.
-                        outBatteryLimitPercentWanted = battLevelTarget - 2;
-                        outEnabledWanted = true;
+                        dischargeToGridWanted.Limit = battLevelTarget - 2;
+                        dischargeToGridWanted.Enable = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}, target of {battLevelTarget} therefore take opportunity to discharge.");
                     }
                 }
@@ -249,23 +246,11 @@ from(bucket: ""solar"")
             }
 
             // Apply any changes.
-
-            if (outEnabled && !outEnabledWanted)
+            bool changedDischarge = await _Lux.SetDischargeToGrid(dischargeToGridCurrent, dischargeToGridWanted);
+            if (changedDischarge)
             {
-                actionInfo.AppendLine($"Discharge to grid disabled because battery needed to store generation.");
-                await _Lux.SetDischargeToGridLevelAsync(100);
-            }
-            
-            if( outEnabledWanted && ( !outEnabled || outBatteryLimitPercentWanted != outBatteryLimitPercent ))
-            {
-                bool o = false;
-                if (outStart != currentPeriod.Start) { await _Lux.SetDischargeToGridStartAsync(currentPeriod.Start); o = true; }
-                if (outStop != DateTime.UtcNow.AddMinutes(30)) { await _Lux.SetDischargeToGridStopAsync(DateTime.UtcNow.AddMinutes(30)); o = true; }
-                if (outBatteryLimitPercentWanted != outBatteryLimitPercent) { await _Lux.SetDischargeToGridLevelAsync(outBatteryLimitPercentWanted); o = true; }
-                if (o) { 
-                    await _Lux.SetBatteryDischargeToGridRateAsync(90);
-                    actionInfo.AppendLine("Discharge to grid enabled.");
-                }
+                actions.AppendLine($"Discharge to grid was: {dischargeToGridCurrent}");
+                actions.AppendLine($" Discharge to grid is: {dischargeToGridWanted}");
             }
 
             if (battChargeRateWanted < battChargeRateNeeded)

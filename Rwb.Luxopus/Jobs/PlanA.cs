@@ -12,22 +12,22 @@ namespace Rwb.Luxopus.Jobs
 {
     static class PlanAHExtensions
     {
-        public static IEnumerable<T> Evening<T>(this IEnumerable<T> things) where T : HalfHour
+        public static IEnumerable<T> Evening<T>(this IEnumerable<T> things) where T : Period
         {
             // This is probably a proxy for 'global maximum'
             return things.Where(z => z.Start.Hour >= 16 && z.Start.Hour < 20);
         }
-        public static IEnumerable<T> Overnight<T>(this IEnumerable<T> things) where T : HalfHour
+        public static IEnumerable<T> Overnight<T>(this IEnumerable<T> things) where T : Period
         {
             // This is probably a proxy for 'global minimum'
             return things.Where(z => z.Start.Hour >= 0 && z.Start.Hour < 9);
         }
-        public static IEnumerable<T> Morning<T>(this IEnumerable<T> things) where T : HalfHour
+        public static IEnumerable<T> Morning<T>(this IEnumerable<T> things) where T : Period
         {
             // This is probably a proxy for 'second maximum'
             return things.Where(z => z.Start.Hour >= 7 && z.Start.Hour < 11);
         }
-        public static IEnumerable<T> Daytime<T>(this IEnumerable<T> things) where T : HalfHour
+        public static IEnumerable<T> Daytime<T>(this IEnumerable<T> things) where T : Period
         {
             // This is probably a proxy for 'second minimum' and/or 'generation period'.
             return things.Where(z => z.Start.Hour >= 9 && z.Start.Hour < 16);
@@ -143,7 +143,7 @@ namespace Rwb.Luxopus.Jobs
             int periods = (b - battMin) / BatteryDrainPerHalfHour;
 
             // TO DO: we might want to choose periods before the maximum.
-            foreach (HalfHourPlan p in plan.Plans.Take(12 /* don't use tomorrow's high if it's higher; have to sell today */).OrderByDescending(z => z.Sell).Take(periods + 1 /* Use batt limit to stop. */))
+            foreach (PeriodPlan p in plan.Plans.Take(12 /* don't use tomorrow's high if it's higher; have to sell today */).OrderByDescending(z => z.Sell).Take(periods + 1 /* Use batt limit to stop. */))
             {
                 p.Action = new PeriodAction()
                 {
@@ -156,7 +156,7 @@ namespace Rwb.Luxopus.Jobs
 
             // Buy over night when price is -ve or lower than morning sell price.
             decimal morningSellMax = plan.Plans.Morning().SellPrice().DefaultIfEmpty(0).Max();
-            foreach (HalfHourPlan p in plan.Plans.Where(z => z.Buy < 0 /* paid to buy*/ || z.Buy < morningSellMax / 1.2M))
+            foreach (PeriodPlan p in plan.Plans.Where(z => z.Buy < 0 /* paid to buy*/ || z.Buy < morningSellMax / 1.2M))
             {
                 p.Action = new PeriodAction()
                 {
@@ -169,7 +169,7 @@ namespace Rwb.Luxopus.Jobs
             decimal overnightBuyMean = plan.Plans.Where(z => z.Buy < 0 /* paid to buy*/ || z.Buy < morningSellMax - 2M).Select(z => z.Buy).DefaultIfEmpty(100M).Average();
 
             // Morning sell.
-            foreach (HalfHourPlan p in plan.Plans.Morning().Where(z => z.Sell > overnightBuyMean * 1.2M))
+            foreach (PeriodPlan p in plan.Plans.Morning().Where(z => z.Sell > overnightBuyMean * 1.2M))
             {
                 if (overnightBuyMean < morningSellMax - 2M)
                 {
@@ -190,7 +190,7 @@ namespace Rwb.Luxopus.Jobs
         private void SendEmail(Plan plan)
         {
             StringBuilder message = new StringBuilder();
-            foreach (HalfHourPlan p in plan.Plans.OrderBy(z => z.Start))
+            foreach (PeriodPlan p in plan.Plans.OrderBy(z => z.Start))
             {
                 message.AppendLine(p.ToString());
             }
