@@ -198,7 +198,7 @@ namespace Rwb.Luxopus.Jobs
                     double hoursToCharge = (tNext - t0).TotalHours;
                     double kW = powerRequiredKwh / hoursToCharge;
                     dischargeToGridWanted.Rate = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kW));
-                    battChargeRateWanted = 100; // Use FORCE_CHARGE_LAST
+                    battChargeRateWanted = 100;
                     chargeLastWanted = true;
                     why = $"Discharge to grid: {powerRequiredKwh:0.0}kWh needed to grid to get from {battLevel}% to {currentPeriod.Action.DischargeToGrid}% in {hoursToCharge:0.0} hours until {tNext:HH:mm} (mean rate {kW:0.0}kW -> {dischargeToGridWanted.Rate}%).";
                 }
@@ -436,12 +436,12 @@ from(bucket: ""solar"")
             bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
             if (changedCharge)
             {
-                actions.AppendLine($"Charge from grid was: {dischargeToGridCurrent}");
-                actions.AppendLine($"Charge from grid is : {dischargeToGridWanted}");
+                actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
+                actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
             }
             else
             {
-                actions.AppendLine($"Charge from grid is : {dischargeToGridCurrent}");
+                actions.AppendLine($"Charge from grid is : {chargeFromGridCurrent}");
             }
 
             // Discharge to grid.
