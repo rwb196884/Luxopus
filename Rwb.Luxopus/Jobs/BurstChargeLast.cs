@@ -285,17 +285,18 @@ from(bucket: ""solar"")
                             dischargeToGridWanted.Start = currentPeriod.Start;
                             dischargeToGridWanted.End = dischargeToGridCurrent.End >= plan.Next.Start ? dischargeToGridCurrent.End : plan.Next.Start;
                             dischargeToGridWanted.Limit = battLevelTarget - 5;
+                            dischargeToGridWanted.Rate = 91;
                         }
                         actionInfo.AppendLine($"Looks like it could be a good day. Battery level {battLevel}%, target of {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
                     }
                     else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > battLevelTarget + 2)
                     {
                         // It's gone quiet but it might get busy again: try to discharge some over-charge.
-                        dischargeToGridWanted.Limit = battLevelTarget - 2;
-                        dischargeToGridWanted.Rate = 91;
                         dischargeToGridWanted.Enable = true;
                         dischargeToGridWanted.Start = currentPeriod.Start;
                         dischargeToGridWanted.End = dischargeToGridCurrent.End >= plan.Next.Start ? dischargeToGridCurrent.End : plan.Next.Start;
+                        dischargeToGridWanted.Limit = battLevelTarget - 2;
+                        dischargeToGridWanted.Rate = 91;
                         battChargeRateWanted = 91;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {battLevelTarget}% therefore take opportunity to discharge.");

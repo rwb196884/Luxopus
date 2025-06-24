@@ -35,21 +35,21 @@ namespace Rwb.Luxopus.Services
 
         Task<Dictionary<string, string>> GetSettingsAsync();
 
-        LuxAction GetChargeFromGrid(Dictionary<string, string> settings);
-        LuxAction GetDischargeToGrid(Dictionary<string, string> settings);
-
         int GetBatteryChargeRate(Dictionary<string, string> settings);
-        int GetBatteryDischargeRate(Dictionary<string, string> settings);
+        Task SetBatteryChargeRateAsync(int batteryChargeRatePercent);
+
+        //int GetBatteryDischargeRate(Dictionary<string, string> settings);
+        //Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent);
 
         bool GetChargeLast(Dictionary<string, string> settings);
+        Task SetChargeLastAsync(bool enabled);
+
+        LuxAction GetChargeFromGrid(Dictionary<string, string> settings);
+        LuxAction GetDischargeToGrid(Dictionary<string, string> settings);
 
         Task<bool> SetChargeFromGrid(LuxAction current, LuxAction required);
         Task<bool> SetDischargeToGrid(LuxAction current, LuxAction required);
 
-        Task SetBatteryChargeRateAsync(int batteryChargeRatePercent);
-        Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent);
-
-        Task SetChargeLastAsync(bool enabled);
 
         int KwhToBatt(int kWh);
         int BattToKwh(int batt);
@@ -118,7 +118,7 @@ namespace Rwb.Luxopus.Services
                 PeriodPlan? currentPeriod = plan?.Current;
                 PeriodPlan runFirst = plan.Plans.OrderBy(z => z.Start).First(z => Plan.DischargeToGridCondition(z));
                 a.Start = runFirst.Start;
-                a.Limit = runFirst.Action!.ChargeFromGrid;
+                a.Limit = runFirst.Action!.DischargeToGrid;
 
                 (IEnumerable<PeriodPlan> run, PeriodPlan? next) = plan.GetNextRun(runFirst, Plan.DischargeToGridCondition);
                 a.End = (next?.Start ?? run.Last().Start.AddMinutes(30));
@@ -312,6 +312,14 @@ namespace Rwb.Luxopus.Services
             }
         }
 
+        //public async Task<int> GetBatteryLevelAsync()
+        //{
+        //    using (JsonDocument j = JsonDocument.Parse(await GetInverterRuntimeAsync()))
+        //    {
+        //        return j.RootElement.EnumerateObject().Single(z => z.Name == "soc").Value.GetInt32();
+        //    }
+        //}
+
         public async Task<Dictionary<string, string>> GetSettingsAsync()
         {
             Dictionary<string, string> settings = new Dictionary<string, string>();
@@ -386,34 +394,26 @@ namespace Rwb.Luxopus.Services
             return int.Parse(settings["HOLD_CHARGE_POWER_PERCENT_CMD"]);
         }
 
-        public int GetBatteryDischargeRate(Dictionary<string, string> settings)
-        {
-            return int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"]);
-        }
-
-        public bool GetChargeLast(Dictionary<string, string> settings)
-        {
-            return bool.Parse(settings["FUNC_CHARGE_LAST"]);
-        }
-
-        public async Task<int> GetBatteryLevelAsync()
-        {
-            using (JsonDocument j = JsonDocument.Parse(await GetInverterRuntimeAsync()))
-            {
-                return j.RootElement.EnumerateObject().Single(z => z.Name == "soc").Value.GetInt32();
-            }
-        }
-
         public async Task SetBatteryChargeRateAsync(int batteryChargeRatePercent)
         {
             int rate = batteryChargeRatePercent < 0 || batteryChargeRatePercent > 100 ? 90 : batteryChargeRatePercent;
             await PostAsync(UrlToWrite, GetHoldParams("HOLD_CHARGE_POWER_PERCENT_CMD", rate.ToString()));
         }
 
-        public async Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent)
+        //public int GetBatteryDischargeRate(Dictionary<string, string> settings)
+        //{
+        //    return int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"]);
+        //}
+
+        //public async Task SetBatteryDischargeRateAsync(int batteryDischargeRatePercent)
+        //{
+        //    int rate = batteryDischargeRatePercent < 0 || batteryDischargeRatePercent > 100 ? 90 : batteryDischargeRatePercent;
+        //    await PostAsync(UrlToWrite, GetHoldParams("HOLD_DISCHG_POWER_PERCENT_CMD", rate.ToString())); // !
+        //}
+
+        public bool GetChargeLast(Dictionary<string, string> settings)
         {
-            int rate = batteryDischargeRatePercent < 0 || batteryDischargeRatePercent > 100 ? 90 : batteryDischargeRatePercent;
-            await PostAsync(UrlToWrite, GetHoldParams("HOLD_DISCHG_POWER_PERCENT_CMD", rate.ToString())); // !
+            return bool.Parse(settings["FUNC_CHARGE_LAST"]);
         }
 
         public async Task SetChargeLastAsync(bool enabled)
@@ -500,7 +500,7 @@ namespace Rwb.Luxopus.Services
                 Start = GetDate(startH, startM, t),
                 End = GetDate(endH, endM, t),
                 Limit = lim,
-                Rate = int.Parse(settings["HOLD_DISCHG_POWER_PERCENT_CMD"])
+                Rate = int.Parse(settings["HOLD_FORCED_DISCHG_POWER_CMD"])
             };
         }
 
@@ -570,7 +570,6 @@ namespace Rwb.Luxopus.Services
                 { "minute", t.ToString("mm")}
             });
         }
-
 
         private Dictionary<string, string> GetParams(Dictionary<string, string> others)
         {

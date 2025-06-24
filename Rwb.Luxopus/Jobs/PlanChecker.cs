@@ -313,7 +313,7 @@ from(bucket: ""solar"")
 
                         int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, sm);
 
-                        if( DateTime.Now.Hour < 9 && prediction > 20)
+                        if (DateTime.Now.Hour < 9 && prediction > 20)
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 90;
@@ -439,6 +439,10 @@ from(bucket: ""solar"")
                 actions.AppendLine($"Charge from grid was: {dischargeToGridCurrent}");
                 actions.AppendLine($"Charge from grid is : {dischargeToGridWanted}");
             }
+            else
+            {
+                actions.AppendLine($"Charge from grid is : {dischargeToGridCurrent}");
+            }
 
             // Discharge to grid.
             bool changedDischarge = await _Lux.SetDischargeToGrid(dischargeToGridCurrent, dischargeToGridWanted);
@@ -446,6 +450,10 @@ from(bucket: ""solar"")
             {
                 actions.AppendLine($"Discharge to grid was: {dischargeToGridCurrent}");
                 actions.AppendLine($"Discharge to grid is : {dischargeToGridWanted}");
+            }
+            else
+            {
+                actions.AppendLine($"Discharge to grid is : {dischargeToGridCurrent}");
             }
 
             string burstLog = _BurstLog.Read();
@@ -459,8 +467,6 @@ from(bucket: ""solar"")
                     actions.AppendLine(why);
                 }
 
-                actions.AppendLine();
-                actions.AppendLine($"  Battery: {battLevel}%");
                 if (plan != null)
                 {
                     actions.AppendLine();
