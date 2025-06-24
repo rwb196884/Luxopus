@@ -88,8 +88,8 @@ namespace Rwb.Luxopus.Services
             a.Enable = plan.Plans.Any(z => Plan.ChargeFromGridCondition(z));
             if (plan != null && a.Enable)
             {
-                PeriodPlan? currentPeriod = plan?.Current;
-                PeriodPlan runFirst = plan.Plans.OrderBy(z => z.Start).First(z => Plan.ChargeFromGridCondition(z));
+                PeriodPlan currentPeriod = plan!.Current!;
+                PeriodPlan runFirst = plan.Plans.Where(z => z.Start >= currentPeriod.Start).OrderBy(z => z.Start).First(z => Plan.ChargeFromGridCondition(z));
                 a.Start = runFirst.Start;
                 a.Limit = runFirst.Action!.ChargeFromGrid;
 
@@ -114,8 +114,8 @@ namespace Rwb.Luxopus.Services
             a.Enable = plan.Plans.Any(z => Plan.DischargeToGridCondition(z));
             if (plan != null && a.Enable)
             {
-                PeriodPlan? currentPeriod = plan?.Current;
-                PeriodPlan runFirst = plan.Plans.OrderBy(z => z.Start).First(z => Plan.DischargeToGridCondition(z));
+                PeriodPlan currentPeriod = plan!.Current!;
+                PeriodPlan runFirst = plan.Plans.Where(z => z.Start >= currentPeriod.Start).OrderBy(z => z.Start).First(z => Plan.DischargeToGridCondition(z));
                 a.Start = runFirst.Start;
                 a.Limit = runFirst.Action!.DischargeToGrid;
 
