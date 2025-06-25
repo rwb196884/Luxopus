@@ -432,10 +432,6 @@ from(bucket: ""solar"")
                 actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
                 actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
             }
-            else
-            {
-                actions.AppendLine($"Charge from grid is : {chargeFromGridCurrent}");
-            }
 
             // Discharge to grid.
             bool changedDischarge = await _Lux.SetDischargeToGrid(dischargeToGridCurrent, dischargeToGridWanted);
@@ -443,10 +439,6 @@ from(bucket: ""solar"")
             {
                 actions.AppendLine($"Discharge to grid was: {dischargeToGridCurrent}");
                 actions.AppendLine($"Discharge to grid is : {dischargeToGridWanted}");
-            }
-            else
-            {
-                actions.AppendLine($"Discharge to grid is : {dischargeToGridCurrent}");
             }
 
             string burstLog = _BurstLog.Read();
