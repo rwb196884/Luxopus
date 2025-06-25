@@ -344,16 +344,24 @@ namespace Rwb.Luxopus.Jobs
                                 }
 
                                 bool buyToSellAtPeak = false;
-                                if (peak != null && next != null && (peak.Sell - p.Buy) > next.Sell)
+                                if (peak != null && next != null)
                                 {
-                                    buyToSellAtPeak = true;
-                                    notes.AppendLine($"     peak sell {peak.Sell} - buy now {p.Buy} = {peak.Sell - p.Buy} >= sell next {next.Sell} therefore buy to sell at peak.");
-                                }
-                                else
-                                {
-                                    notes.AppendLine($"     peak sell {peak?.Sell ?? -1} - buy now {p.Buy} = {(peak?.Sell ?? 0) - (p.Buy)} < sell next {next?.Sell ?? -1} therefore do not buy to sell at peak.");
-                                    // Make sure that all solar goes to battery.
-                                    // Therefore be cautious about how much to buy.
+                                    decimal solarSoldImmediately = next.Sell;
+                                    decimal profitOnBoughtAndSold = (peak.Sell * 0.89M - p.Buy);
+                                    decimal totalBuyToSell = solarSoldImmediately + profitOnBoughtAndSold;
+                                    if (totalBuyToSell > peak.Sell)
+                                    {
+                                        buyToSellAtPeak = true;
+                                        notes.AppendLine($"     store and sell {peak.Sell:0.000} < (buy and sell {profitOnBoughtAndSold:0.000} = ({peak.Sell:0.00} * 0.89 - {p.Buy:0.00})) + (sell immediately {solarSoldImmediately:0.00})  therefore buy to sell at peak.");
+                                        // Need to keep battery space for generation over 3.6kW that would otherwise be clipped.
+                                        // Plan should specify charge last.
+                                    }
+                                    else
+                                    {
+                                        notes.AppendLine($"     store and sell {peak.Sell:0.000} >= (buy and sell {profitOnBoughtAndSold:0.000} = ({peak.Sell:0.00} * 0.89 - {p.Buy:0.00})) + (sell immediately {solarSoldImmediately:0.00})  therefore do not buy to sell at peak.");
+                                        // Make sure that all solar goes to battery.
+                                        // Therefore be cautious about how much to buy.
+                                    }
                                 }
 
                                 double predictedGenerationToBatt = powerAvailableForBatt > 0 ? _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt) : 0;
