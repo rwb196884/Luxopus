@@ -21,9 +21,15 @@ namespace Rwb.Luxopus.Jobs
         private readonly IEmailService _Email;
         private readonly ISmsService _Sms;
         private readonly IAtService _At;
-        private readonly Planner _Planner;
 
-        public OctopusPrices(ILogger<LuxMonitor> logger, IOctopusService octopus, IInfluxQueryService influxQuery, IInfluxWriterService influxWrite, IEmailService email, ISmsService sms, IAtService at, Planner planner)  :base(logger)
+        public OctopusPrices(ILogger<LuxMonitor> logger,
+            IOctopusService octopus,
+            IInfluxQueryService influxQuery,
+            IInfluxWriterService influxWrite,
+            IEmailService email, ISmsService sms,
+            IAtService at
+        )
+            : base(logger)
         {
             _Octopus = octopus;
             _InfluxQuery = influxQuery;
@@ -31,7 +37,6 @@ namespace Rwb.Luxopus.Jobs
             _Email = email;
             _Sms = sms;
             _At = at;
-            _Planner = planner;
         }
 
         private static string GetProductOfTariff(string tariffCode)
@@ -52,7 +57,7 @@ namespace Rwb.Luxopus.Jobs
             TariffCode te = await _Octopus.GetElectricityCurrentTariff(TariffType.Export, DateTime.Today);
             bool gotPrices = false;
 
-            foreach (string t in ( await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code) )
+            foreach (string t in (await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code))
             {
                 Dictionary<string, string> tags = new Dictionary<string, string>()
                 {
@@ -65,7 +70,7 @@ namespace Rwb.Luxopus.Jobs
                 DateTime from = (await GetLatestPriceAsync(t)).AddMinutes(15);
                 DateTime to = DateTime.Now.Date.AddDays(1).AddHours(22);
 
-                if( from >= to || from.Date > DateTime.Now.Date)
+                if (from >= to || from.Date > DateTime.Now.Date)
                 {
                     Logger.LogInformation($"No prices need getting for {t} from {from:yyyy-MM-dd HH:mm} to {to:yyyy-MM-dd HH:mm}.");
                     // No prices need getting.
@@ -81,12 +86,12 @@ namespace Rwb.Luxopus.Jobs
                 }
                 Logger.LogInformation($"Got {prices.Count()} prices for tariff {t} from {from.ToString("dd MMM HH:mm")} to {to.ToString("dd MMM HH:mm")}.");
                 await _InfluxWrite.WriteAsync(lines);
-                if(prices.Any(z => z.Pence < 0))
+                if (prices.Any(z => z.Pence < 0))
                 {
                     negativePrices.Add(t, prices.Where(z => z.Pence < 0).ToList());
                 }
 
-                if( prices.Select(z => z.ValidFrom).Max() < DateTime.Now.AddHours(-2))
+                if (prices.Select(z => z.ValidFrom).Max() < DateTime.Now.AddHours(-2))
                 {
                     somePricesMightBeMissing = true;
                 }
@@ -95,10 +100,10 @@ namespace Rwb.Luxopus.Jobs
             if (negativePrices.Any())
             {
                 StringBuilder email = new StringBuilder();
-                foreach(string t in negativePrices.Keys)
+                foreach (string t in negativePrices.Keys)
                 {
                     email.AppendLine(t);
-                    foreach(Price p in negativePrices[t].OrderBy(z => z.ValidFrom))
+                    foreach (Price p in negativePrices[t].OrderBy(z => z.ValidFrom))
                     {
                         email.AppendLine($"{p.ValidFrom:HH:mm zzz} {p.Pence:0.00}");
                     }
@@ -113,7 +118,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 // Re-schedule for 5 minutes after the next half hour.
                 DateTime t = DateTime.Now;
-                if(t.Minute < 30)
+                if (t.Minute < 30)
                 {
                     t = t.AddMinutes(35 - t.Minute);
                 }
@@ -147,12 +152,6 @@ namespace Rwb.Luxopus.Jobs
                 gotPrices = gotPrices || ((ti.Code == t || te.Code == t) && prices.Count() > 0);
                 Logger.LogInformation($"Got {prices.Count()} prices for tariff {t} from {from.ToString("dd MMM HH:mm")} to {to.ToString("dd MMM HH:mm")}.");
                 await _InfluxWrite.WriteAsync(lines);
-            }
-
-            if (gotPrices)
-            {
-                // Got some prices therefore update the plan.
-                await _Planner.RunAsync(cancellationToken);
             }
         }
 

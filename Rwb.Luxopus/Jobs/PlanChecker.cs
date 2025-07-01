@@ -17,6 +17,7 @@ namespace Rwb.Luxopus.Jobs
     /// </summary>
     public class PlanChecker : Job
     {
+        //private readonly Planner _Planner;
         private readonly ILuxopusPlanService _Plans;
         private readonly ILuxService _Lux;
         private readonly IInfluxQueryService _InfluxQuery;
@@ -26,6 +27,7 @@ namespace Rwb.Luxopus.Jobs
 
         public PlanChecker(
             ILogger<LuxMonitor> logger,
+            //Planner planner,
             ILuxopusPlanService plans,
             ILuxService lux,
             IInfluxQueryService influxQuery,
@@ -35,6 +37,7 @@ namespace Rwb.Luxopus.Jobs
             )
             : base(logger)
         {
+            //_Planner = planner;
             _Plans = plans;
             _Lux = lux;
             _InfluxQuery = influxQuery;
@@ -58,9 +61,16 @@ namespace Rwb.Luxopus.Jobs
             DateTime t0 = DateTime.UtcNow;
 
             Plan? plan = _Plans.Load(t0);
+            //if (plan == null || plan.Plans?.Count == 0 || plan.Current == null)
+            //{
+            //    Logger.LogWarning($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}. Trying to make a new one.");
+            //    await _Planner.RunAsync(cancellationToken);
+            //    _Plans.Load(t0);
+            //}
 
-            if (plan == null)
+            if (plan == null || plan.Plans?.Count == 0 || plan.Current == null)
             {
+                Logger.LogWarning($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}. Trying to load past plan.");
                 plan = _Plans.Load(t0.AddDays(-2));
                 if (plan != null)
                 {
@@ -70,12 +80,11 @@ namespace Rwb.Luxopus.Jobs
                         p.Start = p.Start.AddDays(2);
                     }
                 }
-            }
-
-            if (plan == null)
-            {
-                Logger.LogError($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
-                // If there is plan then default configuration will be set.
+                else
+                {
+                    Logger.LogError($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}. Could not load past plan.");
+                    return;
+                }
             }
 
             PeriodPlan? currentPeriod = plan?.Current;
@@ -83,10 +92,7 @@ namespace Rwb.Luxopus.Jobs
             if (currentPeriod == null || currentPeriod.Start < DateTime.Now.AddDays(-7))
             {
                 Logger.LogError($"No current plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
-                currentPeriod = new PeriodPlan()
-                {
-                    Action = new PeriodAction() // Use the default values.
-                };
+                return;
             }
 
             StringBuilder actions = new StringBuilder();
