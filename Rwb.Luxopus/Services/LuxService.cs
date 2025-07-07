@@ -81,7 +81,7 @@ namespace Rwb.Luxopus.Services
             };
         }
 
-        public static LuxAction NextCharge(Plan plan, LuxAction current)
+        public static LuxAction? NextCharge(Plan plan, LuxAction current)
         {
             LuxAction a = current.Clone();
 
@@ -89,7 +89,8 @@ namespace Rwb.Luxopus.Services
             if (plan != null && a.Enable)
             {
                 PeriodPlan currentPeriod = plan!.Current!;
-                PeriodPlan runFirst = plan.Plans.Where(z => z.Start >= currentPeriod.Start).OrderBy(z => z.Start).First(z => Plan.ChargeFromGridCondition(z));
+                PeriodPlan? runFirst = plan.Plans.Where(z => z.Start >= currentPeriod.Start).OrderBy(z => z.Start).FirstOrDefault(z => Plan.ChargeFromGridCondition(z));
+                if(runFirst == null) { return null; }
                 a.Start = runFirst.Start;
                 a.Limit = runFirst.Action!.ChargeFromGrid;
 
@@ -107,7 +108,7 @@ namespace Rwb.Luxopus.Services
             return a;
         }
 
-        public static LuxAction NextDisharge(Plan plan, LuxAction current)
+        public static LuxAction? NextDisharge(Plan plan, LuxAction current)
         {
             LuxAction a = current.Clone();
 
@@ -115,7 +116,8 @@ namespace Rwb.Luxopus.Services
             if (plan != null && a.Enable)
             {
                 PeriodPlan currentPeriod = plan!.Current!;
-                PeriodPlan runFirst = plan.Plans.Where(z => z.Start >= currentPeriod.Start).OrderBy(z => z.Start).First(z => Plan.DischargeToGridCondition(z));
+                PeriodPlan? runFirst = plan.Plans.Where(z => z.Start >= currentPeriod.Start).OrderBy(z => z.Start).FirstOrDefault(z => Plan.DischargeToGridCondition(z));
+                if (runFirst == null) { return null; }
                 a.Start = runFirst.Start;
                 a.Limit = runFirst.Action!.DischargeToGrid;
 

@@ -118,7 +118,7 @@ namespace Rwb.Luxopus.Jobs
             LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
             LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent);
 
-            if (dischargeToGridWanted.Enable && Plan.DischargeToGridCondition(currentPeriod))
+            if (Plan.DischargeToGridCondition(currentPeriod) && dischargeToGridWanted.Enable)
             {
                 try
                 {
@@ -144,7 +144,7 @@ namespace Rwb.Luxopus.Jobs
 
             // Charge from grid -- according to plan.
             LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
-            LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent);
+            LuxAction? chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent);
 
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
             int battLevelEnd = 100;
@@ -239,11 +239,14 @@ namespace Rwb.Luxopus.Jobs
                             // Set charge rate high and enable discharge to grid to absorb generation peaks then discharge them.
                             // Can cause generation to be limited, but since the battery is full this is the case anyway.
                             battChargeRateWanted = 72;
-                            dischargeToGridWanted.Enable = true;
-                            dischargeToGridWanted.Rate = 72;
-                            dischargeToGridWanted.Limit = 97;
-                            dischargeToGridWanted.Start = currentPeriod.Start; // Needs to be constant in order not to spam changes.
-                            dischargeToGridWanted.End = plan?.Next?.Start ?? t0.StartOfHalfHour().AddHours(1);
+                            dischargeToGridWanted = new LuxAction()
+                            {
+                                Enable = true,
+                                Rate = 72,
+                                Limit = 97,
+                                Start = currentPeriod.Start, // Needs to be constant in order not to spam changes.
+                                End = plan?.Next?.Start ?? t0.StartOfHalfHour().AddHours(1)
+                            };
                             chargeLastWanted = true;
                             why = $"Battery is full ({battLevel}%) and max generation in last hour is {generationMaxLastHour}.";
                         }
@@ -325,11 +328,14 @@ from(bucket: ""solar"")
 
                             if (battLevel > battLevelTarget - 5 && generationRecentMean < 3000)
                             {
-                                dischargeToGridWanted.Enable = true;
-                                dischargeToGridWanted.Start = currentPeriod.Start;
-                                dischargeToGridWanted.End = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12);
-                                dischargeToGridWanted.Limit = battLevelTarget - 5;
-                                dischargeToGridWanted.Rate = 91;
+                                dischargeToGridWanted = new LuxAction()
+                                {
+                                    Enable = true,
+                                    Start = currentPeriod.Start,
+                                    End = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12),
+                                    Limit = battLevelTarget - 5,
+                                    Rate = 91
+                                };
                                 why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW, recent mean {generationRecentMean / 1000:#0.0}kW) therefore charge last before 10am. Discharge to grid because battery level {battLevel}% is ahead of target target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%).";
                             }
                             else
@@ -345,11 +351,14 @@ from(bucket: ""solar"")
                             chargeLastWanted = true;
                             if (battLevel > battLevelTarget - 5)
                             {
-                                dischargeToGridWanted.Enable = true;
-                                dischargeToGridWanted.Start = currentPeriod.Start;
-                                dischargeToGridWanted.End = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12);
-                                dischargeToGridWanted.Limit = battLevelTarget - 5;
-                                dischargeToGridWanted.Rate = 91;
+                                dischargeToGridWanted = new LuxAction()
+                                {
+                                    Enable = true,
+                                    Start = currentPeriod.Start,
+                                    End = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12),
+                                    Limit = battLevelTarget - 5,
+                                    Rate = 91
+                                };
                                 why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW, max {generationMax / 1000:#0.0}kW) therefore charge last before 9am. Discharge to grid because battery level {battLevel}% is ahead of target target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%).";
                             }
                             else
@@ -432,19 +441,25 @@ from(bucket: ""solar"")
             }
 
             // Charge from grid.
-            bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
-            if (changedCharge)
+            if (chargeFromGridWanted != null)
             {
-                actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
-                actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
+                bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
+                if (changedCharge)
+                {
+                    actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
+                    actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
+                }
             }
 
             // Discharge to grid.
-            bool changedDischarge = await _Lux.SetDischargeToGrid(dischargeToGridCurrent, dischargeToGridWanted);
-            if (changedDischarge)
+            if (dischargeToGridWanted != null)
             {
-                actions.AppendLine($"Discharge to grid was: {dischargeToGridCurrent}");
-                actions.AppendLine($"Discharge to grid is : {dischargeToGridWanted}");
+                bool changedDischarge = await _Lux.SetDischargeToGrid(dischargeToGridCurrent, dischargeToGridWanted);
+                if (changedDischarge)
+                {
+                    actions.AppendLine($"Discharge to grid was: {dischargeToGridCurrent}");
+                    actions.AppendLine($"Discharge to grid is : {dischargeToGridWanted}");
+                }
             }
 
             string burstLog = _BurstLog.Read();
