@@ -157,7 +157,7 @@ namespace Rwb.Luxopus.Jobs
             // Batt charge. ///////////////////////////////////////////////////
             // DateTime sunrise = DateTime.Today.AddHours(9); // TODO: Move to configuration.
             //DateTime sunset = DateTime.Today.AddHours(16);
-            DateTime gStart = DateTime.Today.AddHours(9); //sunrise;
+            DateTime gStart = DateTime.Today.AddHours(5); //sunrise;
             DateTime gEnd = DateTime.Today.AddHours(16); // sunset
             try
             {
@@ -205,6 +205,8 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
+                (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
+                prediction = prediction / 10;
                 if (t0.TimeOfDay <= gStart.TimeOfDay || t0.TimeOfDay >= gEnd.TimeOfDay)
                 {
                     // No solar generation.
@@ -212,7 +214,7 @@ namespace Rwb.Luxopus.Jobs
                     {
                         battChargeRateWanted = 50;
                     }
-                    chargeLastWanted = false;
+                    chargeLastWanted = t0.TimeOfDay <= gStart.TimeOfDay && prediction > 20;
                     why = $"Default (time {t0:HH:mm} is outside of generation range {gStart:HH:mm} to {gEnd:HH:mm}).";
                 }
                 else
@@ -288,8 +290,6 @@ from(bucket: ""solar"")
                         int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(currentPeriod.Start);
                         DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
 
-                        (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
-                        prediction = prediction / 10;
                         int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Fast);
                         int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Linear);
                         int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Slow);
@@ -319,7 +319,15 @@ from(bucket: ""solar"")
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 90;
-                            why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW therefore charge last before 9am..";
+                            why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW therefore charge last before 9am.";
+                            dischargeToGridWanted = new LuxAction()
+                            {
+                                Enable = true,
+                                Start = currentPeriod.Start,
+                                End = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12),
+                                Limit = battLevelTarget - 5,
+                                Rate = 91
+                            };
                         }
                         else if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800) && battLevel >= 9)
                         {
@@ -344,7 +352,7 @@ from(bucket: ""solar"")
                             }
                             goto Apply;
                         }
-                        else if (t0.Hour <= 9 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && battLevel > battLevelTarget - 13)
+                        else if (t0.Hour <= 10 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && battLevel > battLevelTarget - 8)
                         {
                             // At 9am median generation is 1500.
                             battChargeRateWanted = 90;
