@@ -209,7 +209,7 @@ namespace Rwb.Luxopus.Jobs
                 prediction = prediction / 10;
                 if( prediction >= 34 && t0.Hour <= 9)
                 {
-                    chargeFromGridWanted = true;
+                    chargeLastWanted = true;
                     why = $"Prediction {prediction}kWh >= 34kWh and it's before 10am UTC.";
                 }
                 else if (t0.TimeOfDay <= gStart.TimeOfDay || t0.TimeOfDay >= gEnd.TimeOfDay)
