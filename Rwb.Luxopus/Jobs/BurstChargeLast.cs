@@ -145,7 +145,7 @@ from(bucket: ""solar"")
 ).First().Records.First().GetValue<double>();
 
             ScaleMethod sm = ScaleMethod.Linear;
-            if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && generationRecentMean > 2500)
+            if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && (generationRecentMean > 2500 || t0.Hour <= 9))
             {
                 // High prediction / good day: charge slowly.
                 sm = ScaleMethod.Slow;
@@ -218,11 +218,11 @@ from(bucket: ""solar"")
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                 battChargeRateNeeded = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(kW));
 
-                if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800) && battLevel >= 9)
+                if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800 || prediction >= 34) && battLevel >= 9)
                 {
                     chargeLastWanted = true;
                     battChargeRateWanted = 90;
-                    actionInfo.AppendLine("Predicted to be a good day therefore charge last before 9am.");
+                    actionInfo.AppendLine($"Predicted to be a good day ({prediction:0.0}kWh) or high recent generation ({generationRecentMean}kW) therefore charge last before 9am.");
                 }
                 else if (generation > 3200)
                 {

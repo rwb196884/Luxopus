@@ -1,9 +1,4 @@
-﻿using CoordinateSharp;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using System;
-
-namespace Rwb.Luxopus.Services
+﻿namespace Rwb.Luxopus.Services
 {
     // https://coordinatesharp.com/DeveloperGuide#available-celestial-data
 

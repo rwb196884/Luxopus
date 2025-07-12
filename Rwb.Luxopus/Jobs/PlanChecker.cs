@@ -207,7 +207,12 @@ namespace Rwb.Luxopus.Jobs
             {
                 (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
                 prediction = prediction / 10;
-                if (t0.TimeOfDay <= gStart.TimeOfDay || t0.TimeOfDay >= gEnd.TimeOfDay)
+                if( prediction >= 34 && t0.Hour <= 9)
+                {
+                    chargeFromGridWanted = true;
+                    why = $"Prediction {prediction}kWh >= 34kWh and it's before 10am UTC.";
+                }
+                else if (t0.TimeOfDay <= gStart.TimeOfDay || t0.TimeOfDay >= gEnd.TimeOfDay)
                 {
                     // No solar generation.
                     if (battChargeRateWanted < 80)
