@@ -360,7 +360,7 @@ namespace Rwb.Luxopus.Services
                             switch (p.Value.ValueKind)
                             {
                                 case JsonValueKind.String:
-                                    settings.Add(p.Name, p.Value.GetString());
+                                    settings.Add(p.Name, p.Value.GetString() ?? string.Empty);
                                     break;
                                 case JsonValueKind.Number:
                                     settings.Add(p.Name, p.Value.GetInt32().ToString());

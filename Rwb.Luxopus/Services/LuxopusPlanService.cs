@@ -217,7 +217,7 @@ namespace Rwb.Luxopus.Services
             return new FileInfo(Path.Combine(Settings.PlanLocation, GetFilename(p)));
         }
 
-        private static Plan Load(FileInfo planFile)
+        private static Plan? Load(FileInfo planFile)
         {
             if (!planFile.Exists) { return null; }
             using (FileStream fs = planFile.OpenRead())
@@ -245,7 +245,9 @@ namespace Rwb.Luxopus.Services
             }
             )
                 .Where(z => z.FirstPlan <= t && z.LastPlan >= t)
-                .Select(z => Load(z.File));
+                .Select(z => Load(z.File))
+                .Where(z => z != null)
+                .Select(z => z!);
         }
 
         public Plan? Load(DateTime t)

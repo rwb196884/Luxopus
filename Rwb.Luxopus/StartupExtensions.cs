@@ -84,7 +84,7 @@ namespace Rwb.Luxopus
 
         private static Type GetJobType(string name)
         {
-           return Type.GetType($"Rwb.Luxopus.Jobs.{name}");
+           return Type.GetType($"Rwb.Luxopus.Jobs.{name}")!;
         }
     }
 }

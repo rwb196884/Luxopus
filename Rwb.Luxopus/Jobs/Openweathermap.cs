@@ -45,7 +45,7 @@ namespace Rwb.Luxopus.Jobs
 
                     JsonElement.ObjectEnumerator w = day.First(z => z.Name == "weather").Value.EnumerateArray().First().EnumerateObject();
                     int weatherId = w.First(z => z.Name == "id").Value.GetInt32();
-                    string weatherDescription = w.First(z => z.Name == "main").Value.GetString();
+                    string weatherDescription = w.First(z => z.Name == "main").Value.GetString() ?? string.Empty;
                     lines.Add("weather", new Dictionary<string, string>() { { "description", weatherDescription } }, "forecast", weatherId, t);
                 }
             }

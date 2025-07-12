@@ -179,19 +179,19 @@ namespace Rwb.Luxopus.Services
         public InfluxQueryService(ILogger<InfluxQueryService> logger, IOptions<InfluxDBSettings> settings) : base(logger, settings) { }
 
 
-        private async Task<T> QueryAsync<T>(Func<QueryApi, Task<T>> action)
-        {
-            using var client = InfluxDBClientFactory.Create("http://localhost:8086", Settings.Token);
-            var query = client.GetQueryApi();
-            return await action(query);
-        }
+        //private async Task<T> QueryAsync<T>(Func<QueryApi, Task<T>> action)
+        //{
+        //    using var client = InfluxDBClientFactory.Create("http://localhost:8086", Settings.Token);
+        //    var query = client.GetQueryApi();
+        //    return await action(query);
+        //}
 
         private async Task<string> ReadFluxAsync(string name)
         {
             Logger.LogInformation($"Executing influx query {name}");
             string resourceName = $"Rwb.Luxopus.InfluxQueries.{name}";
 
-            using (Stream stream = Assembly.GetAssembly(GetType()).GetManifestResourceStream(resourceName))
+            using (Stream stream = Assembly.GetAssembly(GetType())!.GetManifestResourceStream(resourceName)!)
             {
                 using (StreamReader reader = new StreamReader(stream))
                 {

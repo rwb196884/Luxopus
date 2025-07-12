@@ -15,6 +15,7 @@ namespace Rwb.Luxopus.Jobs
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             Logger.LogInformation("Null job.");
+            await Task.CompletedTask;
         }
     }
 }

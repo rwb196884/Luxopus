@@ -493,7 +493,7 @@ from(bucket: ""solar"")
                     while (pp != null)
                     {
                         actions.AppendLine(pp.ToString());
-                        pp = plan.Plans.GetNext(pp);
+                        pp = plan.Plans?.GetNext(pp);
                     }
                 }
 

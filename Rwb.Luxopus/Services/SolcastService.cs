@@ -75,7 +75,7 @@ namespace Rwb.Luxopus.Services
                     }
                 }
             }
-            return null;
+            return string.Empty;
         }
 
         public async Task<string> GetEstimatedActuals()
@@ -102,7 +102,7 @@ namespace Rwb.Luxopus.Services
                     }
                 }
             }
-            return null;
+            return string.Empty;
         }
 
         private HttpClient GetHttpClient()

@@ -35,14 +35,14 @@ namespace Rwb.Luxopus.Services
 
         public static IEnumerable<string> GetPropertValueAsString(this IEnumerable<JsonElement> source, string propertyName)
         {
-            return source.GetProperty(propertyName).Select(z => z.GetString());
+            return source.GetProperty(propertyName).Select(z => z.GetString()!);
         }
 
         public static DateTime? GetDate(this JsonProperty p)
         {
             if (p.Value.ValueKind == JsonValueKind.String)
             {
-                return DateTime.Parse(p.Value.GetString());
+                return DateTime.Parse(p.Value.GetString()!);
             }
             return null;
         }
