@@ -218,7 +218,7 @@ from(bucket: ""solar"")
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                 battChargeRateNeeded = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(kW));
 
-                if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800 || prediction >= 34) && battLevel >= 9)
+                if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800 || prediction >= 34) && battLevel >= battLevelTarget - 5)
                 {
                     chargeLastWanted = true;
                     battChargeRateWanted = 90;
