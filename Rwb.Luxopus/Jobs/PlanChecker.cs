@@ -395,13 +395,13 @@ from(bucket: ""solar"")
                             double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                             int b = _Batt.TransferKiloWattsToPercent(kW);
                             battChargeRateWanted = _Batt.RoundPercent(b);
-                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} (should be {battLevelTarget}%) to {battLevelEnd}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
+                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
                         }
                         else
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 90;
-                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} (should be {battLevelTarget}%) to {battLevelEnd}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} but ahead of target therefore charge last.";
+                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} but ahead of target therefore charge last.";
                         }
 
                         // Set the rate.
