@@ -469,7 +469,7 @@ namespace Rwb.Luxopus.Services
 
             if (current.Limit != required.Limit)
             {
-                await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_SOC_LIMIT", current.Limit.ToString()));
+                await PostAsync(UrlToWrite, GetHoldParams("HOLD_AC_CHARGE_SOC_LIMIT", required.Limit.ToString()));
                 changes = true;
             }
 
