@@ -49,6 +49,8 @@ namespace Rwb.Luxopus.Jobs
                 lines.Add(Measurement, "batt_level", r.Single(z => z.Name == "soc").Value.GetInt32());
                 lines.Add(Measurement, "inverter_input", r.Single(z => z.Name == "prec").Value.GetInt32());
                 lines.Add(Measurement, "consumption", r.Single(z => z.Name == "consumptionPower").Value.GetInt32());
+                lines.Add(Measurement, "vpv1", r.Single(z => z.Name == "vpv1").Value.GetInt32());
+                lines.Add(Measurement, "vpv2", r.Single(z => z.Name == "vpv2").Value.GetInt32());
                 //lines.Add("battery", "level", r.Single(z => z.Name == "soc").Value.GetInt32()); // Old version.
             }
             await _Influx.WriteAsync(lines);
