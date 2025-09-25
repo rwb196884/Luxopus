@@ -145,7 +145,7 @@ from(bucket: ""solar"")
 ).First().Records.First().GetValue<double>();
 
             ScaleMethod sm = ScaleMethod.Linear;
-            if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && (generationRecentMean > 2500 || t0.Hour <= 9))
+            if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && (generationRecentMean > 2500 || t0.Hour <= 9) && t0.Month >= 4 && t0.Month <= 8)
             {
                 // High prediction / good day: charge slowly.
                 sm = ScaleMethod.Slow;
@@ -340,6 +340,12 @@ from(bucket: ""solar"")
                     actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}% (should be {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%)) to {100}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
                     battChargeRateWanted = battChargeRate;
                 }
+            }
+
+            if (chargeLastWanted && (t0.Month <= 3 || t0.Month >= 9))
+            {
+                chargeLastWanted = false;
+                actionInfo.AppendLine($"Charge last not allowed in the winter.");
             }
 
             // Apply any changes.

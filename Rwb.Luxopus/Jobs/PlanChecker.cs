@@ -312,7 +312,7 @@ from(bucket: ""solar"")
                         {
                             sm = ScaleMethod.Linear;
                         }
-                        else if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && generationRecentMean > 2500)
+                        else if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && generationRecentMean > 2500 && t0.Month >= 4 && t0.Month <= 8)
                         {
                             // High prediction / good day: charge slowly.
                             sm = ScaleMethod.Slow;
@@ -438,6 +438,12 @@ from(bucket: ""solar"")
             }
         // A P P L Y   S E T T I N G S
         Apply:
+
+            if (chargeLastWanted && (t0.Month <= 3 || t0.Month >= 9))
+            {
+                chargeLastWanted = false;
+                why += $" Charge last not allowed in the winter.";
+            }
 
             // Charge from solar.
             if (battChargeRateWanted != battChargeRate)
