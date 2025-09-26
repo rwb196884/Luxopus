@@ -219,7 +219,7 @@ namespace Rwb.Luxopus.Jobs
                     {
                         battChargeRateWanted = 50;
                     }
-                    chargeLastWanted = t0.TimeOfDay <= gStart.TimeOfDay && prediction > 20;
+                    chargeLastWanted = t0.TimeOfDay <= gStart.TimeOfDay && prediction > 34;
                     why = $"Default (time {t0:HH:mm} is outside of generation range {gStart:HH:mm} to {gEnd:HH:mm}).";
                 }
                 else
@@ -320,7 +320,7 @@ from(bucket: ""solar"")
 
                         int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, sm);
 
-                        if (DateTime.Now.Hour < 9 && prediction > 20)
+                        if (DateTime.Now.Hour < 9 && prediction > 34)
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 90;
@@ -334,7 +334,7 @@ from(bucket: ""solar"")
                                 Rate = 91
                             };
                         }
-                        else if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800) && battLevel >= 9)
+                        else if (t0.Month >= 4 && t0.Month <= 8 && DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800) && battLevel >= 9)
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 90;
@@ -357,7 +357,7 @@ from(bucket: ""solar"")
                             }
                             goto Apply;
                         }
-                        else if (t0.Hour <= 10 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && battLevel > battLevelTarget - 8)
+                        else if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 10 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && battLevel > battLevelTarget - 8)
                         {
                             // At 9am median generation is 1500.
                             battChargeRateWanted = 90;
@@ -377,6 +377,8 @@ from(bucket: ""solar"")
                             else
                             {
                                 why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW, max {generationMax / 1000:#0.0}kW) therefore charge last before 9am. Battery level {battLevel}% target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%).";
+                                chargeLastWanted = false;
+
                             }
                             goto Apply;
                         }
@@ -439,7 +441,7 @@ from(bucket: ""solar"")
         // A P P L Y   S E T T I N G S
         Apply:
 
-            if (chargeLastWanted && (t0.Month <= 3 || t0.Month >= 9))
+            if (chargeLastWanted)
             {
                 chargeLastWanted = false;
                 why += $" Charge last not allowed in the winter.";

@@ -119,6 +119,7 @@ namespace Rwb.Luxopus.Jobs
 
             bool chargeLast = _Lux.GetChargeLast(settings);
             bool chargeLastWanted = chargeLast;
+            bool battLevelAboveTarget = false;
 
             string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
 
@@ -190,6 +191,8 @@ from(bucket: ""solar"")
                 {
                     battLevelStart = battLevelTargetF;
                 }
+
+                battLevelAboveTarget = battLevel > battLevelTargetF;
 
                 actionInfo.AppendLine($"       Generation: {generation}W");
                 actionInfo.AppendLine($"  Inverter output: {inverterOutput}W");
@@ -273,7 +276,7 @@ from(bucket: ""solar"")
                 else
                 {
                     // Low generation.
-                    if (t0.Hour <= 9 /* up to 11AM BST && sm == ScaleMethod.Slow */ && generationMax > 1000 && battLevel > battLevelTarget - 8)
+                    if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 9 /* up to 11AM BST && sm == ScaleMethod.Slow */ && generationMax > 1000 && battLevel > battLevelTarget - 8)
                     {
                         // It's early and it looks like it's going to be a good day.
                         // So keep the battery empty to make space for later.
@@ -340,12 +343,6 @@ from(bucket: ""solar"")
                     actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}% (should be {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%)) to {100}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
                     battChargeRateWanted = battChargeRate;
                 }
-            }
-
-            if (chargeLastWanted && (t0.Month <= 3 || t0.Month >= 9))
-            {
-                chargeLastWanted = false;
-                actionInfo.AppendLine($"Charge last not allowed in the winter.");
             }
 
             // Apply any changes.
