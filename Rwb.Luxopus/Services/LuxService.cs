@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using InfluxDB.Client.Api.Domain;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NodaTime;
 using Rwb.Luxopus.Jobs;
@@ -49,6 +50,12 @@ namespace Rwb.Luxopus.Services
         Task<bool> SetChargeFromGrid(LuxAction current, LuxAction required);
         Task<bool> SetDischargeToGrid(LuxAction current, LuxAction required);
 
+        /// <summary>
+        /// Batteyr calibration info: enabled, days since last calibration, calibration period (days).
+        /// </summary>
+        /// <param name="settings"></param>
+        /// <returns></returns>
+        (bool, int, int) GetBatteryCalibration(Dictionary<string, string> settings);
 
         int KwhToBatt(int kWh);
         int BattToKwh(int batt);
@@ -544,6 +551,43 @@ namespace Rwb.Luxopus.Services
 
             return changes;
         }
+
+        public (bool, int, int) GetBatteryCalibration(Dictionary<string, string> settings)
+        {
+            bool enabled = settings["FUNC_BATTERY_CALIBRATION_EN"].ToUpper() == "TRUE";
+            int daysSince = int.Parse(settings["ASC_HOLD_ACCUMULATED_UNCALIBRATED_COUNT_DAYS"]);
+            int period = int.Parse(settings["ASC_HOLD_CALIBRATION_PERIOD_DAYS"]);
+
+            return (enabled, daysSince, period);
+        }
+
+        /*
+        public async Task<bool> SetBatteryCalibrationDays(int days)
+        {
+            try
+            {
+                await PostAsync(UrlToWriteFunction, GetHoldParams("ASC_HOLD_CALIBRATION_PERIOD_DAYS", days.ToString()));
+            }
+            catch
+            {
+                return false;
+            }
+            return true;
+        }
+
+        public async Task<bool> SetBatteryCalibrationEnabled(bool enabled)
+        {
+            try
+            {
+                await PostAsync(UrlToWriteFunction, GetFuncParams("FUNC_BATTERY_CALIBRATION_EN", enabled));
+            }
+            catch
+            {
+                return false;
+            }
+            return true;
+        }
+        */
 
         private Dictionary<string, string> GetHoldParams(string holdParam, string valueText)
         {

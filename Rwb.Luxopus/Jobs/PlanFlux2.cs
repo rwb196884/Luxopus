@@ -69,6 +69,7 @@ namespace Rwb.Luxopus.Jobs
         private readonly IBatteryService _Batt;
         private readonly IOctopusService _Octopus;
         private readonly IAtService _At;
+        private readonly ILuxService _Lux;
 
         public PlanFlux2(ILogger<LuxMonitor> logger,
             IInfluxQueryService influxQuery,
@@ -76,13 +77,16 @@ namespace Rwb.Luxopus.Jobs
             ILuxopusPlanService plan, IEmailService email,
             IBatteryService batt,
             IOctopusService octopus,
-            IAtService at)
+            IAtService at,
+            ILuxService lux
+            )
             : base(logger, influxQuery, plan, email)
         {
             _InfluxWriter = influxWriter;
             _Batt = batt;
             _Octopus = octopus;
             _At = at;
+            _Lux = lux;
         }
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
@@ -182,6 +186,21 @@ namespace Rwb.Luxopus.Jobs
                         else
                         {
                             notes.AppendLine($"Peak: overnight low not found; AdjustLimit value is used.");
+                        }
+
+                        try
+                        {
+                            Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
+                            (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
+                            if ((bcSince > bcPeriod - 2))
+                            {
+                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Discharging overridden from {dischargeToGrid} to 30. ***");
+                                dischargeToGrid = 30;
+                            }
+                        }
+                        catch
+                        {
+                            notes.AppendLine($"*** Failed to get battery calibration info. ***");
                         }
 
                         p.Action = new PeriodAction()
@@ -373,7 +392,7 @@ namespace Rwb.Luxopus.Jobs
                                         notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 34 : 21)}%.");
                                         chargeFromGrid = buyToSell ? 34 : 21;
                                     }
-                                    else if(predictedGenerationToBatt > 300 && generationPrediction > generationMedianForMonth)
+                                    else if (predictedGenerationToBatt > 300 && generationPrediction > generationMedianForMonth)
                                     {
                                         chargeFromGrid = 8;
                                     }
@@ -411,6 +430,25 @@ namespace Rwb.Luxopus.Jobs
                         catch (Exception e)
                         {
                             Logger.LogError(e, "Failed to execute cloud query.");
+                        }
+
+                        try
+                        {
+                            Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
+                            (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
+                            if ((bcSince > bcPeriod - 3))
+                            {
+                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Charging overridden from {chargeFromGrid} to 100. ***");
+                                chargeFromGrid = 100;
+                            }
+                            else
+                            {
+                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}.");
+                            }
+                        }
+                        catch
+                        {
+                            notes.AppendLine($"*** Failed to get battery calibration info. ***");
                         }
 
                         p.Action = new PeriodAction()

@@ -71,6 +71,7 @@ namespace Rwb.Luxopus
 
             _StartupTasks = new List<Job>()
             {
+                octopusMeters,
                 luxMonitor,
                 octopusPrices,
                 sunPosition,
