@@ -331,7 +331,8 @@ namespace Rwb.Luxopus.Services
         public async Task<Dictionary<string, string>> GetSettingsAsync()
         {
             Dictionary<string, string> settings = new Dictionary<string, string>();
-            foreach (int i in new int[] { 0, 40, 80, 120, 160 })
+            //foreach (int i in new int[] { 0, 40, 80, 120, 160 })
+            foreach (int i in new int[] { 0, 127 })
             {
                 string json = null;
                 while (true)
@@ -340,7 +341,8 @@ namespace Rwb.Luxopus.Services
                     {
                             {"inverterSn", Settings.Station },
                             { "startRegister", i.ToString() },
-                            { "pointNumber", "40" }
+                            //{ "pointNumber", "40" }
+                            { "pointNumber", "127" }
                     });
                     if (r.StatusCode == HttpStatusCode.Unauthorized)
                     {
