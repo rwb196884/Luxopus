@@ -323,7 +323,7 @@ from(bucket: ""solar"")
                         if (DateTime.Now.Hour < 9 && prediction > 34)
                         {
                             chargeLastWanted = true;
-                            battChargeRateWanted = 90;
+                            battChargeRateWanted = 91;
                             why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW therefore charge last before 9am.";
                             dischargeToGridWanted = new LuxAction()
                             {
@@ -337,7 +337,7 @@ from(bucket: ""solar"")
                         else if (t0.Month >= 4 && t0.Month <= 8 && DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800) && battLevel >= 9)
                         {
                             chargeLastWanted = true;
-                            battChargeRateWanted = 90;
+                            battChargeRateWanted = 92;
 
                             if (battLevel > battLevelTarget - 5 && generationRecentMean < 3000)
                             {
@@ -360,7 +360,7 @@ from(bucket: ""solar"")
                         else if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 10 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && battLevel > battLevelTarget - 8)
                         {
                             // At 9am median generation is 1500.
-                            battChargeRateWanted = 90;
+                            battChargeRateWanted = 93;
                             chargeLastWanted = true;
                             if (battLevel > battLevelTarget - 5)
                             {
@@ -402,7 +402,7 @@ from(bucket: ""solar"")
                         else
                         {
                             chargeLastWanted = true;
-                            battChargeRateWanted = 90;
+                            battChargeRateWanted = 94;
                             why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} but ahead of target therefore charge last.";
                         }
 
@@ -410,14 +410,14 @@ from(bucket: ""solar"")
 
                         if (generationRecentMax < 3000 && extraPowerNeeded > 0)
                         {
-                            battChargeRateWanted = 90;
+                            battChargeRateWanted = 95;
                             chargeLastWanted = false;
                             why += $" But we are behind by {extraPowerNeeded:0.0}kW therefore override to 90%.";
                         }
 
                         if ((powerRequiredKwh + extraPowerNeeded * 1.5 /* caution factor */ ) / hoursToCharge > generationRecentMean)
                         {
-                            battChargeRateWanted = 90;
+                            battChargeRateWanted = 96;
                             chargeLastWanted = false;
                             why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 90%.";
                         }

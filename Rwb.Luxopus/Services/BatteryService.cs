@@ -114,7 +114,8 @@ namespace Rwb.Luxopus.Services
             else if (percent <= 67) { return 67; }
             else if (percent <= 75) { return 75; }
             else if (percent <= 80) { return 80; }
-            return 90;
+            else if (percent <= 90) { return 90; }
+            return 100;
         }
 
         public int BatteryMinimumLimit { get { return Settings.BatteryMinimumLimit; } }
