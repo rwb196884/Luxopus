@@ -170,7 +170,7 @@ from(bucket:""{_InfluxQuery.Bucket}"")
                 object o = q[0].Records[0].Values["_time"];
                 if (o.GetType() == typeof(Instant))
                 {
-                    return ((Instant)o).ToDateTimeUtc();
+                    o = (DateTime)((Instant)o).ToDateTimeUtc();
                 }
                 DateTime odt = (DateTime)o;
                 DateTime pdt = DateTime.UtcNow.AddHours(-12);
