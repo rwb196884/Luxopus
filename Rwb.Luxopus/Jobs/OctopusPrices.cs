@@ -160,7 +160,7 @@ namespace Rwb.Luxopus.Jobs
             string flux = $@"
 from(bucket:""{_InfluxQuery.Bucket}"")
   |> range(start: -1y, stop: 2d)
-  |> filter(fn: (r) => r[""_measurement""] == ""prices"" and r[""tariff""] == ""{tariffCode}"")
+  |> filter(fn: (r) => r[""_measurement""] == ""prices"" and r[""tariff""] == ""{tariffCode}"" and r[""_value""] > 0)
   |> group(columns: [""tariff""])
   |> last()
 ";
@@ -172,7 +172,9 @@ from(bucket:""{_InfluxQuery.Bucket}"")
                 {
                     return ((Instant)o).ToDateTimeUtc();
                 }
-                return (DateTime)o;
+                DateTime odt = (DateTime)o;
+                DateTime pdt = DateTime.UtcNow.AddHours(-12);
+                return odt > pdt ? pdt : odt; // Zero prices in the future may have been added manually.
             }
             return DateTime.Now.AddYears(-1);
         }
