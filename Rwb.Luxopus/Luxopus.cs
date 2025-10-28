@@ -65,8 +65,9 @@ namespace Rwb.Luxopus
             // Make plan after getting prices and before evening peak.
             //AddJob(planA, "34 16 * * *"); 
             //AddJob(planZero, "38 16 * * *");
-            AddJob(planner, "38 10,16 * * *"); // Tried to call from octopusPrices whenever there are new prices but ended up with no plan.
+            //AddJob(planner, "38 10,16 * * *"); // Tried to call from octopusPrices whenever there are new prices but ended up with no plan.
             AddJob(burst, "* 8-15 * * *");
+            AddJob(burst, "* 8-15 * 3-9 *");
             AddJob(at, "*/8 * * * *");
 
             _StartupTasks = new List<Job>()

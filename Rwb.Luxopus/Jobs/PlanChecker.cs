@@ -219,8 +219,8 @@ namespace Rwb.Luxopus.Jobs
                     {
                         battChargeRateWanted = 50;
                     }
-                    chargeLastWanted = t0.TimeOfDay <= gStart.TimeOfDay && prediction > 34;
-                    why = $"Default (time {t0:HH:mm} is outside of generation range {gStart:HH:mm} to {gEnd:HH:mm}).";
+                    chargeLastWanted = t0.TimeOfDay <= gStart.TimeOfDay && prediction > _Batt.CapacityPercentToKiloWattHours(200);
+                    why = $"Default (time {t0:HH:mm} is outside of generation range {gStart:HH:mm} to {gEnd:HH:mm} and generation prediction is {_Batt.CapacityKiloWattHoursToPercent(prediction)}%).";
                 }
                 else
                 {
@@ -320,7 +320,7 @@ from(bucket: ""solar"")
 
                         int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, sm);
 
-                        if (DateTime.Now.Hour < 9 && prediction > 34)
+                        if (DateTime.Now.Hour < 9 && prediction > _Batt.CapacityPercentToKiloWattHours(89))
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 91;
