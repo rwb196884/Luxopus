@@ -207,10 +207,10 @@ namespace Rwb.Luxopus.Jobs
             {
                 (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
                 prediction = prediction / 10;
-                if( prediction >= 34 && t0.Hour <= 9)
+                if( prediction >= _Batt.CapacityPercentToKiloWattHours(200) && t0.Hour <= 9)
                 {
                     chargeLastWanted = true;
-                    why = $"Prediction {prediction}kWh >= 34kWh and it's before 10am UTC.";
+                    why = $"Prediction {prediction}kWh >= {_Batt.CapacityPercentToKiloWattHours(200)}kWh (200%) and it's before 10am UTC.";
                 }
                 else if (t0.TimeOfDay <= gStart.TimeOfDay || t0.TimeOfDay >= gEnd.TimeOfDay)
                 {
