@@ -408,23 +408,29 @@ from(bucket: ""solar"")
 
                         // Set the rate.
 
-                        if (generationRecentMax < 3000 && extraPowerNeeded > 0)
+                        if(prediction < _Batt.CapacityPercentToKiloWattHours(200))
                         {
                             battChargeRateWanted = 95;
                             chargeLastWanted = false;
-                            why += $" But we are behind by {extraPowerNeeded:0.0}kW therefore override to 90%.";
+
+                        }
+                        else if (generationRecentMax < 3000 && extraPowerNeeded > 0)
+                        {
+                            battChargeRateWanted = 95;
+                            chargeLastWanted = false;
+                            why += $" But we are behind by {extraPowerNeeded:0.0}kW therefore override to 95%.";
                         }
 
                         if ((powerRequiredKwh + extraPowerNeeded * 1.5 /* caution factor */ ) / hoursToCharge > generationRecentMean)
                         {
                             battChargeRateWanted = 96;
                             chargeLastWanted = false;
-                            why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 90%.";
+                            why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 96%.";
                         }
 
                         if (generationRecentMax < 3600 && battLevel < battLevelTarget + 5 && generationMeanDifference < 0)
                         {
-                            battChargeRateWanted = battChargeRateWanted > 40 ? 90 : battChargeRateWanted * 2;
+                            battChargeRateWanted = battChargeRateWanted > 40 ? 97 : battChargeRateWanted * 2;
                             chargeLastWanted = false;
                             why += $" Rate of generation is decreasing ({generationMeanDifference:0}W) therefore override to {battChargeRateWanted}%.";
                         }
