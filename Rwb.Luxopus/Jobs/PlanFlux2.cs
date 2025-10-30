@@ -415,7 +415,7 @@ namespace Rwb.Luxopus.Jobs
                                         chargeFromGrid = 100 - Convert.ToInt32(predictedGenerationToBatt);
                                         chargeFromGrid = chargeFromGrid < 8 ? 8 : chargeFromGrid;
                                         chargeFromGrid = (generationPrediction < 34) && (chargeFromGrid < 13) ? 13 : chargeFromGrid;
-                                        if (!buyToSellAtPeak && chargeFromGrid > 55)
+                                        if (!buyToSellAtPeak && chargeFromGrid > 55 && predictedGenerationToBatt > 100)
                                         {
                                             notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}% reduced to 55% because all generation must go to battery.");
                                             chargeFromGrid = 55;
