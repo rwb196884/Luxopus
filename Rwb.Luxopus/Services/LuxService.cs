@@ -691,8 +691,16 @@ namespace Rwb.Luxopus.Services
             double tomorrow = 0;
             using (JsonDocument j = JsonDocument.Parse(json))
             {
-                today = j.RootElement.GetProperty("ePvPredict").GetProperty("todayPvEnergy").GetDouble();
-                tomorrow = j.RootElement.GetProperty("ePvPredict").GetProperty("tomorrowPvEnergy").GetDouble();
+                JsonElement e = j.RootElement;
+                JsonElement f;
+                if(e.TryGetProperty("todayPvEnergy", out f))
+                {
+                    today = f.GetProperty("todayPvEnergy").GetDouble();
+                }
+                if(e.TryGetProperty("ePvPredict", out f))
+                {
+                    tomorrow = f.GetProperty("tomorrowPvEnergy").GetDouble();
+                }
             }
             return (today, tomorrow);
         }
