@@ -25,8 +25,14 @@ namespace Rwb.Luxopus.Jobs
             LineDataBuilder lines = new LineDataBuilder();
 
             (double today, double tomorrow) = await _Lux.Forecast();
-            lines.Add("forecast", "today", today);
-            lines.Add("forecast", "tomorrow", tomorrow);
+            if (today > 0 )
+            {
+                lines.Add("forecast", "today", today);
+            }
+            if ( tomorrow > 0)
+            {
+                lines.Add("forecast", "tomorrow", tomorrow);
+            }
 
             string json = await _Lux.GetInverterRuntimeAsync();
             using (JsonDocument j = JsonDocument.Parse(json))
