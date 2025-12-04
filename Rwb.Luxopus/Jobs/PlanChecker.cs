@@ -147,7 +147,7 @@ namespace Rwb.Luxopus.Jobs
             LuxAction? chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent);
 
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
-            int battLevelEnd = 100;
+            int battLevelEnd = 70;// 100;
             if ((plan.Next?.Buy ?? 1) <= 0)
             {
                 battLevelEnd -= _Batt.CapacityKiloWattHoursToPercent(plan.Plans.FutureFreeHoursBeforeNextDischarge(currentPeriod) * 3.2);
