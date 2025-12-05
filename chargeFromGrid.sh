@@ -27,8 +27,11 @@ elif [ $1 -gt 100 ]; then
 	echo "Parameter 0 is new charge from grid cut-off. Must be at most 100. (Suggested -11 to +32 of plan.)"
 	exit 1
 fi
- 
-echo "Setting all non-zero ChargeFromGrid to $1 in ${planDir}/${f}. (Suggested adjustment is -11 to +32 of plan.)"
+
+echo "Plan is: ${planDir}/${f}"
+echo "(Suggested adjustment is -11 to +32 of plan.)"
 
 cat "${planDir}/$f" | jq ".Plans[].Action.ChargeFromGrid |= if . > 0 then $1 else . end" > "${planDir}/${f}.tmp"
 mv "${planDir}/${f}.tmp" "${planDir}/$f"
+
+cat "${planDir}/$f" | jq '.Plans[] | select(.Action.ChargeFromGrid > 0)' | jq '"\(.Start) \(.Buy) -> \(.Action.ChargeFromGrid)%"'

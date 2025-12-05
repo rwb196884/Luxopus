@@ -33,15 +33,13 @@ if [ -z "$p" ]; then
 fi
 
 #pNew=$( echo "$p" | jq  --arg dj "$dj" ' .Start |= $dj | .Buy |= 0 | .Action.ChargeFromGrid |= 100 | .Action.DischargeToGrid |= 100 | .New |= "NEW" ' )
-pNew=$( echo "$p" | jq  --arg dj "$dj" ' .Start |= $dj | .Buy |= 0 ' )
+pNew=$( echo "$p" | jq  --arg dj "$dj" ' .Start |= $dj | .Buy |= 0 | .Action.ChargeFromGrid |= 100 | .Action.DischargeToGrid |= 100' )
 pAfter=$( echo "$p" | jq --arg djj "$djj" ' .Start |= $djj ' )
 
 r=$( cat ${planDir}/${f} | jq --argjson pNew "$pNew" --argjson pAfter "$pAfter" ' [ .Plans[], $pNew, $pAfter ] | sort_by( .Start | fromdateiso8601 ) | { Plans: . } ' )
 
 #echo "$r" 
 
-#echo "--- EXIT ---"
-#exit 1
 
 # Replace file.
 echo "$r" > "${planDir}/${f}.tmp"
@@ -53,14 +51,18 @@ token="Hb9Hv6jvOe6RqPVZKTPArOouN5DBZ46nmRonNuTio94edn70Ayqgg5TWxKtTKuceQhnL5UKQq
 djns=$( date -u -d "$dj" +"%s *1000000000" | bc )
 
 influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=buy,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=0.0 $djns"
+echo "prices,fuel=electricity,type=buy,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=0.0 $djns"
 
 pSell=$( echo "$p" | jq -r '.Sell' )
-influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=sell,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=$pSell $djns"
+influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=sell,tariff=E-1R-FLUX-EXPORT-23-02-14-E prices=$pSell $djns"
+echo "prices,fuel=electricity,type=sell,tariff=E-1R-FLUX-EXPORT-23-02-14-E prices=$pSell $djns"
 
 djjns=$( date -u -d "$djj" +"%s *1000000000" | bc )
 
 pBuy=$(  echo "$pAfter" | jq -r '.Buy' )
 influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=buy,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=$pBuy $djjns"
+echo "prices,fuel=electricity,type=buy,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=$pBuy $djjns"
 
-influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=sell,tariff=E-1R-FLUX-IMPORT-23-02-14-E prices=$pSell $djjns"
+influx write --org mini31 --bucket solar --token $token "prices,fuel=electricity,type=sell,tariff=E-1R-FLUX-EXPORT-23-02-14-E prices=$pSell $djjns"
+echo "prices,fuel=electricity,type=sell,tariff=E-1R-FLUX-EXPORT-23-02-14-E prices=$pSell $djjns"
 
