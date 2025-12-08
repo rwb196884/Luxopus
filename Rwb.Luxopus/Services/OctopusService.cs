@@ -222,7 +222,8 @@ namespace Rwb.Luxopus.Services
         {
             return (await GetElectricityTariffs(false))
                     .Where(z => z.ValidFrom <= at && (!z.ValidTo.HasValue || z.ValidTo >= at) && z.TariffType == tariffType)
-                    .Single();
+                    .OrderBy(z => z.ValidTo.HasValue ? 0 : 1).ThenByDescending(z => z.ValidFrom)
+                    .First(); // There is more than one if the tariff is being changed at at.
         }
 
         public async Task<IEnumerable<Price>> GetElectricityPrices(string product, string tariff, DateTime from, DateTime to)

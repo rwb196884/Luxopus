@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Jobs;
 using Rwb.Luxopus.Services;
 using System;
@@ -50,7 +49,6 @@ namespace Rwb.Luxopus
                     services.Register<IBurstLogService, BurstLogService, BurstLogSettings>(context);
                     services.Register<IBatteryService, BatteryService, BatterySettings>(context);
                     services.Register<IAtService, AtService, AtSettings>(context);
-                    //services.Register<IGenerationForecastService, GenerationForecastService, GenerationForecastSettings>(context);
 
                     // Main thingy.
                     services.AddScoped<Luxopus>();
@@ -66,6 +64,7 @@ namespace Rwb.Luxopus
                     services.AddScoped<Sunrise>();
                     services.AddScoped<Openweathermap>();
                     services.AddScoped<AtJob>();
+                    services.AddScoped<GenerationForecast>();
 
                     services.AddScoped<PlanChecker>();
                     //services.AddScoped<Burst>();

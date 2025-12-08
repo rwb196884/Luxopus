@@ -176,7 +176,7 @@ from(bucket:""{_InfluxQuery.Bucket}"")
                 DateTime pdt = DateTime.UtcNow.AddHours(-12);
                 return odt > pdt ? pdt : odt; // Zero prices in the future may have been added manually.
             }
-            return DateTime.Now.AddYears(-1);
+            return DateTime.Now.AddYears(-2);
         }
     }
 }

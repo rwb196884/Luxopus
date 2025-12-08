@@ -41,7 +41,8 @@ namespace Rwb.Luxopus
             AtJob at,
             Planner planner,
             PlanChecker planChecker,
-            BurstManager burst
+            BurstManager burst,
+            GenerationForecast generationForecast
         )
         {
             _Logger = logger;
@@ -69,6 +70,7 @@ namespace Rwb.Luxopus
             //AddJob(burst, "* 8-15 * * *");
             AddJob(burst, "* 8-15 * 3-9 *");
             AddJob(at, "*/8 * * * *");
+            AddJob(generationForecast, "21 16 * * *");
 
             _StartupTasks = new List<Job>()
             {

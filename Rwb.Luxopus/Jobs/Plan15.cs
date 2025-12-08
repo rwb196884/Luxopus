@@ -1,4 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Accord.Genetic;
+using Accord.MachineLearning.Boosting.Learners;
+using InfluxDB.Client.Core.Flux.Domain;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using RestSharp;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
@@ -11,21 +16,25 @@ namespace Rwb.Luxopus.Jobs
 {
     /// <summary>
     /// <para>
-    /// Plan for fixed export price -- 15p at the time of writing.
+    /// Plan for fixed export price -- 15p at the time of writing -- and agile import.
     /// </para>
     /// </summary>
     public class Plan15 : Planner
     {
-        const decimal ExportPrice = 15M;
+        private const decimal _ExportPrice = 15M;
 
         /// <summary>
         /// Rate at which battery discharges to grid. TODO: estimate from historical data.
         /// Capacity 189 Ah * 55V ~ 10kWh so 1% is 100Wh
         /// Max charge ~ 4kW => 2.5 hours => 20% per half hour.
         /// 3kW => 3.5 hours => 15% per half hour.
+        /// Capacity 315 Ah * 55V ~ 10kWh so 1% is 173Wh
+        /// Max discharge to grid 3.6kW => => 1800Wh per half hour => 10% per half hour.
+        /// It takes 9 half hours to fully charge the battery
+        /// 
         /// TODO: estimate from data.
         /// </summary>
-        const int BatteryDrainPerHalfHour = 12;
+        const int BatteryDrainPerHalfHour = 10;
 
         /// <summary>
         /// Normal battery minimum allowed level. TODO: estimate from historical data.
@@ -36,29 +45,54 @@ namespace Rwb.Luxopus.Jobs
         const int BatteryMin = 30;
 
         private readonly ILuxService _Lux;
-        IEmailService _Email;
-        ISmsService _Sms;
+        private readonly IBatteryService _Batt;
+        private readonly IEmailService _Email;
+        private readonly IOctopusService _Octopus;
 
-        public Plan15(ILogger<LuxMonitor> logger, ILuxService lux, IInfluxQueryService influxQuery, ILuxopusPlanService plan, IEmailService email, ISmsService sms) : base(logger, influxQuery, plan)
+        public Plan15(
+            ILogger<LuxMonitor> logger,
+            ILuxService lux,
+            IInfluxQueryService influxQuery,
+            ILuxopusPlanService plan,
+            IEmailService email,
+            IBatteryService batt,
+            IOctopusService octopus
+            )
+            : base(logger, influxQuery, plan)
         {
             _Lux = lux;
             _Email = email;
-            _Sms = sms;
+            _Batt = batt;
+            _Octopus = octopus;
         }
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             //DateTime t0 = new DateTime(2023, 03, 31, 17, 00, 00);
-            DateTime t0 = new DateTime(2023, 04, 02, 17, 00, 00);
+            DateTime t0 = DateTime.UtcNow.AddHours(-1);
+            //Plan? current = PlanService.Load(t0);
+            StringBuilder notes = new StringBuilder();
 
-            // Get prices and set up plan.
-            DateTime start = t0.StartOfHalfHour();
-            DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 18, 0, 0)).AddDays(1);
-            List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, "E-1R-AGILE-FLEX-22-11-25-E", "OUTGOING-FIX-12M-19-05-13");
+            DateTime start = t0.StartOfHalfHour();//.AddDays(-1);// Longest period is 5AM while 4PM (local).
+            DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 21, 0, 0)).AddDays(1);
+            TariffCode ti = await _Octopus.GetElectricityCurrentTariff(TariffType.Import, start);
+            TariffCode te = await _Octopus.GetElectricityCurrentTariff(TariffType.Export, start);
+            List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, ti.Code, te.Code);
             Plan plan = new Plan(prices);
 
+            if (prices.Any(z => z.Sell > 0 && z.Sell != _ExportPrice))
+            {
+                // The 15p may have been set months and months ago!
+                throw new Exception();
+            }
+
+            foreach (PeriodPlan p in plan.Plans)
+            {
+                p.Sell = _ExportPrice;
+            }
+
             // When is it economical to buy?
-            foreach (PeriodPlan p in plan.Plans.Where(z => z.Buy < ExportPrice * 0.8M))
+            foreach (PeriodPlan p in plan.Plans.Where(z => z.Buy < _ExportPrice * 0.89M))
             {
                 p.Action = new PeriodAction()
                 {
@@ -69,66 +103,83 @@ namespace Rwb.Luxopus.Jobs
                 };
             }
 
-            // Empty the battery ready to buy.
-            foreach (PeriodPlan p in plan.Plans.Where(z => Plan.ChargeFromGridCondition(z)))
+            // Forecast.
+            DateTime tForecast = DateTime.Today.ToUniversalTime().AddHours(24 + 2);
+            double generationPrediction = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, tForecast)).Single().Records[0].Values["_value"];
+            double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
+
+            // Usage.
+            List<FluxTable> bupH = await InfluxQuery.QueryAsync(Query.HourlyBatteryUse, t0);
+            BatteryUsageProfile bup = new BatteryUsageProfile(bupH);
+            double powerRequired = bup.GetKwkh(tForecast.DayOfWeek, tForecast.Hour, 23);
+            int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
+
+            // TODO: have we bought enough to use?
+
+            // Free.
+            double freeKw = plan.Plans.FutureFreeHoursBeforeNextDischarge(plan.Current!) * 3.2;
+            if (freeKw > 0)
             {
-                PeriodPlan? pp = plan.Plans.GetPrevious(p);
-                if (pp == null || Plan.ChargeFromGridCondition(pp)) { continue; }
+                notes.AppendLine($"Free: {freeKw:0.0}kW.");
+            }
 
-                if (pp.Action != null)
+            notes.AppendLine($"Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%).");
+            double generationMedianForMonth = (double)(await InfluxQuery.QueryAsync(Query.GenerationMedianForMonth, DateTime.UtcNow)).Single().Records[0].Values["_value"];
+            generationMedianForMonth = generationMedianForMonth / 10.0;
+            if (generationPrediction > generationMedianForMonth)
+            {
+                generationPrediction = (generationPrediction + generationMedianForMonth) / 2.0;
+                battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
+                notes.AppendLine($"Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%) adjusted towards monthly median of {generationMedianForMonth}kWH.");
+            }
+            notes.AppendLine($"Predicted use of {powerRequired:0.0}kW ({battRequired:0}%).");
+
+            // Discharge:
+            foreach (PeriodPlan p in plan.Plans)
+            {
+                if(p.Action != null) { continue; }
+
+                // Discharge to make space to buy.
+                PeriodPlan? nextBuy = plan.Plans.FirstOrDefault(z => z.Start > p.Start && p.Action != null && p.Action.ChargeFromGrid > 0);
+                if (nextBuy != null)
                 {
-                    throw new NotImplementedException();
+                    p.Action = GetDischargeAction(_Batt.BatteryMinimumLimit + battRequired);
+                    continue;
                 }
 
-                int battEstimate = 80; // Current level.
-                while (battEstimate > 20 && pp != null)
+                // Discharge to make space to import free electricity.
+                PeriodPlan? nextFree = plan.GetNextRun(p, z => z.Buy <= 0).Item1.FirstOrDefault();
+                if (nextFree != null)
                 {
-                    pp.Action = new PeriodAction()
-                    {
-                        ChargeFromGrid = 0,
-                        //BatteryChargeRate = 100,
-                        //BatteryGridDischargeRate = 100,
-                        DischargeToGrid = 20
-                    };
-
-                    battEstimate = battEstimate = BatteryDrainPerHalfHour;
-                    //pp = plan.GetPrevious(pp);
+                    p.Action = GetDischargeAction(_Batt.BatteryMinimumLimit + battRequired);
+                    continue;
                 }
+
+                // Discharge to make space for burst generation that can't be exported immediately.
+                if(generationPrediction > _Batt.CapacityPercentToKiloWattHours(50) && p.Start.Hour < 9)
+                {
+                    p.Action = GetDischargeAction(_Batt.BatteryMinimumLimit + battRequired);
+                }
+            }
+
+            foreach (PeriodPlan p in plan.Plans.Where(z => z.Action == null))
+            {
+                p.Action = GetDischargeAction(_Batt.BatteryMinimumLimit + battRequired);
             }
 
             PlanService.Save(plan);
-            SendEmail(plan);
+            _Email.SendPlanEmail(plan, notes.ToString());
         }
 
-        private void SendEmail(Plan plan)
+        private static PeriodAction GetDischargeAction(int dischargeTarget)
         {
-            StringBuilder message = new StringBuilder();
-            foreach (PeriodPlan p in plan.Plans.OrderBy(z => z.Start))
+            return new PeriodAction()
             {
-                message.AppendLine(p.ToString());
-            }
-
-            string emailSubjectPrefix = "";
-            if (plan.Plans.Any(z => Plan.DischargeToGridCondition(z)))
-            {
-                emailSubjectPrefix += "E";
-            }
-
-            if (plan.Plans.Any(z => Plan.ChargeFromGridCondition(z)))
-            {
-                emailSubjectPrefix += "I";
-            }
-
-            string s = message.ToString();
-
-            _Email.SendEmail(emailSubjectPrefix + "Solar strategy " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString());
-
-            if (emailSubjectPrefix.Length > 0)
-            {
-                decimal eveningSellHigh = plan.Plans.Evening().Select(z => z.Sell).Max();
-                decimal overnightBuyMin = plan.Plans.Overnight().Select(z => z.Buy).Min();
-                _Sms.SendSms($"SOLAR! Sell {eveningSellHigh.ToString("00.0")} Buy {overnightBuyMin.ToString("00.0")}");
-            }
+                ChargeFromGrid = 0,
+                //BatteryChargeRate = 100,
+                //BatteryGridDischargeRate = 100,
+                DischargeToGrid = dischargeTarget
+            };
         }
     }
 }

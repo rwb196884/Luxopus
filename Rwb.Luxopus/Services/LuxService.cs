@@ -547,6 +547,7 @@ namespace Rwb.Luxopus.Services
             if (current.Rate != required.Rate)
             {
                 int rate = required.Rate < 0 || required.Rate > 100 ? 90 : required.Rate;
+                rate = rate > 0 && rate < 13 ? 13 : rate;
                 await PostAsync(UrlToWrite, GetHoldParams("HOLD_FORCED_DISCHG_POWER_CMD", rate.ToString())); // !
                 changes = true;
             }
