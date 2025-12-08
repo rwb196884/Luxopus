@@ -113,7 +113,7 @@ namespace Rwb.Luxopus.Jobs
             int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
 
             // TODO: have we bought enough to use?
-            double boughtEstimate = plan.Plans.Where(z => z.Action != null & z.Action!.ChargeFromGrid > 0).Count() * 2 * 3.4;
+            double boughtEstimate = plan.Plans.Where(z => z.Action != null && z.Action!.ChargeFromGrid > 0).Count() * 2 * 3.4;
             while(boughtEstimate < powerRequired)
             {
                 PeriodPlan? q = plan.Plans.Where(z => z.Action == null && z.Start.Hour < 10).OrderBy(z => z.Buy).FirstOrDefault();
