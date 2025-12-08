@@ -96,9 +96,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 p.Action = new PeriodAction()
                 {
-                    ChargeFromGrid = p.Buy < 0 ? 100 : 99,
-                    //BatteryChargeRate = 100,
-                    //BatteryGridDischargeRate = 0,
+                    ChargeFromGrid = 100,
                     DischargeToGrid = 100
                 };
             }
@@ -111,10 +109,22 @@ namespace Rwb.Luxopus.Jobs
             // Usage.
             List<FluxTable> bupH = await InfluxQuery.QueryAsync(Query.HourlyBatteryUse, t0);
             BatteryUsageProfile bup = new BatteryUsageProfile(bupH);
-            double powerRequired = bup.GetKwkh(tForecast.DayOfWeek, tForecast.Hour, 23);
+            double powerRequired = bup.GetKwkh(tForecast.DayOfWeek, tForecast.AddHours(3 /* Hack to start after charge from grid. */).Hour, 23);
             int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
 
             // TODO: have we bought enough to use?
+            double boughtEstimate = plan.Plans.Where(z => z.Action != null & z.Action!.ChargeFromGrid > 0).Count() * 2 * 3.4;
+            while(boughtEstimate < powerRequired)
+            {
+                PeriodPlan? q = plan.Plans.Where(z => z.Action == null && z.Start.Hour < 10).OrderBy(z => z.Buy).FirstOrDefault();
+                if( q == null) { break; }
+                q.Action = new PeriodAction()
+                {
+                    ChargeFromGrid = 100,
+                    DischargeToGrid = 100
+                };
+                boughtEstimate += 0.5 * 3.4;
+            }
 
             // Free.
             double freeKw = plan.Plans.FutureFreeHoursBeforeNextDischarge(plan.Current!) * 3.2;
@@ -162,9 +172,34 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
+            bool batteryConditioningRequired = false;
+            try
+            {
+                Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
+                (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
+                if ((bcSince > bcPeriod - 3))
+                {
+                    notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Calibration is required. ***");
+                    batteryConditioningRequired = true;
+                }
+                else
+                {
+                    notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}.");
+                }
+            }
+            catch
+            {
+                notes.AppendLine($"*** Failed to get battery calibration info. ***");
+            }
+
+
             foreach (PeriodPlan p in plan.Plans.Where(z => z.Action == null))
             {
-                p.Action = GetDischargeAction(_Batt.BatteryMinimumLimit + battRequired);
+                p.Action = batteryConditioningRequired ? new PeriodAction()
+                {
+                    ChargeFromGrid = 0,
+                    DischargeToGrid = 100
+                } : GetDischargeAction(_Batt.BatteryMinimumLimit + battRequired);
             }
 
             PlanService.Save(plan);
@@ -176,8 +211,6 @@ namespace Rwb.Luxopus.Jobs
             return new PeriodAction()
             {
                 ChargeFromGrid = 0,
-                //BatteryChargeRate = 100,
-                //BatteryGridDischargeRate = 100,
                 DischargeToGrid = dischargeTarget
             };
         }
