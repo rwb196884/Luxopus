@@ -1,9 +1,13 @@
 #!/bin/sh
 
 planDir="/home/rwb/Luxopus/plans"
-f=$(ls "$planDir" | tail -1)
+f=$( ls --hide *.fuck ${planDir}/202*__* 2>/dev/null | tail -1 )
 
-cat "${planDir}/$f" | jq '.Plans | map (if .Buy > 30 then . | .Action.DischargeToGrid |= 100 | .Action.ChargeFromGrid |= 0 else
- . | .Action.DischargeToGrid |= 100 | .Action.ChargeFromGrid |= 100 end)' #> "${planDir}/${f}.tmp"
-#mv "${planDir}/${f}.tmp" "${planDir}/$f"
+if [ ! -f "$f" ]; then
+	echo "No file '$f' at '${planDir}/202*__*'."
+	exit 1
+fi
+
+cat "$f" | jq '.Plans | map (if .Buy > 30 then . | .Action.DischargeToGrid |= 100 | .Action.ChargeFromGrid |= 0 else . | .Action.DischargeToGrid |= 100 | .Action.ChargeFromGrid |= 100 end) | { "Plans": . }' >"${f}.fuck"
+mv "${f}.fuck" "$f"
 
