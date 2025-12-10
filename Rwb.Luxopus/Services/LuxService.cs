@@ -1,5 +1,4 @@
-﻿using InfluxDB.Client.Api.Domain;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NodaTime;
 using Rwb.Luxopus.Jobs;
