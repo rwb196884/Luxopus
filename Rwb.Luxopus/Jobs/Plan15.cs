@@ -219,13 +219,15 @@ namespace Rwb.Luxopus.Jobs
             // Tidy.
             foreach (PeriodPlan p in plan.Plans)
             {
+                PeriodPlan? q = plan.Plans.GetNext(p);
+                if(q == null) { continue; }
                 if (p.Action.DischargeToGrid < 100)
                 {
-                    p.Action.DischargeToGrid = p.Battery - 3 < _Batt.BatteryMinimumLimit ? _Batt.BatteryMinimumLimit : p.Battery - 3;
+                    p.Action.DischargeToGrid = q.Battery - 3 < _Batt.BatteryMinimumLimit ? _Batt.BatteryMinimumLimit : q.Battery - 3;
                 }
                 else if (p.Action.ChargeFromGrid > 0)
                 {
-                    p.Action.ChargeFromGrid = p.Battery;
+                    p.Action.ChargeFromGrid = q.Battery;
                 }
             }
 
