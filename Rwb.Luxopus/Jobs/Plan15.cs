@@ -307,13 +307,14 @@ namespace Rwb.Luxopus.Jobs
             while (plan.Plans.Any(z => z.Start >= current.Start && z.Action.DischargeToGrid < 100 && z.Action.DischargeToGrid > z.Battery))
             {
                 PeriodPlan p = plan.Plans.Where(z => z.Start >= current.Start && z.Action.DischargeToGrid < 100 && z.Action.DischargeToGrid > z.Battery).OrderBy(z => z.Start).First();
+                int extraWanted = p.Action.DischargeToGrid - p.Battery;
 
-                PeriodPlan? nextCheapest = plan.Plans.Where(z => z.Start > p.Start && z.Buy < p.Buy).FirstOrDefault();
+                PeriodPlan? nextCheapest = plan.Plans.Where(z => z.Start > p.Start && z.Buy < p.Buy && !plan.Plans.Any(y => y.Start > p.Start && y.Start < z.Start && y.Buy > p.Buy)).FirstOrDefault();
                 if (nextCheapest != null)
                 {
                     // Just buy directly to use; we can get it cheaper later.
                     p.Action.ChargeFromGrid = 0;
-                    p.Action.DischargeToGrid = 0;
+                    p.Action.DischargeToGrid = 100;
                 }
                 else
                 {
@@ -326,13 +327,14 @@ namespace Rwb.Luxopus.Jobs
                     }
                     else
                     {
-                        // Buy more in the past.
+                        // Buy more in the past or now.
                         PeriodPlan? p100 = plan.Plans.Where(z => z.Start >= current.Start && z.Start < p.Start && z.Battery == 100).OrderBy(z => z.Start).LastOrDefault();
                         // Buy at the cheapest preceeding half hour.
-                        PeriodPlan? q = plan.Plans.Where(z => z.Start >= current.Start && z.Start <= p.Start && z.Action.ChargeFromGrid == 0 && (p100 == null || z.Start > p100.Start)).OrderBy(z => z.Buy).FirstOrDefault();
+                        PeriodPlan? q = plan.Plans.Where(z => z.Start >= current.Start && z.Start <= p.Start && z.Action.ChargeFromGrid < 100 && (p100 == null || z.Start > p100.Start)).OrderBy(z => z.Buy).FirstOrDefault();
                         if (q != null)
                         {
-                            q.Action.ChargeFromGrid = 100;
+                            q.Action.ChargeFromGrid = Math.Max(q.Action.ChargeFromGrid, q.Battery) + extraWanted + 1;
+                            if(q.Action.ChargeFromGrid > 100 ) { q.Action.ChargeFromGrid = 100; }
                             q.Action.DischargeToGrid = 100;
                         }
                         else
