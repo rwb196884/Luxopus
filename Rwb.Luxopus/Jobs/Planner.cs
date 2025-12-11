@@ -11,6 +11,11 @@ namespace Rwb.Luxopus.Jobs
 
         public PeriodAction? Action { get; set; }
 
+        /// <summary>
+        /// Planner's estimated battery level at the start of the period.
+        /// </summary>
+        public int Battery { get; set; }
+
         //public PeriodState ExpectedStartState { get; set; }
         //public PeriodState ExpectedEndState { get; set; }
 
@@ -35,7 +40,7 @@ namespace Rwb.Luxopus.Jobs
         }
         public override string ToString()
         {
-            return $"{base.ToString()} {Action?.ToString() ?? $"{PeriodAction.SpacesForToString} | {PeriodAction.SpacesForToString}"}";
+            return $"{base.ToString()} {Action?.ToString(Battery) ?? $"{PeriodAction.SpacesForToString} |      | {PeriodAction.SpacesForToString}"}";
         }
     }
 
@@ -64,6 +69,13 @@ namespace Rwb.Luxopus.Jobs
             string chargeFromGrid = ChargeFromGrid > 0 ? $"{ChargeFromGrid:000}<--" : SpacesForToString;
             string dischargeTo = DischargeToGrid < 100 ? $"{DischargeToGrid:000}-->" : SpacesForToString;
             return $"{chargeFromGrid} | {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
+        }
+
+        public string ToString(int batt)
+        {
+            string chargeFromGrid = ChargeFromGrid > 0 ? $"{ChargeFromGrid:000}<--" : SpacesForToString;
+            string dischargeTo = DischargeToGrid < 100 ? $"{DischargeToGrid:000}-->" : SpacesForToString;
+            return $"{chargeFromGrid} | {batt:#00}% | {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
         }
     }
 
