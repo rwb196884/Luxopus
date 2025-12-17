@@ -4,6 +4,7 @@ using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -114,7 +115,7 @@ namespace Rwb.Luxopus.Jobs
             // Generation prediction.
             DateTime tForecast = DateTime.Today.ToUniversalTime().AddHours(24 + 2);
             double generationPrediction = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, tForecast)).Single().Records[0].Values["_value"] / 10.0;
-            double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
+            int battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
             notes.AppendLine($"Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%).");
             double generationMedianForMonth = (double)(await InfluxQuery.QueryAsync(Query.GenerationMedianForMonth, DateTime.UtcNow)).Single().Records[0].Values["_value"] / 10.0;
             if (generationPrediction > generationMedianForMonth)
@@ -159,22 +160,30 @@ namespace Rwb.Luxopus.Jobs
             _BatteryUsageProfile = new BatteryUsageProfile(bupH);
             int battForUseToday = _Batt.CapacityKiloWattHoursToPercent(_BatteryUsageProfile.GetKwkh(gStart.DayOfWeek, gStart.Hour, gEnd.AddHours(1).Hour));
 
+            int battExportable = _Batt.CapacityKiloWattHoursToPercent(3.6 * (gEnd - gStart).TotalHours * 0.9);
+            int battMax = 100;
+            if (battPrediction > battExportable)
+            {
+                battMax -= battExportable - battPrediction;
+            }
+
             foreach (PeriodPlan p in plan.Plans)
             {
-                if (p.Start.TimeOfDay < gStart.TimeOfDay)
+                // Try to keep the battery full but with space for over generation.
+                if (p.Buy < _ExportPrice * 0.85M)
                 {
                     p.Action = new PeriodAction()
                     {
-                        ChargeFromGrid = 0,
-                        DischargeToGrid = _Batt.BatteryMinimumLimit + battForUseToday
+                        ChargeFromGrid = 100,
+                        DischargeToGrid = 100
                     };
                 }
-                else if (p.Start.TimeOfDay > gStart.TimeOfDay)
+                else if (p.Start < gEnd && battMax < 100)
                 {
                     p.Action = new PeriodAction()
                     {
                         ChargeFromGrid = 0,
-                        DischargeToGrid = _Batt.BatteryMinimumLimit + battForUseToday * (16 - (p.Start.Hour - 8)) / 16
+                        DischargeToGrid = battMax
                     };
                 }
                 else
@@ -182,19 +191,58 @@ namespace Rwb.Luxopus.Jobs
                     p.Action = new PeriodAction()
                     {
                         ChargeFromGrid = 0,
-                        DischargeToGrid = 8
+                        DischargeToGrid = 100
                     };
                 }
             }
-
             Recompute(plan, generationPrediction);
             bool a = TryBuyMore(plan, gStart, gEnd, generationPrediction);
-            bool b = TrySellMore(plan, gStart, gEnd, generationPrediction);
-            while (a || b)
+            bool aa = TryBuyLess(plan, gStart, gEnd, generationPrediction, battMax);
+            bool b = TrySellMore(plan, gStart, gEnd, generationPrediction, battMax);
+            while (a || aa || b)
             {
-                a = TryBuyMore(plan, gStart, gEnd, generationPrediction);
-                b = TrySellMore(plan, gStart, gEnd, generationPrediction);
+                a = TryBuyLess(plan, gStart, gEnd, generationPrediction, battMax);
+                aa = TryBuyLess(plan, gStart, gEnd, generationPrediction, battMax);
+                b = TrySellMore(plan, gStart, gEnd, generationPrediction, battMax);
             }
+
+            /*
+             * Keep the battery empty.
+            if (p.Start.TimeOfDay < gStart.TimeOfDay)
+            {
+                p.Action = new PeriodAction()
+                {
+                    ChargeFromGrid = 0,
+                    DischargeToGrid = _Batt.BatteryMinimumLimit + battForUseToday
+                };
+            }
+            else if (p.Start.TimeOfDay > gStart.TimeOfDay)
+            {
+                p.Action = new PeriodAction()
+                {
+                    ChargeFromGrid = 0,
+                    DischargeToGrid = _Batt.BatteryMinimumLimit + battForUseToday * (16 - (p.Start.Hour - 8)) / 16
+                };
+            }
+            else
+            {
+                p.Action = new PeriodAction()
+                {
+                    ChargeFromGrid = 0,
+                    DischargeToGrid = 8
+                };
+            }
+        }
+
+        Recompute(plan, generationPrediction);
+        bool a = TryBuyMore(plan, gStart, gEnd, generationPrediction);
+        bool b = TrySellMore(plan, gStart, gEnd, generationPrediction);
+        while (a || b)
+        {
+            a = TryBuyMore(plan, gStart, gEnd, generationPrediction);
+            b = TrySellMore(plan, gStart, gEnd, generationPrediction);
+        }
+        */
 
             bool batteryConditioningRequired = false;
             try
@@ -220,7 +268,7 @@ namespace Rwb.Luxopus.Jobs
             foreach (PeriodPlan p in plan.Plans)
             {
                 PeriodPlan? q = plan.Plans.GetNext(p);
-                if(q == null) { continue; }
+                if (q == null) { continue; }
                 if (p.Action.DischargeToGrid < 100)
                 {
                     p.Action.DischargeToGrid = q.Battery - 3 < _Batt.BatteryMinimumLimit ? _Batt.BatteryMinimumLimit : q.Battery - 3;
@@ -248,13 +296,15 @@ namespace Rwb.Luxopus.Jobs
             {
                 int bo = p.Battery - halfHourBattPercentOut;// - halfHourUsePercent; The 3.6kW limit applies to export + consumption.
                 if (bo < _Batt.BatteryMinimumLimit) { return _Batt.BatteryMinimumLimit; }
-                return bo >= p.Action.DischargeToGrid ? bo : p.Action.DischargeToGrid;
+                if (bo < p.Action.DischargeToGrid) { bo = p.Action.DischargeToGrid - halfHourUsePercent; }
+                return bo;
             }
             else if (p.Action.ChargeFromGrid > 0)
             {
                 int bi = p.Battery + halfHourBattPercentIn - halfHourUsePercent; // Generation will contribute instead of grid, not in addition to, but use will reduce what's available for batt.
                 if (bi > 100) { bi = 100; }
-                return bi <= p.Action.ChargeFromGrid ? bi : p.Action.ChargeFromGrid;
+                if (bi > p.Action.ChargeFromGrid) { bi = p.Action.ChargeFromGrid; }
+                return bi;
             }
 
             return p.Battery - halfHourUsePercent > _Batt.BatteryMinimumLimit ? p.Battery - halfHourUsePercent : _Batt.BatteryMinimumLimit;
@@ -272,30 +322,39 @@ namespace Rwb.Luxopus.Jobs
             }
         }
 
+        /// <summary>
+        /// Try buy more while keeping the battery as empty as possible: buy to use or to sell.
+        /// </summary>
+        /// <param name="plan"></param>
+        /// <param name="gStart"></param>
+        /// <param name="gEnd"></param>
+        /// <param name="generationPrediction"></param>
+        /// <returns></returns>
         private bool TryBuyMore(Plan plan, DateTime gStart, DateTime gEnd, double generationPrediction)
         {
             bool changes = false;
             PeriodPlan current = plan.Current; //.Plans.OrderBy(z => z.Start).First();
             int halfHourBattPercentOut = _Batt.CapacityKiloWattHoursToPercent(0.5 * 3.6);
             int halfHourBattPercentIn = _Batt.CapacityKiloWattHoursToPercent(0.5 * 4);
+
             decimal pBuy = plan.Plans.Where(z => z.Start >= current.Start && z.Action.ChargeFromGrid == 0)
                 .Select(z => z.Buy)
                 .Min();
             // Can buy to sell.
             while (pBuy < 15M * 0.89M)
             {
-                foreach (PeriodPlan p in plan.Plans.Where(z => z.Start >= current.Start && z.Buy == pBuy && z.Start >= current.Start))
+                foreach (PeriodPlan pb in plan.Plans.Where(z => z.Start >= current.Start && z.Buy == pBuy && z.Start >= current.Start))
                 {
-                    PeriodPlan? q = plan.Plans.GetPrevious(p);
+                    PeriodPlan? q = plan.Plans.GetPrevious(pb);
                     int battPrevious = 100;
                     int batt = q.Battery;
 
-                    bool fcf = plan.Plans.Any(z => z.Start > p.Start && z.Battery == 100);
+                    bool fcf = plan.Plans.Any(z => z.Start > pb.Start && z.Battery == 100);
 
                     if (!fcf && battPrevious + halfHourBattPercentIn < 100)
                     {
-                        p.Action.ChargeFromGrid = 100;
-                        p.Action.DischargeToGrid = 100;
+                        pb.Action.ChargeFromGrid = 100;
+                        pb.Action.DischargeToGrid = 100;
                         changes = true;
                     }
                 }
@@ -306,12 +365,30 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Need to buy to use.
-            while (plan.Plans.Any(z => z.Start >= current.Start && z.Action.DischargeToGrid < 100 && z.Action.DischargeToGrid > z.Battery))
+            PeriodPlan? p = plan.Plans.Where(z => z.Start >= current.Start && z.Battery <= _Batt.BatteryMinimumLimit).OrderBy(z => z.Start).LastOrDefault();
+            while (p != null)
             {
+                PeriodPlan? q = plan.Plans.Where(z => z.Start >= plan.Current.Start && z.Start <= p.Start && z.Action.ChargeFromGrid < 100).OrderBy(z => z.Buy).First();
+                if(q != null)
+                {
+                    q.Action.ChargeFromGrid += _Batt.CapacityKiloWattHoursToPercent(0.5 * _BatteryUsageProfile.GetKwkh(p.Start.DayOfWeek, p.Start.Hour, p.Start.AddHours(1).Hour));
+                    if (q.Action.ChargeFromGrid > 100)
+                    {
+                        q.Action.ChargeFromGrid = 100;
+                    }
+                    changes = true;
+                }
+                else
+                {
+                    // Just buy to use in p.
+                }
+                    p = plan.Plans.Where(z => z.Start >= current.Start && z.Start < p.Start && z.Battery <= _Batt.BatteryMinimumLimit).OrderBy(z => z.Start).LastOrDefault();
+
+                /*
                 PeriodPlan p = plan.Plans.Where(z => z.Start >= current.Start && z.Action.DischargeToGrid < 100 && z.Action.DischargeToGrid > z.Battery).OrderBy(z => z.Start).First();
                 int extraWanted = p.Action.DischargeToGrid - p.Battery;
 
-                PeriodPlan? nextCheapest = plan.Plans.Where(z => z.Start > p.Start && z.Buy < p.Buy && !plan.Plans.Any(y => y.Start > p.Start && y.Start < z.Start && y.Buy > p.Buy)).FirstOrDefault();
+                PeriodPlan? nextCheapest = plan.Plans.Where(z => z.Start  z.Start > p.Start && z.Buy < p.Buy && !plan.Plans.Any(y => y.Start > p.Start && y.Start < z.Start && y.Buy > p.Buy)).FirstOrDefault();
                 if (nextCheapest != null)
                 {
                     // Just buy directly to use; we can get it cheaper later.
@@ -336,7 +413,7 @@ namespace Rwb.Luxopus.Jobs
                         if (q != null)
                         {
                             q.Action.ChargeFromGrid = Math.Max(q.Action.ChargeFromGrid, q.Battery) + extraWanted + 1;
-                            if(q.Action.ChargeFromGrid > 100 ) { q.Action.ChargeFromGrid = 100; }
+                            if (q.Action.ChargeFromGrid > 100) { q.Action.ChargeFromGrid = 100; }
                             q.Action.DischargeToGrid = 100;
                         }
                         else
@@ -347,7 +424,7 @@ namespace Rwb.Luxopus.Jobs
                         }
                     }
                 }
-
+                */
                 Recompute(plan, generationPrediction);
                 changes = true;
             }
@@ -355,6 +432,14 @@ namespace Rwb.Luxopus.Jobs
             return changes;
         }
 
+        /// <summary>
+        /// Try sell more to keep the battery empty.
+        /// </summary>
+        /// <param name="plan"></param>
+        /// <param name="gStart"></param>
+        /// <param name="gEnd"></param>
+        /// <param name="generationPrediction"></param>
+        /// <returns></returns>
         private bool TrySellMore(Plan plan, DateTime gStart, DateTime gEnd, double generationPrediction)
         {
             bool changes = false;
@@ -389,5 +474,94 @@ namespace Rwb.Luxopus.Jobs
             //}
             return changes;
         }
+
+        /// <summary>
+        /// When keeping the battery full there may not be enough space to buy when generation is high or prices are low.
+        /// </summary>
+        /// <param name="plan"></param>
+        /// <param name="gStart"></param>
+        /// <param name="gEnd"></param>
+        /// <param name="generationPrediction"></param>
+        /// <param name="battMax"></param>
+        /// <returns></returns>
+        private bool TryBuyLess(Plan plan, DateTime gStart, DateTime gEnd, double generationPrediction, int battMax)
+        {
+            bool changes = false;
+            DateTime last = plan.Plans.OrderBy(z => z.Start).Last().Start.AddHours(1);
+            PeriodPlan? p = plan.Plans
+                //.Where(z => z.Start < last && z.Action.ChargeFromGrid > 0 && (z.Battery > battMax || (z.Battery >= battMax && (plan.Plans.GetNext(z)?.Battery ?? 0) >= z.Action.ChargeFromGrid)))
+                .Where(z => z.Start > plan.Current.Start && z.Start < last && z.Action.ChargeFromGrid >= battMax && z.Battery >= battMax )
+                .OrderBy(z => z.Start)
+                .LastOrDefault();
+            while (p != null)
+            {
+                PeriodPlan? q = plan.Plans.Where(z => z.Start > plan.Current.Start && z.Start < p.Start && z.Action.ChargeFromGrid > 0).OrderBy(z => z.Buy).Last();
+                if (q != null)
+                {
+                    q.Action.ChargeFromGrid -= 10;
+                    if (q.Action.ChargeFromGrid < 0)
+                    {
+                        q.Action.ChargeFromGrid = 0;
+                    }
+                }
+                else
+                {
+                    p.Action.ChargeFromGrid = 0;
+                }
+                changes = true;
+                Recompute(plan, generationPrediction);
+                p = plan.Plans
+                    .Where(z => z.Start > plan.Current.Start && z.Start < last && z.Action.ChargeFromGrid >= battMax && z.Battery >= battMax)
+                    .OrderBy(z => z.Start)
+                    .LastOrDefault();
+            }
+            return changes;
+        }
+
+        /// <summary>
+        /// When keeping the battery full try to sell to make space if needed.
+        /// </summary>
+        /// <param name="plan"></param>
+        /// <param name="gStart"></param>
+        /// <param name="gEnd"></param>
+        /// <param name="generationPrediction"></param>
+        /// <param name="battMax"></param>
+        /// <returns></returns>
+        private bool TrySellMore(Plan plan, DateTime gStart, DateTime gEnd, double generationPrediction, int battMax)
+        {
+            bool changes = false;
+            DateTime last = plan.Plans.OrderBy(z => z.Start).Last().Start.AddHours(1);
+            PeriodPlan? p = plan.Plans
+                .Where(z => z.Start < last && z.Action.ChargeFromGrid > 0 && (z.Battery > battMax || (z.Battery >= battMax && (plan.Plans.GetPrevious(z)?.Battery ?? 0) >= battMax)))
+                .OrderBy(z => z.Start)
+                .LastOrDefault();
+            while (p != null)
+            {
+                PeriodPlan? q = plan.Plans.Where(z => z.Start < p.Start && z.Action.ChargeFromGrid == 0).LastOrDefault();
+                if( q != null)
+                {
+                    q.Action.DischargeToGrid -= 10;
+                    if (q.Action.ChargeFromGrid < 0)
+                    {
+                        q.Action.ChargeFromGrid = 0;
+                    }
+
+                    changes = true;
+                }
+                Recompute(plan, generationPrediction);
+                p = plan.Plans
+                    .Where(z => z.Start < p.Start && z.Action.ChargeFromGrid > 0 && (z.Battery > battMax || (z.Battery >= battMax && (plan.Plans.GetPrevious(z)?.Battery ?? 0) >= battMax)))
+                    .OrderBy(z => z.Start)
+                    .LastOrDefault();
+            }
+
+            //foreach (PeriodPlan p in plan.Plans)
+            //{
+            //    // We can try to sell more if the battery estimate is above the discharge level.
+            //    // 
+            //}
+            return changes;
+        }
+
     }
 }
