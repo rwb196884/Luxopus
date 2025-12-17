@@ -376,7 +376,11 @@ namespace Rwb.Luxopus.Jobs
                     {
                         q.Action.ChargeFromGrid = 100;
                     }
-                    changes = true;
+                    else if(q.Action.ChargeFromGrid <= _Batt.BatteryMinimumLimit)
+                    {
+                        q.Action.ChargeFromGrid += _Batt.BatteryMinimumLimit;
+                    }
+                        changes = true;
                 }
                 else
                 {
