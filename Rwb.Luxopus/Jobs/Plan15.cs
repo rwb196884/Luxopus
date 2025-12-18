@@ -422,15 +422,19 @@ namespace Rwb.Luxopus.Jobs
                 {
                     // Have to buy less.
                     bool couldBuyLess = false;
-                    foreach (PeriodPlan r in chargeRun.Where(z => z.Action.ChargeFromGrid > z.Battery).OrderByDescending(z => z.Buy).ThenBy(z => z.Start))
+                    foreach (PeriodPlan r in chargeRun.Where(z => z.Action.ChargeFromGrid >= z.Battery).OrderByDescending(z => z.Buy).ThenBy(z => z.Start))
                     {
                         if (r.Action.ChargeFromGrid > r.Battery)
                         {
                             r.Action.ChargeFromGrid = r.Action.ChargeFromGrid - 5;
-                            if(r.Action.ChargeFromGrid < r.Battery) { r.Action.ChargeFromGrid = 0; }
+                            if (r.Action.ChargeFromGrid < r.Battery) { r.Action.ChargeFromGrid = 0; }
                             couldBuyLess = true;
                             changes = true;
                             break;
+                        }
+                        else
+                        {
+                            r.Action.ChargeFromGrid = 0;
                         }
                     }
 
@@ -565,14 +569,7 @@ namespace Rwb.Luxopus.Jobs
         {
             if (p.Action.DischargeToGrid > batt.BatteryMinimumLimit && p.Battery - p.Action.DischargeToGrid < batt.MaxDischarge)
             {
-                if (p.Action.DischargeToGrid >= p.Battery)
-                {
-                    p.Action.DischargeToGrid = p.Battery - 1;
-                }
-                else
-                {
-                    p.Action.DischargeToGrid -= 1;
-                }
+                p.Action.DischargeToGrid -= 1;
 
                 PeriodPlan? next = plan.Plans.GetNext(p);
                 while (next != null && next.Action.DischargeToGrid < 100 && next.Action.DischargeToGrid > batt.BatteryMinimumLimit)
