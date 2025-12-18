@@ -56,7 +56,9 @@ namespace Rwb.Luxopus
             AddJob(luxDaily, "51 * * * *"); // at the end of every day. Try every hour because of time zone nuissance.
             AddJob(luxForecast, "13 6-16 * * *"); // Hourly.
             AddJob(octopusMeters, "53 16 * * *"); // will get yesterday's meters.
-            AddJob(octopusPrices, "13 11,16,17 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
+            //AddJob(octopusPrices, "13 11,16,17 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
+            AddJob(octopusPrices, "13 16 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
+            AddJob(octopusPrices, "13 17 * * *"); // tomorrow's prices 'should be' available at 4pm, apparently.
             AddJob(solcast, "21 7,16 * * *"); // Early morning to get update for the day, late night for making plan.
             AddJob(sunPosition, "*/13 * * * *"); // Every 13 minutes.
             AddJob(sunrise, "0 4 * * *"); // Every day -- before sunrise.
