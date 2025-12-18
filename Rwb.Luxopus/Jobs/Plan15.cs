@@ -421,26 +421,17 @@ namespace Rwb.Luxopus.Jobs
                 else
                 {
                     // Have to buy less.
-                    bool couldBuyLess = false;
-                    foreach (PeriodPlan r in chargeRun.Where(z => z.Action.ChargeFromGrid >= z.Battery).OrderByDescending(z => z.Buy).ThenBy(z => z.Start))
+                    PeriodPlan r = chargeRun.Where(z => z.Action.ChargeFromGrid >= z.Battery).OrderByDescending(z => z.Buy).ThenBy(z => z.Start).First();
+                    if (r.Action.ChargeFromGrid > r.Battery)
                     {
-                        if (r.Action.ChargeFromGrid > r.Battery)
-                        {
-                            r.Action.ChargeFromGrid = r.Action.ChargeFromGrid - 5;
-                            if (r.Action.ChargeFromGrid < r.Battery) { r.Action.ChargeFromGrid = 0; }
-                            couldBuyLess = true;
-                            changes = true;
-                            break;
-                        }
-                        else
-                        {
-                            r.Action.ChargeFromGrid = 0;
-                        }
-                    }
-
-                    if (!couldBuyLess)
-                    {
+                        r.Action.ChargeFromGrid = r.Action.ChargeFromGrid - 5;
+                        if (r.Action.ChargeFromGrid < r.Battery) { r.Action.ChargeFromGrid = 0; }
                         q.Action.ChargeFromGrid = 0;
+                        changes = true;
+                    }
+                    else
+                    {
+                        r.Action.ChargeFromGrid = 0;
                     }
                 }
                 Recompute(plan, generationPrediction);
