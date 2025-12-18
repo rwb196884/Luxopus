@@ -328,7 +328,7 @@ namespace Rwb.Luxopus.Jobs
                 else if (r != null)
                 {
                     r.Action.DischargeToGrid += 1;
-                    if(r.Battery <= r.Action.DischargeToGrid)
+                    if (r.Battery <= r.Action.DischargeToGrid)
                     {
                         r.Action.DischargeToGrid = 100;
                     }
@@ -413,7 +413,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 IOrderedEnumerable<PeriodPlan> chargeRun = plan.GetPreviousRun(p, z => z.Action.ChargeFromGrid > 0);
                 PeriodPlan? q = plan.Plans.GetPrevious(chargeRun.First(), z => z.Action.ChargeFromGrid == 0);
-                if (plan.TryDischargeMore(q, _Batt))
+                if (q != null && plan.TryDischargeMore(q, _Batt))
                 {
                     // Got away with it.
                     changes = true;
@@ -421,13 +421,23 @@ namespace Rwb.Luxopus.Jobs
                 else
                 {
                     // Have to buy less.
-                    q = chargeRun.OrderBy(z => z.Buy).Last();
-                    q.Action.ChargeFromGrid -= 10;
-                    if (q.Action.ChargeFromGrid < 0)
+                    bool couldBuyLess = false;
+                    foreach (PeriodPlan r in chargeRun.Where(z => z.Action.ChargeFromGrid > z.Battery).OrderByDescending(z => z.Buy).ThenBy(z => z.Start))
+                    {
+                        if (r.Action.ChargeFromGrid > r.Battery)
+                        {
+                            r.Action.ChargeFromGrid = r.Action.ChargeFromGrid - 5;
+                            if(r.Action.ChargeFromGrid < r.Battery) { r.Action.ChargeFromGrid = 0; }
+                            couldBuyLess = true;
+                            changes = true;
+                            break;
+                        }
+                    }
+
+                    if (!couldBuyLess)
                     {
                         q.Action.ChargeFromGrid = 0;
                     }
-                    changes = true;
                 }
                 Recompute(plan, generationPrediction);
                 p = plan.Plans
@@ -513,7 +523,7 @@ namespace Rwb.Luxopus.Jobs
     {
         public static IOrderedEnumerable<PeriodPlan> GetPreviousRun(this Plan plan, PeriodPlan end, Func<PeriodPlan, bool> condition)
         {
-            return plan.Plans.OrderByDescending(z => z.Start).Pag(end, condition, z => z.Start);
+            return plan.Plans.Where(z => z.Start >= plan.Current.Start).OrderByDescending(z => z.Start).Pag(end, condition, z => z.Start);
         }
 
         public static int BatteryChange(this PeriodPlan p, double generationPrediction, IBatteryService batt, BatteryUsageProfile bup)
