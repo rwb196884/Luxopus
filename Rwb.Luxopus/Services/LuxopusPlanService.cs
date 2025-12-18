@@ -73,7 +73,7 @@ namespace Rwb.Luxopus.Services
                 bool moveNext = e.MoveNext();
                 while (moveNext && e.Current != end) { moveNext = e.MoveNext(); }
                 if (e.Current == null) { return pag.OrderBy(sort); }
-                moveNext = e.MoveNext();
+                //moveNext = e.MoveNext();
                 while (moveNext && condition(e.Current))
                 {
                     pag.Add(e.Current);
