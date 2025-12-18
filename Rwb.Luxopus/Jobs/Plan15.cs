@@ -127,7 +127,7 @@ namespace Rwb.Luxopus.Jobs
                 notes.AppendLine($"Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%) adjusted towards monthly median of {generationMedianForMonth}kWH.");
             }
 
-            int battLevel = 80; //await InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
+            int battLevel = await InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
             battLevel = battLevel < _Batt.BatteryMinimumLimit ? _Batt.BatteryMinimumLimit : battLevel;
 
             PeriodPlan current = plan.Current;
