@@ -16,13 +16,13 @@ namespace Rwb.Luxopus.Services
         public static T? GetPrevious<T>(this IEnumerable<T> things, PeriodPlan? current, Func<T, bool> where = null) where T : Period
         {
             if (current == null) { return null; }
-            return things.Where(z => z.Start < current.Start).OrderBy(z => z.Start).LastOrDefault();
+            return things.Where(z => z.Start < current.Start && (where == null || where(z))).OrderBy(z => z.Start).LastOrDefault();
         }
 
         public static T? GetNext<T>(this IEnumerable<T> things, PeriodPlan? current, Func<T, bool> where = null) where T : Period
         {
             if (current == null) { return null; }
-            return things.Where(z => z.Start > current.Start).OrderBy(z => z.Start).FirstOrDefault();
+            return things.Where(z => z.Start > current.Start && (where == null || where(z))).OrderBy(z => z.Start).FirstOrDefault();
         }
 
         /// <summary>
@@ -53,6 +53,37 @@ namespace Rwb.Luxopus.Services
                     return gap;
                 }
                 return new List<T>();
+            }
+        }
+
+        /// <summary>
+        /// Get the run of things.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="things"></param>
+        /// <param name="start"></param>
+        /// <param name="condition"></param>
+        /// <returns></returns>
+        public static IOrderedEnumerable<T> Pag<T, TOrderBy>(this IOrderedEnumerable<T> things, T end, Func<T, bool> condition, Func<T, TOrderBy> sort) where T : class
+        {
+            List<T> pag = new List<T>();
+            if (!condition(end)) { return pag.OrderBy(sort); }
+            using (IEnumerator<T> e = things.GetEnumerator())
+            {
+                bool moveNext = e.MoveNext();
+                while (moveNext && e.Current != end) { moveNext = e.MoveNext(); }
+                if (e.Current == null) { return pag.OrderBy(sort); }
+                moveNext = e.MoveNext();
+                while (moveNext && condition(e.Current))
+                {
+                    pag.Add(e.Current);
+                    moveNext = e.MoveNext();
+                }
+                //if (moveNext && e.Current != end && !condition(e.Current))
+                //{
+                    return pag.OrderBy(sort);
+                //}
+                return (new List<T>()).OrderBy(sort);
             }
         }
 
@@ -107,6 +138,7 @@ namespace Rwb.Luxopus.Services
         {
             get
             {
+                //return Plans.OrderBy(z => z.Start).First();
                 return Plans.OrderByDescending(z => z.Start).FirstOrDefault(z => z.Start < DateTime.UtcNow);
             }
         }

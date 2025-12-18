@@ -22,6 +22,16 @@ namespace Rwb.Luxopus.Services
         (double powerKwh, double hours, double rateKw, int ratePercent) CalculateTransfer(int percentFrom, int percentTo, DateTime timeFrom, DateTime timeTo);
 
         int BatteryMinimumLimit { get; }
+
+        /// <summary>
+        /// Maximum percentage points that battery can be charged in an hour.
+        /// </summary>
+        int MaxCharge { get; }
+
+        /// <summary>
+        /// Maximum percentage points that battery can be discharged in an hour.
+        /// </summary>
+        int MaxDischarge { get; }
     }
 
     public class BatterySettings : Settings
@@ -119,5 +129,9 @@ namespace Rwb.Luxopus.Services
         }
 
         public int BatteryMinimumLimit { get { return Settings.BatteryMinimumLimit; } }
+
+        public int MaxCharge { get { return CapacityKiloWattHoursToPercent(Convert.ToDouble(Settings.MaxBatteryW) / 1000.0); } }
+
+        public int MaxDischarge { get { return CapacityKiloWattHoursToPercent(Convert.ToDouble(Settings.MaxInversionW) / 1000.0); } }
     }
 }
