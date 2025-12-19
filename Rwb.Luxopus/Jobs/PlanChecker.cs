@@ -90,9 +90,7 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
-            PeriodPlan? currentPeriod = plan?.Current;
-
-            if (currentPeriod == null || currentPeriod.Start < DateTime.Now.AddDays(-7))
+            if (plan?.Current == null || plan!.Current.Start < DateTime.Now.AddDays(-7))
             {
                 Logger.LogError($"No current plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
                 return;
@@ -121,7 +119,7 @@ namespace Rwb.Luxopus.Jobs
             LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
             LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent);
 
-            if (Plan.DischargeToGridCondition(currentPeriod) && dischargeToGridWanted.Enable)
+            if (Plan.DischargeToGridCondition(plan.Current!) && dischargeToGridWanted.Enable)
             {
                 try
                 {
@@ -153,7 +151,7 @@ namespace Rwb.Luxopus.Jobs
             int battLevelEnd = _BatteryTargetService.DefaultBatteryLevelEnd;
             if ((plan.Next?.Buy ?? 1) <= 0)
             {
-                battLevelEnd -= _Batt.CapacityKiloWattHoursToPercent(plan.Plans.FutureFreeHoursBeforeNextDischarge(currentPeriod) * 3.2);
+                battLevelEnd -= _Batt.CapacityKiloWattHoursToPercent(plan.Plans.FutureFreeHoursBeforeNextDischarge(plan.Current!) * 3.2);
                 battLevelEnd = battLevelEnd < battLevel ? battLevel : battLevelEnd;
             }
             BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
@@ -161,42 +159,74 @@ namespace Rwb.Luxopus.Jobs
             string why = "no change";
 
             DateTime tNext = plan.Next?.Start ?? DateTime.UtcNow.AddHours(1);
-            if (Plan.ChargeFromGridCondition(currentPeriod) && battLevel < currentPeriod.Action.ChargeFromGrid)
+            if (Plan.ChargeFromGridCondition(plan.Current!) && battLevel < plan.Current!.Action.ChargeFromGrid)
             {
                 // Planned charge.
                 chargeFromGridWanted.Enable = true;
-                if (chargeFromGridCurrent.Start > currentPeriod.Start) { chargeFromGridWanted.Start = currentPeriod.Start; }
-                if (chargeFromGridCurrent.End < tNext) { chargeFromGridWanted.End = tNext; }
-                chargeFromGridWanted.Limit = currentPeriod.Action.ChargeFromGrid;
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(currentPeriod.Action.ChargeFromGrid - battLevel);
-                double hoursToCharge = (tNext - t0).TotalHours;
+                if (chargeFromGridCurrent.Start > plan.Current!.Start) { chargeFromGridWanted.Start = plan.Current!.Start; }
+                
+                PeriodPlan? next = plan.Plans.GetNext(plan.Current!);
+                while(next != null && Plan.ChargeFromGridCondition(next))
+                {
+                    next = plan.Plans.GetNext(plan.Current!);
+                }
+                if (next != null)
+                {
+                    PeriodPlan endOfRun = plan.Plans.GetPrevious(next);
+                    chargeFromGridWanted.Limit = endOfRun.Action.ChargeFromGrid;
+                    chargeFromGridWanted.End = next.Start;
+                }
+                else
+                {
+                    chargeFromGridWanted.Limit = plan.Current!.Action.ChargeFromGrid;
+                    if (chargeFromGridCurrent.End < tNext) { chargeFromGridWanted.End = tNext; }
+                }
+
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(chargeFromGridWanted.Limit - battLevel);
+                double hoursToCharge = (chargeFromGridWanted.End - t0).TotalHours;
                 double kW = powerRequiredKwh / hoursToCharge;
                 chargeFromGridWanted.Rate = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kW));
                 battChargeRateWanted = chargeFromGridWanted.Rate > battChargeRateWanted ? chargeFromGridWanted.Rate : battChargeRateWanted;
                 chargeLastWanted = false;
-                why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {currentPeriod.Action.ChargeFromGrid}% in {hoursToCharge:0.0} hours until {tNext:HH:mm} (mean rate {kW:0.0}kW -> {chargeFromGridWanted.Rate}%).";
+                why = $"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {plan.Current!.Action.ChargeFromGrid}% in {hoursToCharge:0.0} hours until {tNext:HH:mm} (mean rate {kW:0.0}kW -> {chargeFromGridWanted.Rate}%).";
             }
-            else if (Plan.DischargeToGridCondition(currentPeriod) && battLevel > currentPeriod.Action.DischargeToGrid)
+            else if (Plan.DischargeToGridCondition(plan.Current!) && battLevel > plan.Current!.Action.DischargeToGrid)
             {
                 // Planned discharge.
                 dischargeToGridWanted.Enable = true;
-                if (dischargeToGridCurrent.Start > currentPeriod.Start) { dischargeToGridWanted.Start = currentPeriod.Start; }
-                if (dischargeToGridCurrent.End < tNext) { dischargeToGridWanted.End = tNext; }
-                dischargeToGridWanted.Limit = currentPeriod.Action.DischargeToGrid;
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - currentPeriod.Action!.DischargeToGrid);
-                double hoursToCharge = (tNext - t0).TotalHours;
+                if (dischargeToGridCurrent.Start > plan.Current!.Start) { dischargeToGridWanted.Start = plan.Current!.Start; }
+
+                PeriodPlan? next = plan.Plans.GetNext(plan.Current!);
+                while (next != null && Plan.DischargeToGridCondition(next))
+                {
+                    next = plan.Plans.GetNext(plan.Current!);
+                }
+                if (next != null)
+                {
+                    PeriodPlan endOfRun = plan.Plans.GetPrevious(next);
+                    dischargeToGridCurrent.Limit = endOfRun.Action.DischargeToGrid;
+                    dischargeToGridCurrent.End = next.Start;
+                }
+                else
+                {
+                    dischargeToGridCurrent.Limit = plan.Current!.Action.DischargeToGrid;
+                    if (chargeFromGridCurrent.End < tNext) { chargeFromGridWanted.End = tNext; }
+                }
+
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - dischargeToGridCurrent.Limit);
+                double hoursToCharge = (chargeFromGridCurrent.End - t0).TotalHours;
                 double kW = powerRequiredKwh / hoursToCharge;
                 dischargeToGridWanted.Rate = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kW));
                 battChargeRateWanted = 100;
                 chargeLastWanted = true;
-                why = $"Discharge to grid: {powerRequiredKwh:0.0}kWh needed to grid to get from {battLevel}% to {currentPeriod.Action.DischargeToGrid}% in {hoursToCharge:0.0} hours until {tNext:HH:mm} (mean rate {kW:0.0}kW -> {dischargeToGridWanted.Rate}%).";
+                why = $"Discharge to grid: {powerRequiredKwh:0.0}kWh needed to grid to get from {battLevel}% to {plan.Current!.Action.DischargeToGrid}% in {hoursToCharge:0.0} hours until {tNext:HH:mm} (mean rate {kW:0.0}kW -> {dischargeToGridWanted.Rate}%).";
             }
             else
             {
-                if (bti.PredictionBatteryPercent >= 200 && t0.Hour <= 9)
+                if (battLevel + bti.PredictionBatteryPercent >= 100 && t0.Hour <= 9)
                 {
                     chargeLastWanted = true;
-                    why = $"Prediction {bti.PredictionKWh}kWh >= {_Batt.CapacityPercentToKiloWattHours(200)}kWh (200%) and it's before 10am UTC.";
+                    why = $"Batt level {battLevel}% plus prediction {bti.PredictionPercent}% is greater than 100% and it's before 10am UTC.";
                 }
                 else if (t0.TimeOfDay <= bti.GenerationStart.TimeOfDay || t0.TimeOfDay >= bti.GenerationEnd.TimeOfDay)
                 {
@@ -237,7 +267,7 @@ namespace Rwb.Luxopus.Jobs
                                 Enable = true,
                                 Rate = 72,
                                 Limit = 97,
-                                Start = currentPeriod.Start, // Needs to be constant in order not to spam changes.
+                                Start = plan.Current!.Start, // Needs to be constant in order not to spam changes.
                                 End = plan?.Next?.Start ?? t0.StartOfHalfHour().AddHours(1)
                             };
                             chargeLastWanted = true;
@@ -249,7 +279,7 @@ namespace Rwb.Luxopus.Jobs
                         (DateTime _, long generationMax) = //(DateTime.Now, 0);
                             (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
-  |> range(start: {currentPeriod.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
+  |> range(start: {plan.Current!.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")).First().FirstOrDefault<long>();
 
@@ -276,9 +306,9 @@ from(bucket: ""solar"")
                            ).First().Records.First().GetValue<double>();
 
                         // Get fully charged before the discharge period.
-                        DateTime tBattChargeFrom = bti.GenerationStart > currentPeriod.Start ? bti.GenerationStart : currentPeriod.Start;
+                        DateTime tBattChargeFrom = bti.GenerationStart > plan.Current!.Start ? bti.GenerationStart : plan.Current!.Start;
 
-                        int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(currentPeriod.Start);
+                        int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current!.Start);
                         DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
 
 
@@ -290,7 +320,7 @@ from(bucket: ""solar"")
                             dischargeToGridWanted = new LuxAction()
                             {
                                 Enable = true,
-                                Start = currentPeriod.Start,
+                                Start = plan.Current!.Start,
                                 End = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12),
                                 Limit = bti.BatteryTarget - 5,
                                 Rate = 91
@@ -306,7 +336,7 @@ from(bucket: ""solar"")
                                 dischargeToGridWanted = new LuxAction()
                                 {
                                     Enable = true,
-                                    Start = currentPeriod.Start,
+                                    Start = plan.Current!.Start,
                                     End = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12),
                                     Limit = bti.BatteryTarget - 5,
                                     Rate = 91
@@ -329,7 +359,7 @@ from(bucket: ""solar"")
                                 dischargeToGridWanted = new LuxAction()
                                 {
                                     Enable = true,
-                                    Start = currentPeriod.Start,
+                                    Start = plan.Current!.Start,
                                     End = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12),
                                     Limit = bti.BatteryTarget - 5,
                                     Rate = 91
@@ -409,7 +439,7 @@ from(bucket: ""solar"")
                         else
                         {
                             battChargeRateWanted = 71;
-                            chargeLastWanted = Plan.DischargeToGridCondition(currentPeriod);
+                            chargeLastWanted = Plan.DischargeToGridCondition(plan.Current!);
                             why = $"No information.";
 
                         }
@@ -470,7 +500,7 @@ from(bucket: ""solar"")
                 if (plan != null)
                 {
                     actions.AppendLine();
-                    PeriodPlan? pp = currentPeriod;
+                    PeriodPlan? pp = plan.Current!;
                     while (pp != null)
                     {
                         actions.AppendLine(pp.ToString());
