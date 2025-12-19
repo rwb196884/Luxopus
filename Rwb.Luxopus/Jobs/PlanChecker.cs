@@ -193,7 +193,7 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                if( bti.PredictionBatteryPercent >= 200 && t0.Hour <= 9)
+                if (bti.PredictionBatteryPercent >= 200 && t0.Hour <= 9)
                 {
                     chargeLastWanted = true;
                     why = $"Prediction {bti.PredictionKWh}kWh >= {_Batt.CapacityPercentToKiloWattHours(200)}kWh (200%) and it's before 10am UTC.";
@@ -344,11 +344,6 @@ from(bucket: ""solar"")
                             }
                             goto Apply;
                         }
-                        else if( battLevel > battLevelEnd)
-                        {
-                            why = $"Battery level {battLevel}% is above end level of {battLevelEnd}. (Current target of {bti.TargetDescription}.)";
-                            chargeLastWanted = true;
-                        }
 
                         DateTime endOfCharge = bti.GenerationEnd < plan.Next.Start ? bti.GenerationEnd : plan.Next.Start;
                         double hoursToCharge = (endOfCharge - t0).TotalHours;
@@ -375,7 +370,7 @@ from(bucket: ""solar"")
 
                         // Set the rate.
 
-                        if(bti.PredictionBatteryPercent < 200)
+                        if (bti.PredictionBatteryPercent < 200)
                         {
                             battChargeRateWanted = 95;
                             chargeLastWanted = false;
@@ -405,21 +400,26 @@ from(bucket: ""solar"")
                     else
                     {
                         // No plan. Set defaults.
-                        battChargeRateWanted = 71;
-                        chargeLastWanted = Plan.DischargeToGridCondition(currentPeriod);
-                        why = $"No information.";
+                        if (battLevel > battLevelEnd)
+                        {
+                            why = $"No information. Battery level {battLevel}% is above end level of {battLevelEnd}. (Current target of {bti.TargetDescription}.)";
+                            chargeLastWanted = true;
+                            battChargeRateWanted = 71;
+                        }
+                        else
+                        {
+                            battChargeRateWanted = 71;
+                            chargeLastWanted = Plan.DischargeToGridCondition(currentPeriod);
+                            why = $"No information.";
+
+                        }
                     }
+
+
                 }
             }
         // A P P L Y   S E T T I N G S
         Apply:
-
-            if (chargeLastWanted)
-            {
-                chargeLastWanted = false;
-                why += $" Charge last not allowed in the winter.";
-            }
-
             // Charge from solar.
             if (battChargeRateWanted != battChargeRate)
             {
