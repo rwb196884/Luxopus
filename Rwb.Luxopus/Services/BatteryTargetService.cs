@@ -48,7 +48,7 @@ namespace Rwb.Luxopus.Services
         private readonly ILuxopusPlanService _Plans;
 
         public BatteryTargetService(
-            ILogger logger, IInfluxQueryService influxQuery, IBatteryService batt, ILuxopusPlanService plans)
+            ILogger<BatteryTargetService> logger, IInfluxQueryService influxQuery, IBatteryService batt, ILuxopusPlanService plans)
         {
             _Logger = logger;
             _InfluxQuery = influxQuery;
