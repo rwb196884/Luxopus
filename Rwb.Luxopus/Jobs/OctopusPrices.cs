@@ -93,11 +93,12 @@ namespace Rwb.Luxopus.Jobs
 
                 if (prices.Select(z => z.ValidFrom).Max() < DateTime.Now.AddHours(-2))
                 {
-                    somePricesMightBeMissing = true;
+                    //somePricesMightBeMissing = true;
+                    somePricesMightBeMissing = t != "E-1R-OUTGOING-VAR-24-10-26-E";
                 }
             }
 
-            if (negativePrices.Any())
+            if (negativePrices.Any(z => z.Value.Any(y => y.ValidFrom >= DateTime.Now)))
             {
                 StringBuilder email = new StringBuilder();
                 foreach (string t in negativePrices.Keys)

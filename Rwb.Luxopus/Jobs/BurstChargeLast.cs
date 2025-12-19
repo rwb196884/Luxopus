@@ -24,6 +24,7 @@ namespace Rwb.Luxopus.Jobs
         private readonly ILuxService _Lux;
         private readonly IInfluxQueryService _InfluxQuery;
         private readonly IBatteryService _Batt;
+        private readonly BatteryTargetService _BatteryTargetService;
 
         public BurstChargeLast(
             ILogger<Burst> logger,
@@ -31,7 +32,8 @@ namespace Rwb.Luxopus.Jobs
             ILuxopusPlanService plans,
             ILuxService lux,
             IInfluxQueryService influxQuery,
-            IBatteryService batt)
+            IBatteryService batt,
+            BatteryTargetService batteryTargetService)
             : base(logger)
         {
             _BurstLog = burstLog;
@@ -39,6 +41,7 @@ namespace Rwb.Luxopus.Jobs
             _Lux = lux;
             _InfluxQuery = influxQuery;
             _Batt = batt;
+            _BatteryTargetService = batteryTargetService;
         }
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
@@ -145,25 +148,6 @@ from(bucket: ""solar"")
   |> mean()")
 ).First().Records.First().GetValue<double>();
 
-            ScaleMethod sm = ScaleMethod.Linear;
-            if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && (generationRecentMean > 2500 || t0.Hour <= 9) && t0.Month >= 4 && t0.Month <= 8)
-            {
-                // High prediction / good day: charge slowly.
-                sm = ScaleMethod.Slow;
-            }
-            else if (prediction < _Batt.CapacityPercentToKiloWattHours(90))
-            {
-                sm = ScaleMethod.Fast;
-            }
-            else if (generationRecentMean < 2000)
-            {
-                sm = ScaleMethod.Linear;
-            }
-            else if (prediction < _Batt.CapacityPercentToKiloWattHours(90))
-            {
-                sm = ScaleMethod.Fast;
-            }
-
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {
                 JsonElement.ObjectEnumerator r = j.RootElement.EnumerateObject();
@@ -174,30 +158,27 @@ from(bucket: ""solar"")
                 int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
                 //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
 
-                int battLevelEnd = 100;
+                int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.CapacityKiloWattHoursToPercent(3 * 3.6) + 8 ;
+                battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
                 if (plan.Next.Buy <= 0)
                 {
                     battLevelEnd -= _Batt.CapacityKiloWattHoursToPercent(plan.Plans.FutureFreeHoursBeforeNextDischarge(currentPeriod) * 3.2);
                     battLevelEnd = battLevelEnd < battLevel ? battLevel : battLevelEnd;
                 }
 
-                //int battLevelTarget = Scale.Apply(tBattChargeFrom, gEnd < plan.Next.Start ? gEnd : plan.Next.Start, nextPlanCheck, battLevelStart, 100, ScaleMethod.FastLinear);
-                int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Fast);
-                int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Linear);
-                int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Slow);
-                int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, sm);
+                BatteryTargetInfo bti =await _BatteryTargetService.Compute(plan, battLevelEnd);
 
-                if (battLevel < battLevelTargetS && generationRecentMean < 1500)
+                if (battLevel < bti.BatteryTargetS && generationRecentMean < 1500)
                 {
-                    battLevelStart = battLevelTargetF;
+                    battLevelStart = bti.BatteryTargetF;
                 }
 
-                battLevelAboveTarget = battLevel > battLevelTargetF;
+                battLevelAboveTarget = battLevel > bti.BatteryTargetF;
 
                 actionInfo.AppendLine($"       Generation: {generation}W");
                 actionInfo.AppendLine($"  Inverter output: {inverterOutput}W");
                 actionInfo.AppendLine($"    Battery level: {battLevel}%");
-                actionInfo.AppendLine($"   Battery target: {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%))");
+                actionInfo.AppendLine($"   Battery target: {bti.TargetDescription})");
                 actionInfo.AppendLine($"      Charge last: {(chargeLast ? "yes" : "no")}");
                 actionInfo.AppendLine($"Discharge to grid: {dischargeToGridCurrent})");
 
@@ -207,21 +188,21 @@ from(bucket: ""solar"")
 
                 // Are we behind schedule?
                 double extraPowerNeeded = 0.0;
-                if (battLevel < battLevelTarget)
+                if (battLevel < bti.BatteryTarget)
                 {
-                    extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
+                    extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
                     actionInfo.AppendLine($"Behind by {extraPowerNeeded:#,##0.0}kWh.");
                 }
-                else if (battLevelTarget < battLevel)
+                else if (bti.BatteryTarget < battLevel)
                 {
-                    double a = _Batt.CapacityPercentToKiloWattHours(battLevel - battLevelTarget);
+                    double a = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget);
                     actionInfo.AppendLine($"Ahead by {a:#,##0.0}kWh.");
                 }
 
                 double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                 battChargeRateNeeded = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(kW));
 
-                if (DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800 || prediction > _Batt.CapacityPercentToKiloWattHours(89)) && battLevel >= battLevelTarget - 5)
+                if (DateTime.Now.Hour <= 9 && (bti.ScaleMethod == ScaleMethod.Slow || generationRecentMean > 800 || prediction > _Batt.CapacityPercentToKiloWattHours(89)) && battLevel >= bti.BatteryTarget - 5)
                 {
                     chargeLastWanted = true;
                     battChargeRateWanted = 90;
@@ -249,13 +230,13 @@ from(bucket: ""solar"")
                     }
 
                     // Generation probably not limited therefore send less to battery.
-                    if (battLevel >= battLevelTarget)
+                    if (battLevel >= bti.BatteryTarget)
                     {
                         battChargeRateWanted = 91;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Charge last enabled because ahead of target.");
                     }
-                    else if (battLevel < battLevelTarget)
+                    else if (battLevel < bti.BatteryTarget)
                     {
                         chargeLastWanted = false;
                         battChargeRateWanted = battChargeRateNeeded;
@@ -276,26 +257,26 @@ from(bucket: ""solar"")
                 else
                 {
                     // Low generation.
-                    if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 9 /* up to 11AM BST && sm == ScaleMethod.Slow */ && generationMax > 1000 && battLevel > battLevelTarget - 8)
+                    if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 9 /* up to 11AM BST && sm == ScaleMethod.Slow */ && generationMax > 1000 && battLevel > bti.BatteryTarget - 8)
                     {
                         // It's early and it looks like it's going to be a good day.
                         // So keep the battery empty to make space for later.
                         battChargeRateWanted = 91;
                         chargeLastWanted = true;
-                        if (battLevel > battLevelTarget - 5)
+                        if (battLevel > bti.BatteryTarget - 5)
                         {
                             dischargeToGridWanted = new LuxAction()
                             {
                                 Enable = true,
                                 Start = currentPeriod.Start,
                                 End = dischargeToGridCurrent.End >= plan.Next.Start ? dischargeToGridCurrent.End : plan.Next.Start,
-                                Limit = battLevelTarget - 5,
+                                Limit = bti.BatteryTarget - 5,
                                 Rate = 91
                             };
                         }
-                        actionInfo.AppendLine($"Looks like it could be a good day. Battery level {battLevel}%, target of {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%) therefore keep some space.");
+                        actionInfo.AppendLine($"Looks like it could be a good day. Battery level {battLevel}%, target of {bti.TargetDescription} therefore keep some space.");
                     }
-                    else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > battLevelTarget + 2)
+                    else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > bti.BatteryTarget + 2)
                     {
                         // It's gone quiet but it might get busy again: try to discharge some over-charge.
                         dischargeToGridWanted = new LuxAction()
@@ -303,12 +284,12 @@ from(bucket: ""solar"")
                             Enable = true,
                             Start = currentPeriod.Start,
                             End = dischargeToGridCurrent.End >= plan.Next.Start ? dischargeToGridCurrent.End : plan.Next.Start,
-                            Limit = battLevelTarget - 2,
+                            Limit = bti.BatteryTarget - 2,
                             Rate = 91
                         };
                         battChargeRateWanted = 91;
                         chargeLastWanted = true;
-                        actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {battLevelTarget}% therefore take opportunity to discharge.");
+                        actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {bti.BatteryTarget}% therefore take opportunity to discharge.");
                     }
                     else
                     {
@@ -338,9 +319,9 @@ from(bucket: ""solar"")
                     }
                 }
 
-                if (battChargeRateWanted < battChargeRate && battLevel < battLevelTarget)
+                if (battChargeRateWanted < battChargeRate && battLevel < bti.BatteryTarget)
                 {
-                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}% (should be {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%)) to {100}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
+                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}% (should be {bti.TargetDescription}) to {battLevelEnd}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
                     battChargeRateWanted = battChargeRate;
                 }
             }
