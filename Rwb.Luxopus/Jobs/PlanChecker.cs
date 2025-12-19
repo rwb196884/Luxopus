@@ -24,6 +24,7 @@ namespace Rwb.Luxopus.Jobs
         private readonly IEmailService _Email;
         private readonly IBatteryService _Batt;
         private readonly IBurstLogService _BurstLog;
+        private readonly BatteryTargetService _BatteryTargetService;
 
         public PlanChecker(
             ILogger<LuxMonitor> logger,
@@ -33,7 +34,8 @@ namespace Rwb.Luxopus.Jobs
             IInfluxQueryService influxQuery,
             IEmailService email,
             IBatteryService batt,
-            IBurstLogService burstLog
+            IBurstLogService burstLog,
+            BatteryTargetService batteryTargetService
             )
             : base(logger)
         {
@@ -44,6 +46,7 @@ namespace Rwb.Luxopus.Jobs
             _Email = email;
             _Batt = batt;
             _BurstLog = burstLog;
+            _BatteryTargetService = batteryTargetService;
         }
 
         //private const int _MedianHousePowerWatts = 240;
@@ -123,16 +126,16 @@ namespace Rwb.Luxopus.Jobs
                 try
                 {
                     (DateTime lastOccupied, bool wasOccupied) = (await _InfluxQuery.QueryAsync(Query.LastOccupied, DateTime.UtcNow)).Single().FirstOrDefault<bool>();
-                    if (wasOccupied && lastOccupied < DateTime.Now.AddHours(-3) && dischargeToGridWanted.Limit > 7)
+                    if (wasOccupied && lastOccupied < DateTime.Now.AddHours(-3) && dischargeToGridWanted.Limit > _Batt.BatteryMinimumLimit)
                     {
-                        actions.AppendLine($"DischargeToGridLevel overridden from plan of {dischargeToGridWanted.Limit}% to 7% because house not occupied since {lastOccupied.ToString("yyyy-MM-dd HH:mm")}.");
-                        dischargeToGridWanted.Limit = 7;
+                        actions.AppendLine($"DischargeToGridLevel overridden from plan of {dischargeToGridWanted.Limit}% to {_Batt.BatteryMinimumLimit}% because house not occupied since {lastOccupied.ToString("yyyy-MM-dd HH:mm")}.");
+                        dischargeToGridWanted.Limit = _Batt.BatteryMinimumLimit;
                     }
                 }
                 catch (InvalidOperationException e)
                 {
-                    actions.AppendLine($"DischargeToGridLevel overridden from plan of {dischargeToGridWanted.Limit}% to 7% because house not occupied (query failed: ${e.Message}).");
-                    dischargeToGridWanted.Limit = 7;
+                    actions.AppendLine($"DischargeToGridLevel overridden from plan of {dischargeToGridWanted.Limit}% to {_Batt.BatteryMinimumLimit}% because house not occupied (query failed: ${e.Message}).");
+                    dischargeToGridWanted.Limit = _Batt.BatteryMinimumLimit;
                 }
                 catch (Exception e)
                 {
@@ -147,29 +150,14 @@ namespace Rwb.Luxopus.Jobs
             LuxAction? chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent);
 
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
-            int battLevelEnd = 70;// 100;
+            int battLevelEnd = _BatteryTargetService.DefaultBatteryLevelEnd;
             if ((plan.Next?.Buy ?? 1) <= 0)
             {
                 battLevelEnd -= _Batt.CapacityKiloWattHoursToPercent(plan.Plans.FutureFreeHoursBeforeNextDischarge(currentPeriod) * 3.2);
                 battLevelEnd = battLevelEnd < battLevel ? battLevel : battLevelEnd;
             }
+            BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
 
-            // Batt charge. ///////////////////////////////////////////////////
-            // DateTime sunrise = DateTime.Today.AddHours(9); // TODO: Move to configuration.
-            //DateTime sunset = DateTime.Today.AddHours(16);
-            DateTime gStart = DateTime.Today.AddHours(5); //sunrise;
-            DateTime gEnd = DateTime.Today.AddHours(16); // sunset
-            try
-            {
-                //(sunrise, _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
-                //(sunset, _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
-                (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
-                (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(e, "Failed to query for sunrise and sunset / generation.");
-            }
             string why = "no change";
 
             DateTime tNext = plan.Next?.Start ?? DateTime.UtcNow.AddHours(1);
@@ -205,22 +193,20 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
-                prediction = prediction / 10;
-                if( prediction >= _Batt.CapacityPercentToKiloWattHours(200) && t0.Hour <= 9)
+                if( bti.PredictionBatteryPercent >= 200 && t0.Hour <= 9)
                 {
                     chargeLastWanted = true;
-                    why = $"Prediction {prediction}kWh >= {_Batt.CapacityPercentToKiloWattHours(200)}kWh (200%) and it's before 10am UTC.";
+                    why = $"Prediction {bti.PredictionKWh}kWh >= {_Batt.CapacityPercentToKiloWattHours(200)}kWh (200%) and it's before 10am UTC.";
                 }
-                else if (t0.TimeOfDay <= gStart.TimeOfDay || t0.TimeOfDay >= gEnd.TimeOfDay)
+                else if (t0.TimeOfDay <= bti.GenerationStart.TimeOfDay || t0.TimeOfDay >= bti.GenerationEnd.TimeOfDay)
                 {
                     // No solar generation.
                     if (battChargeRateWanted < 80)
                     {
                         battChargeRateWanted = 50;
                     }
-                    chargeLastWanted = t0.TimeOfDay <= gStart.TimeOfDay && prediction > _Batt.CapacityPercentToKiloWattHours(200);
-                    why = $"Default (time {t0:HH:mm} is outside of generation range {gStart:HH:mm} to {gEnd:HH:mm} and generation prediction is {_Batt.CapacityKiloWattHoursToPercent(prediction)}%).";
+                    chargeLastWanted = t0.TimeOfDay <= bti.GenerationStart.TimeOfDay && bti.PredictionBatteryPercent >= 200;
+                    why = $"Default (time {t0:HH:mm} is outside of generation range {bti.GenerationStart:HH:mm} to {bti.GenerationEnd:HH:mm} and generation prediction is {bti.PredictionBatteryPercent}%).";
                 }
                 else
                 {
@@ -290,109 +276,90 @@ from(bucket: ""solar"")
                            ).First().Records.First().GetValue<double>();
 
                         // Get fully charged before the discharge period.
-                        DateTime tBattChargeFrom = gStart > currentPeriod.Start ? gStart : currentPeriod.Start;
+                        DateTime tBattChargeFrom = bti.GenerationStart > currentPeriod.Start ? bti.GenerationStart : currentPeriod.Start;
 
                         int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(currentPeriod.Start);
                         DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
 
-                        int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Fast);
-                        int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Linear);
-                        int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Slow);
 
-                        ScaleMethod sm = ScaleMethod.Linear;
-                        if (battLevel < battLevelTargetS && generationRecentMean < 1500)
-                        {
-                            sm = ScaleMethod.Fast;
-                        }
-                        else if (prediction < _Batt.CapacityPercentToKiloWattHours(90))
-                        {
-                            sm = ScaleMethod.Fast;
-                        }
-                        else if (generationRecentMean < 2000)
-                        {
-                            sm = ScaleMethod.Linear;
-                        }
-                        else if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && generationRecentMean > 2500 && t0.Month >= 4 && t0.Month <= 8)
-                        {
-                            // High prediction / good day: charge slowly.
-                            sm = ScaleMethod.Slow;
-                        }
-
-                        int battLevelTarget = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, sm);
-
-                        if (DateTime.Now.Hour < 9 && prediction > _Batt.CapacityPercentToKiloWattHours(89))
+                        if (DateTime.Now.Hour < 9 && bti.PredictionBatteryPercent > _BatteryTargetService.DefaultBatteryLevelEnd)
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 91;
-                            why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW therefore charge last before 9am.";
+                            why = $"Predicted to be a good day (generation prediction {bti.PredictionKWh:#0.0}kW therefore charge last before 9am.";
                             dischargeToGridWanted = new LuxAction()
                             {
                                 Enable = true,
                                 Start = currentPeriod.Start,
                                 End = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12),
-                                Limit = battLevelTarget - 5,
+                                Limit = bti.BatteryTarget - 5,
                                 Rate = 91
                             };
                         }
-                        else if (t0.Month >= 4 && t0.Month <= 8 && DateTime.Now.Hour <= 9 && (sm == ScaleMethod.Slow || generationRecentMean > 800) && battLevel >= 9)
+                        else if (t0.Month >= 4 && t0.Month <= 8 && DateTime.Now.Hour <= 9 && (bti.ScaleMethod == ScaleMethod.Slow || generationRecentMean > 800) && battLevel >= 9)
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 92;
 
-                            if (battLevel > battLevelTarget - 5 && generationRecentMean < 3000)
+                            if (battLevel > bti.BatteryTarget - 5 && generationRecentMean < 3000)
                             {
                                 dischargeToGridWanted = new LuxAction()
                                 {
                                     Enable = true,
                                     Start = currentPeriod.Start,
                                     End = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12),
-                                    Limit = battLevelTarget - 5,
+                                    Limit = bti.BatteryTarget - 5,
                                     Rate = 91
                                 };
-                                why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW, recent mean {generationRecentMean / 1000:#0.0}kW) therefore charge last before 10am. Discharge to grid because battery level {battLevel}% is ahead of target target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%).";
+                                why = $"Predicted to be a good day (generation prediction {bti.PredictionKWh:#0.0}kW, recent mean {generationRecentMean / 1000:#0.0}kW) therefore charge last before 10am. Discharge to grid because battery level {battLevel}% is ahead of target target of {bti.TargetDescription}).";
                             }
                             else
                             {
-                                why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW, generation mean {generationRecentMean / 1000:#0.0}kW) therefore charge last before 10am. Battery level {battLevel}% target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%).";
+                                why = $"Predicted to be a good day (generation prediction {bti.PredictionKWh:#0.0}kW, generation mean {generationRecentMean / 1000:#0.0}kW) therefore charge last before 10am. Battery level {battLevel}% target of {bti.TargetDescription}.";
                             }
                             goto Apply;
                         }
-                        else if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 10 /* up to 11AM BST */ && sm == ScaleMethod.Slow && generationMax > 2000 && battLevel > battLevelTarget - 8)
+                        else if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 10 /* up to 11AM BST */ && bti.ScaleMethod == ScaleMethod.Slow && generationMax > 2000 && battLevel > bti.BatteryTarget - 8)
                         {
                             // At 9am median generation is 1500.
                             battChargeRateWanted = 93;
                             chargeLastWanted = true;
-                            if (battLevel > battLevelTarget - 5)
+                            if (battLevel > bti.BatteryTarget - 5)
                             {
                                 dischargeToGridWanted = new LuxAction()
                                 {
                                     Enable = true,
                                     Start = currentPeriod.Start,
                                     End = plan.Next?.Start ?? DateTime.UtcNow.AddHours(12),
-                                    Limit = battLevelTarget - 5,
+                                    Limit = bti.BatteryTarget - 5,
                                     Rate = 91
                                 };
-                                why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW, max {generationMax / 1000:#0.0}kW) therefore charge last before 9am. Discharge to grid because battery level {battLevel}% is ahead of target target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%).";
+                                why = $"Predicted to be a good day (generation prediction {bti.PredictionKWh:#0.0}kW, max {generationMax / 1000:#0.0}kW) therefore charge last before 9am. Discharge to grid because battery level {battLevel}% is ahead of target target of {bti.TargetDescription}.";
                             }
                             else
                             {
-                                why = $"Predicted to be a good day (generation prediction {prediction:#0.0}kW, max {generationMax / 1000:#0.0}kW) therefore charge last before 9am. Battery level {battLevel}% target of {battLevelTarget} ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%).";
+                                why = $"Predicted to be a good day (generation prediction {bti.PredictionKWh:#0.0}kW, max {generationMax / 1000:#0.0}kW) therefore charge last before 9am. Battery level {battLevel}% target of {bti.TargetDescription}.";
                                 chargeLastWanted = false;
 
                             }
                             goto Apply;
                         }
+                        else if( battLevel > battLevelEnd)
+                        {
+                            why = $"Battery level {battLevel}% is above end level of {battLevelEnd}. (Current target of {bti.TargetDescription}.)";
+                            chargeLastWanted = true;
+                        }
 
-                        DateTime endOfCharge = gEnd < plan.Next.Start ? gEnd : plan.Next.Start;
+                        DateTime endOfCharge = bti.GenerationEnd < plan.Next.Start ? bti.GenerationEnd : plan.Next.Start;
                         double hoursToCharge = (endOfCharge - t0).TotalHours;
                         double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd - battLevel);
-                        string s = battLevelTarget != battLevel ? $" (prediction {prediction:0.0}kWh so battery level should be {battLevelTarget}% ({battLevelTargetS}% < {battLevelTargetL}% < {battLevelTargetF}%))" : "";
+                        string s = bti.BatteryTarget != battLevel ? $" (prediction {bti.PredictionKWh:0.0}kWh so battery level should be {bti.BatteryTarget}% ({bti.BatteryTargetS}% < {bti.BatteryTargetL}% < {bti.BatteryTargetF}%))" : "";
 
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;
-                        if (battLevel < battLevelTarget)
+                        if (battLevel < bti.BatteryTarget)
                         {
-                            extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(battLevelTarget - battLevel);
+                            extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
                             chargeLastWanted = false;
                             double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                             int b = _Batt.TransferKiloWattsToPercent(kW);
@@ -408,7 +375,7 @@ from(bucket: ""solar"")
 
                         // Set the rate.
 
-                        if(prediction < _Batt.CapacityPercentToKiloWattHours(200))
+                        if(bti.PredictionBatteryPercent < 200)
                         {
                             battChargeRateWanted = 95;
                             chargeLastWanted = false;
@@ -428,7 +395,7 @@ from(bucket: ""solar"")
                             why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 96%.";
                         }
 
-                        if (generationRecentMax < 3600 && battLevel < battLevelTarget + 5 && generationMeanDifference < 0)
+                        if (generationRecentMax < 3600 && battLevel < bti.BatteryTarget + 5 && generationMeanDifference < 0)
                         {
                             battChargeRateWanted = battChargeRateWanted > 40 ? 97 : battChargeRateWanted * 2;
                             chargeLastWanted = false;

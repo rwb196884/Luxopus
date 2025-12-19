@@ -97,7 +97,7 @@ namespace Rwb.Luxopus.Jobs
                 }
             }
 
-            if (negativePrices.Any())
+            if (negativePrices.Any(z => z.Value.Any(y => y.ValidFrom >= DateTime.Now)))
             {
                 StringBuilder email = new StringBuilder();
                 foreach (string t in negativePrices.Keys)
