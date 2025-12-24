@@ -61,6 +61,7 @@ namespace Rwb.Luxopus.Jobs
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             //DateTime t0 = new DateTime(2023, 05, 27, 03, 01, 00);
+            //DateTime t0 = new DateTime(2025, 12, 24, 01, 31, 00);
             DateTime t0 = DateTime.UtcNow;
 
             Plan? plan = _Plans.Load(t0);
@@ -168,7 +169,7 @@ namespace Rwb.Luxopus.Jobs
                 PeriodPlan? next = plan.Plans.GetNext(plan.Current!);
                 while(next != null && Plan.ChargeFromGridCondition(next))
                 {
-                    next = plan.Plans.GetNext(plan.Current!);
+                    next = plan.Plans.GetNext(next);
                 }
                 if (next != null)
                 {
@@ -199,7 +200,7 @@ namespace Rwb.Luxopus.Jobs
                 PeriodPlan? next = plan.Plans.GetNext(plan.Current!);
                 while (next != null && Plan.DischargeToGridCondition(next))
                 {
-                    next = plan.Plans.GetNext(plan.Current!);
+                    next = plan.Plans.GetNext(next);
                 }
                 if (next != null)
                 {
