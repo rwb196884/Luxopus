@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Accord;
+using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
@@ -167,7 +168,7 @@ namespace Rwb.Luxopus.Jobs
                 if (chargeFromGridCurrent.Start > plan.Current!.Start) { chargeFromGridWanted.Start = plan.Current!.Start; }
                 
                 PeriodPlan? next = plan.Plans.GetNext(plan.Current!);
-                while(next != null && Plan.ChargeFromGridCondition(next))
+                while(next != null && Plan.ChargeFromGridCondition(next) && next.Action.ChargeFromGrid == plan.Current.Action.ChargeFromGrid)
                 {
                     next = plan.Plans.GetNext(next);
                 }
@@ -198,7 +199,7 @@ namespace Rwb.Luxopus.Jobs
                 if (dischargeToGridCurrent.Start > plan.Current!.Start) { dischargeToGridWanted.Start = plan.Current!.Start; }
 
                 PeriodPlan? next = plan.Plans.GetNext(plan.Current!);
-                while (next != null && Plan.DischargeToGridCondition(next))
+                while (next != null && Plan.DischargeToGridCondition(next) && next.Action.DischargeToGrid == plan.Current.Action.DischargeToGrid)
                 {
                     next = plan.Plans.GetNext(next);
                 }
