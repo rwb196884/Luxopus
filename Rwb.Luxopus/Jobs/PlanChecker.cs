@@ -165,7 +165,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 // Planned charge.
                 chargeFromGridWanted.Enable = true;
-                if (chargeFromGridCurrent.Start > plan.Current!.Start) { chargeFromGridWanted.Start = plan.Current!.Start; }
+                if (chargeFromGridWanted.Start > plan.Current!.Start) { chargeFromGridWanted.Start = plan.Current!.Start; }
                 
                 PeriodPlan? next = plan.Plans.GetNext(plan.Current!);
                 while(next != null && Plan.ChargeFromGridCondition(next) && next.Action.ChargeFromGrid == plan.Current.Action.ChargeFromGrid)
@@ -196,7 +196,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 // Planned discharge.
                 dischargeToGridWanted.Enable = true;
-                if (dischargeToGridCurrent.Start > plan.Current!.Start) { dischargeToGridWanted.Start = plan.Current!.Start; }
+                if (dischargeToGridWanted.Start > plan.Current!.Start) { dischargeToGridWanted.Start = plan.Current!.Start; }
 
                 PeriodPlan? next = plan.Plans.GetNext(plan.Current!);
                 while (next != null && Plan.DischargeToGridCondition(next) && next.Action.DischargeToGrid == plan.Current.Action.DischargeToGrid)
@@ -206,17 +206,17 @@ namespace Rwb.Luxopus.Jobs
                 if (next != null)
                 {
                     PeriodPlan endOfRun = plan.Plans.GetPrevious(next);
-                    dischargeToGridCurrent.Limit = endOfRun.Action.DischargeToGrid;
-                    dischargeToGridCurrent.End = next.Start;
+                    dischargeToGridWanted.Limit = endOfRun.Action.DischargeToGrid;
+                    dischargeToGridWanted.End = next.Start;
                 }
                 else
                 {
-                    dischargeToGridCurrent.Limit = plan.Current!.Action.DischargeToGrid;
-                    if (chargeFromGridCurrent.End < tNext) { chargeFromGridWanted.End = tNext; }
+                    dischargeToGridWanted.Limit = plan.Current!.Action.DischargeToGrid;
+                    if (dischargeToGridWanted.End < tNext) { dischargeToGridWanted.End = tNext; }
                 }
 
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - dischargeToGridCurrent.Limit);
-                double hoursToCharge = (chargeFromGridCurrent.End - t0).TotalHours;
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - dischargeToGridWanted.Limit);
+                double hoursToCharge = (dischargeToGridWanted.End - t0).TotalHours;
                 double kW = powerRequiredKwh / hoursToCharge;
                 dischargeToGridWanted.Rate = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kW));
                 battChargeRateWanted = 100;
