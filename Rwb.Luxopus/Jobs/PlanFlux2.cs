@@ -188,7 +188,7 @@ namespace Rwb.Luxopus.Jobs
                             }
                             else
                             {
-                                notes.AppendLine($"Peak: overnight low not found; AdjustLimit value is used.");
+                                notes.AppendLine($"Peak: overnight low not found; using {dischargeToGrid}% = 100% minus maximum dischargeable {battDischargeableAtPeak}%.");
                             }
 
                             try

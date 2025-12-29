@@ -122,9 +122,9 @@ namespace Rwb.Luxopus.Jobs
             double generationMedianForMonth = (double)(await InfluxQuery.QueryAsync(Query.GenerationMedianForMonth, DateTime.UtcNow)).Single().Records[0].Values["_value"] / 10.0;
             if (generationPrediction > generationMedianForMonth)
             {
+                notes.AppendLine($"Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%) adjusted towards monthly median of {generationMedianForMonth}kWH.");
                 generationPrediction = (generationPrediction + generationMedianForMonth) / 2.0;
                 battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
-                notes.AppendLine($"Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%) adjusted towards monthly median of {generationMedianForMonth}kWH.");
             }
 
             int battLevel = await InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
@@ -527,7 +527,7 @@ namespace Rwb.Luxopus.Jobs
             int halfHourBattPercentIn = batt.MaxCharge / 2;
             int halfHourUsePercent = batt.CapacityKiloWattHoursToPercent(0.5 * bup.GetKwkh(p.Start.DayOfWeek, p.Start.Hour, p.Start.AddHours(1).Hour));
 
-            int generationInPeriod = batt.CapacityKiloWattHoursToPercent((p.Start.Hour < 9 || p.Start.Hour > 16) ? 0 : generationPrediction / (2 * 12));
+            int generationInPeriod = batt.CapacityKiloWattHoursToPercent((p.Start.Hour < 9 || p.Start.Hour > 16) ? 0 : generationPrediction / (2 * 8));
 
             if (p.Action.DischargeToGrid < 100)
             {
