@@ -101,8 +101,8 @@ namespace Rwb.Luxopus.Jobs
 
                 DateTime start = t0.StartOfHalfHour().AddDays(-1);// Longest period is 5AM while 4PM (local).
                 DateTime stop = (new DateTime(t0.Year, t0.Month, t0.Day, 21, 0, 0)).AddDays(1);
-                TariffCode ti = await _Octopus.GetElectricityCurrentTariff(TariffType.Import, start);
-                TariffCode te = await _Octopus.GetElectricityCurrentTariff(TariffType.Export, start);
+                TariffCode ti = await _Octopus.GetElectricityCurrentTariff(TariffType.Import, t0);
+                TariffCode te = await _Octopus.GetElectricityCurrentTariff(TariffType.Export, t0);
                 List<ElectricityPrice> prices = await InfluxQuery.GetPricesAsync(start, stop, ti.Code, te.Code);
 
                 // Time to reschedule.
@@ -290,10 +290,10 @@ namespace Rwb.Luxopus.Jobs
                                 PeriodPlan? peak = plan.Plans.FirstOrDefault(z => z.Start > p.Start && GetFluxCase(plan, z) == FluxCase.Peak);
                                 if (next != null && peak != null)
                                 {
-                                    double generationPrediction = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start)).Single().Records[0].Values["_value"];
+                                    double generationPrediction = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start)).Single().Records[0].Values["_value"] / 10.0;
                                     double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
                                     notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%).");
-                                    double generationMedianForMonth = (double)(await InfluxQuery.QueryAsync(Query.GenerationMedianForMonth, DateTime.UtcNow)).Single().Records[0].Values["_value"];
+                                    double generationMedianForMonth = (double)(await InfluxQuery.QueryAsync(Query.GenerationMedianForMonth, DateTime.UtcNow)).Single().Records[0].Values["_value"] / 10.0;
                                     generationMedianForMonth = generationMedianForMonth / 10.0;
                                     if (generationPrediction > generationMedianForMonth)
                                     {
