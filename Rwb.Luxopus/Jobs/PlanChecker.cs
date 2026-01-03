@@ -272,7 +272,7 @@ namespace Rwb.Luxopus.Jobs
                                 Start = plan.Current!.Start, // Needs to be constant in order not to spam changes.
                                 End = plan?.Next?.Start ?? t0.StartOfHalfHour().AddHours(1)
                             };
-                            chargeLastWanted = true;
+                            chargeLastWanted = false;
                             why = $"Battery is full ({battLevel}%) and max generation in last hour is {generationMaxLastHour}.";
                         }
                     }
@@ -314,7 +314,7 @@ from(bucket: ""solar"")
                         DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
 
 
-                        if (DateTime.Now.Hour < 9 && bti.PredictionBatteryPercent > _BatteryTargetService.DefaultBatteryLevelEnd)
+                        if (t0.Month >= 4 && t0.Month <= 8 && DateTime.Now.Hour < 9 && bti.PredictionBatteryPercent > _BatteryTargetService.DefaultBatteryLevelEnd)
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 91;
