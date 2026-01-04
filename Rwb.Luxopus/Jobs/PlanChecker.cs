@@ -227,7 +227,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 if (battLevel + bti.PredictionBatteryPercent >= 100 && t0.Hour <= 9)
                 {
-                    chargeLastWanted = true;
+                    chargeLastWanted = t0.Month >= 4 && t0.Month <= 8;
                     why = $"Batt level {battLevel}% plus prediction {bti.PredictionBatteryPercent}% is greater than 100% and it's before 10am UTC.";
                 }
                 else if (t0.TimeOfDay <= bti.GenerationStart.TimeOfDay || t0.TimeOfDay >= bti.GenerationEnd.TimeOfDay)
