@@ -368,22 +368,22 @@ namespace Rwb.Luxopus.Jobs
                                             chargeFromGrid = buyToSell ? 21 : 13;
                                         }
                                     }
-                                    else if (predictedGenerationToBatt < 10)
+                                    else if (predictedGenerationToBatt < 34)
                                     {
-                                        notes.AppendLine($"     Generation prediction is low (factor {(predictedGenerationToBatt / battDischargeableAtPeak).ToString("0.0")}): charge to {_Batt.BatteryMinimumLimit + battDischargeableAtPeak}%. ");
-                                        chargeFromGrid = _Batt.BatteryMinimumLimit + battDischargeableAtPeak;
+                                        chargeFromGrid = _Batt.BatteryMinimumLimit + battDischargeableAtPeak + battRequired;
+                                        chargeFromGrid = chargeFromGrid > 100 ? 100 : chargeFromGrid;
+                                        notes.AppendLine($"     Generation prediction is low (factor {(predictedGenerationToBatt / battDischargeableAtPeak).ToString("0.0")}): charge to {chargeFromGrid}% = {_Batt.BatteryMinimumLimit}% + {battDischargeableAtPeak}% + {battRequired}%. ");
                                     }
                                     else
                                     {
-                                        chargeFromGrid = battDischargeableAtPeak - Convert.ToInt32(predictedGenerationToBatt);
-                                        chargeFromGrid = chargeFromGrid < 8 ? 8 : chargeFromGrid;
-                                        chargeFromGrid = (generationPrediction < 34) && (chargeFromGrid < 13) ? 13 : chargeFromGrid;
+                                        chargeFromGrid = _Batt.BatteryMinimumLimit + battDischargeableAtPeak - Convert.ToInt32(predictedGenerationToBatt);
+                                        chargeFromGrid = chargeFromGrid < 34 ? 34 : chargeFromGrid;
+                                        notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}% = {_Batt.BatteryMinimumLimit}% + {battDischargeableAtPeak}% - {predictedGenerationToBatt:0}% (min 34%).");
                                         if (!buyToSellAtPeak && chargeFromGrid > 100 - battDischargeableAtPeak && predictedGenerationToBatt > battDischargeableAtPeak)
                                         {
                                             notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}% reduced to {100 - battDischargeableAtPeak}% because all generation must go to battery.");
                                             chargeFromGrid = 100 - battDischargeableAtPeak;
                                         }
-                                        notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}%.");
                                         int battLevelEnd = _Batt.BatteryMinimumLimit + battDischargeableAtPeak + 8;
                                         battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
                                         if (chargeFromGrid > battLevelEnd)
