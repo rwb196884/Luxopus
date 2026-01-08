@@ -2,9 +2,11 @@
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -106,6 +108,8 @@ namespace Rwb.Luxopus.Services
 
     public interface IOctopusService
     {
+        string GetProductOfTariff(string tariffCode);
+
         Task<IEnumerable<string>> GetElectricityMeterPoints();
         Task<IEnumerable<string>> GetElectricityMeters(string mapn);
         Task<IEnumerable<MeterReading>> GetElectricityMeterReadings(string mapn, string serialNumber, DateTime from, DateTime to);
@@ -137,6 +141,15 @@ namespace Rwb.Luxopus.Services
 
             return ok;
         }
+        public string GetProductOfTariff(string tariffCode)
+        {
+            // Remove E-1R- from the start.
+            // Remove -E from the end.
+            // https://forum.octopus.energy/t/product-codes-tariff-codes/5154
+            string a = tariffCode.Substring(5);
+            return a.Substring(0, a.Length - 2);
+        }
+
 
         public async Task<IEnumerable<string>> GetElectricityMeterPoints()
         {
@@ -179,6 +192,8 @@ namespace Rwb.Luxopus.Services
 
         private async Task<IEnumerable<TariffCode>> GetElectricityTariffs(bool includeAdditional)
         {
+            List<string> allProducts = await GetAllProducts();
+
             string account = await GetAccount();
             using (JsonDocument j = JsonDocument.Parse(account))
             {
@@ -206,8 +221,15 @@ namespace Rwb.Luxopus.Services
                 List<string> additionalTariffs = includeAdditional ? Settings.AdditionalTariffs.Split(',')
                     .Distinct()
                     .Where(z => !meterTariffs.Any(y => y.Code.ToLower() == z.ToLower()))
+                    .Where(z => allProducts.Contains(GetProductOfTariff(z)))
                     .ToList()
                     : new List<string>();
+
+                List<string> defunctTariffs = Settings.AdditionalTariffs.Split(',').Where(z => !allProducts.Contains(GetProductOfTariff(z))).ToList();
+                if (defunctTariffs.Any())
+                {
+                    Logger.LogWarning($"Settings includes defunct tariffs: {string.Join(", ", defunctTariffs)}.");
+                }
 
                 return meterTariffs.Union(additionalTariffs.Select(z => new TariffCode()
                 {
@@ -216,6 +238,41 @@ namespace Rwb.Luxopus.Services
                     ValidTo = null
                 }));
             }
+        }
+
+        private async Task<List<string>> GetAllProducts()
+        {
+            List<string> allProducts = new List<string>();
+
+            using (HttpClient httpClient = GetHttpClient())
+            {
+                HttpResponseMessage response = await httpClient.GetAsync($"/v1/products");
+                response.EnsureSuccessStatusCode();
+                string? json = await response.Content.ReadAsStringAsync();
+                while (json != null)
+                {
+                    string? next = null;
+                    using (JsonDocument j = JsonDocument.Parse(json))
+                    {
+                        allProducts.AddRange(
+                            j.RootElement.GetArray("results").Select(z =>
+                            {
+                                JsonElement.ObjectEnumerator p = z.EnumerateObject();
+                                string? code = p.Single(z => z.Name == "code").Value.GetString();
+                                DateTime availableFrom = p.Single(z => z.Name == "available_from").Value.GetDateTime();
+
+                                JsonElement availableToElement = p.Single(z => z.Name == "available_to").Value;
+
+                                DateTime? availableTo = availableToElement.ValueKind == JsonValueKind.Null ? null : (DateTime?)availableToElement.GetDateTime();
+                                return availableTo.HasValue && availableTo < DateTime.UtcNow ? null : code;
+                            }).Where(z => !string.IsNullOrEmpty(z)).Select(z => z!)
+                        );
+                        next = j.RootElement.EnumerateObject().Single(z => z.Name == "next").Value.GetString();
+                    }
+                    json = await GetNextPage(next);
+                }
+            }
+            return allProducts;
         }
 
         public async Task<TariffCode> GetElectricityCurrentTariff(TariffType tariffType, DateTime at)

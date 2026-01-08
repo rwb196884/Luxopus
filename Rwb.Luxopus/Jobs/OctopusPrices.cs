@@ -39,15 +39,6 @@ namespace Rwb.Luxopus.Jobs
             _At = at;
         }
 
-        private static string GetProductOfTariff(string tariffCode)
-        {
-            // Remove E-1R- from the start.
-            // Remove -E from the end.
-            // https://forum.octopus.energy/t/product-codes-tariff-codes/5154
-            string a = tariffCode.Substring(5);
-            return a.Substring(0, a.Length - 2);
-        }
-
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             Dictionary<string, List<Price>> negativePrices = new Dictionary<string, List<Price>>();
@@ -66,7 +57,7 @@ namespace Rwb.Luxopus.Jobs
                         { "type", t.Contains("OUTGOING") || t.Contains("EXPORT") ? "sell" : "buy" }
                 };
 
-                string p = GetProductOfTariff(t);
+                string p = _Octopus.GetProductOfTariff(t);
                 DateTime from = (await GetLatestPriceAsync(t)).AddMinutes(15);
                 DateTime to = DateTime.Now.Date.AddDays(1).AddHours(22);
 
@@ -141,7 +132,7 @@ namespace Rwb.Luxopus.Jobs
                         { "type", t.Contains("OUTGOING") || t.Contains("EXPORT") ? "sell" : "buy" }
                 };
 
-                string p = GetProductOfTariff(t);
+                string p = _Octopus.GetProductOfTariff(t);
                 DateTime from = (await GetLatestPriceAsync(t)).AddMinutes(15);
                 DateTime to = DateTime.Now.Date.AddDays(1).AddHours(22);
                 IEnumerable<Price> prices = await _Octopus.GetGasPrices(p, t, from, to);
