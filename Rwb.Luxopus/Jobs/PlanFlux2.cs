@@ -153,13 +153,13 @@ namespace Rwb.Luxopus.Jobs
                     switch (GetFluxCase(plan, p))
                     {
                         case FluxCase.Peak:
-                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Peak | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Buy.ToString("0.00")}.");
+                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Peak | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}.");
                             next = plan.Plans.GetNext(p);
                             if (next != null)
                             {
-                                if (next.Buy < p.Sell)
+                                if (next.Buy < p.Sell - 0.01M)
                                 {
-                                    notes.Append($"Next buy {next.Buy:0.0} < current sell {p.Sell:0.0} therefore discharge all.");
+                                    notes.AppendLine($"Next buy {next.Buy:0.00} < current sell {p.Sell:0.00} therefore discharge all.");
                                     p.Action = new PeriodAction()
                                     {
                                         ChargeFromGrid = 0,
@@ -222,7 +222,7 @@ namespace Rwb.Luxopus.Jobs
                             };
                             break;
                         case FluxCase.Daytime:
-                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Daytime | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Buy.ToString("0.00")}.");
+                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Daytime | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}.");
                             p.Action = new PeriodAction()
                             {
                                 ChargeFromGrid = 0,
@@ -256,7 +256,7 @@ namespace Rwb.Luxopus.Jobs
                         //    }
                         //    break;
                         case FluxCase.Low:
-                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Low | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Buy.ToString("0.00")}.");
+                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Low | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}.");
                             // How much do we want?
                             next = plan.Plans.GetNext(p);
                             DateTime startOfGeneration = DateTime.UtcNow.Date.AddHours(10).AddDays(-1);
@@ -303,7 +303,7 @@ namespace Rwb.Luxopus.Jobs
                                     {
                                         generationPrediction = (generationPrediction + generationMedianForMonth) / 2.0;
                                         battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
-                                        notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%) adjusted towards monthly median of {generationMedianForMonth}kWH.");
+                                        notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%) adjusted towards monthly median of {generationMedianForMonth:0.0}kWH.");
                                     }
                                     powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, peak.Start.Hour);
                                     battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
@@ -430,7 +430,7 @@ namespace Rwb.Luxopus.Jobs
                             };
                             break;
                         case FluxCase.Zero:
-                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Zero | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Buy.ToString("0.00")}.");
+                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Zero | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}.");
                             p.Action = new PeriodAction()
                             {
                                 ChargeFromGrid = 100,
