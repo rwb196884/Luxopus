@@ -147,6 +147,16 @@ namespace Rwb.Luxopus.Jobs
                 PeriodPlan? next = null;
 
                 int battDischargeableAtPeak = _Batt.CapacityKiloWattHoursToPercent(3 * 3.6);
+                (int bcSince, int bcPeriod) = (0, 0);
+                try
+                {
+                    Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
+                    (_, bcSince, bcPeriod) = _Lux.GetBatteryCalibration(settings);
+                }
+                catch
+                {
+                    notes.AppendLine($"*** Failed to get battery calibration info. ***");
+                }
 
                 foreach (PeriodPlan p in plan.Plans)
                 {
@@ -193,19 +203,20 @@ namespace Rwb.Luxopus.Jobs
                                 notes.AppendLine($"Peak: overnight low not found; using {dischargeToGrid}% = 100% minus maximum dischargeable {battDischargeableAtPeak}%.");
                             }
 
-                            try
+                            if (bcSince > bcPeriod - 3)
                             {
-                                Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
-                                (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
-                                if ((bcSince > bcPeriod - 2))
-                                {
-                                    notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Discharging overridden from {dischargeToGrid} to {100 - battDischargeableAtPeak}. ***");
-                                    dischargeToGrid = 100 - battDischargeableAtPeak;
-                                }
+                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Discharging overridden from {dischargeToGrid} to {100 - battDischargeableAtPeak}. ***");
+                                dischargeToGrid = 100 - battDischargeableAtPeak;
                             }
-                            catch
+                            else if (bcSince > bcPeriod - 2)
                             {
-                                notes.AppendLine($"*** Failed to get battery calibration info. ***");
+                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Discharging overridden from {dischargeToGrid} to {100 - (battDischargeableAtPeak * 3 / 2)}. ***");
+                                dischargeToGrid = 100 - (battDischargeableAtPeak * 3 / 2);
+                            }
+                            else if (bcSince > bcPeriod - 1)
+                            {
+                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Discharging overridden from {dischargeToGrid} to {100}. ***");
+                                dischargeToGrid = 100 ;
                             }
 
                             p.Action = new PeriodAction()
@@ -402,23 +413,10 @@ namespace Rwb.Luxopus.Jobs
                                 Logger.LogError(e, "Failed to execute cloud query.");
                             }
 
-                            try
+                            if ((bcSince > bcPeriod - 3))
                             {
-                                Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
-                                (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
-                                if ((bcSince > bcPeriod - 3))
-                                {
-                                    notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Charging overridden from {chargeFromGrid} to 100. ***");
-                                    chargeFromGrid = 100;
-                                }
-                                else
-                                {
-                                    notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}.");
-                                }
-                            }
-                            catch
-                            {
-                                notes.AppendLine($"*** Failed to get battery calibration info. ***");
+                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Charging overridden from {chargeFromGrid} to 100. ***");
+                                chargeFromGrid = 100;
                             }
 
                             p.Action = new PeriodAction()
