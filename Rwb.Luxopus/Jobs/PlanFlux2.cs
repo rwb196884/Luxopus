@@ -163,7 +163,7 @@ namespace Rwb.Luxopus.Jobs
                     switch (GetFluxCase(plan, p))
                     {
                         case FluxCase.Peak:
-                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Peak | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}.");
+                            notes.AppendLine($"-- {p.Start.ToString("dd MMM HH:mm")} | Peak | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}. --");
                             next = plan.Plans.GetNext(p);
                             if (next != null)
                             {
@@ -233,7 +233,7 @@ namespace Rwb.Luxopus.Jobs
                             };
                             break;
                         case FluxCase.Daytime:
-                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Daytime | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}.");
+                            notes.AppendLine($"-- {p.Start.ToString("dd MMM HH:mm")} | Daytime | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}. --");
                             p.Action = new PeriodAction()
                             {
                                 ChargeFromGrid = 0,
@@ -267,7 +267,7 @@ namespace Rwb.Luxopus.Jobs
                         //    }
                         //    break;
                         case FluxCase.Low:
-                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Low | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}.");
+                            notes.AppendLine($"-- {p.Start.ToString("dd MMM HH:mm")} | Low | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}. --");
                             // How much do we want?
                             next = plan.Plans.GetNext(p);
                             DateTime startOfGeneration = DateTime.UtcNow.Date.AddHours(10).AddDays(-1);
@@ -382,7 +382,7 @@ namespace Rwb.Luxopus.Jobs
                                             chargeFromGrid = buyToSell ? 21 : 13;
                                         }
                                     }
-                                    else if (predictedGenerationToBatt < 34)
+                                    else if (predictedGenerationToBatt < 21)
                                     {
                                         chargeFromGrid = _Batt.BatteryMinimumLimit + battDischargeableAtPeak + battRequired;
                                         chargeFromGrid = chargeFromGrid > 100 ? 100 : chargeFromGrid;
@@ -428,7 +428,7 @@ namespace Rwb.Luxopus.Jobs
                             };
                             break;
                         case FluxCase.Zero:
-                            notes.AppendLine($"{p.Start.ToString("dd MMM HH:mm")} | Zero | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}.");
+                            notes.AppendLine($"-- {p.Start.ToString("dd MMM HH:mm")} | Zero | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}. --");
                             p.Action = new PeriodAction()
                             {
                                 ChargeFromGrid = 100,
