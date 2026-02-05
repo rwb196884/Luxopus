@@ -112,7 +112,7 @@ namespace Rwb.Luxopus.Services
                 message.AppendLine(p.ToString());
             }
 
-            SendEmail($"Solar strategy " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString() + Environment.NewLine + Environment.NewLine + notes);
+            SendEmail($"Solar strategy " + plan.Plans.First().Start.ToString("dd MMM"), message.ToString() + Environment.NewLine + notes);
             Logger.LogInformation($"Planner '{this.GetType().Name}' created new plan: " + Environment.NewLine + message.ToString() + Environment.NewLine + notes);
         }
     }

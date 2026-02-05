@@ -163,6 +163,7 @@ namespace Rwb.Luxopus.Jobs
                     switch (GetFluxCase(plan, p))
                     {
                         case FluxCase.Peak:
+                            notes.AppendLine();
                             notes.AppendLine($"-- {p.Start.ToString("dd MMM HH:mm")} | Peak | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}. --");
                             next = plan.Plans.GetNext(p);
                             if (next != null)
@@ -216,7 +217,7 @@ namespace Rwb.Luxopus.Jobs
                             else if (bcSince > bcPeriod - 1)
                             {
                                 notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Discharging overridden from {dischargeToGrid} to {100}. ***");
-                                dischargeToGrid = 100 ;
+                                dischargeToGrid = 100;
                             }
 
                             p.Action = new PeriodAction()
@@ -233,6 +234,7 @@ namespace Rwb.Luxopus.Jobs
                             };
                             break;
                         case FluxCase.Daytime:
+                            notes.AppendLine();
                             notes.AppendLine($"-- {p.Start.ToString("dd MMM HH:mm")} | Daytime | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}. --");
                             p.Action = new PeriodAction()
                             {
@@ -267,6 +269,7 @@ namespace Rwb.Luxopus.Jobs
                         //    }
                         //    break;
                         case FluxCase.Low:
+                            notes.AppendLine();
                             notes.AppendLine($"-- {p.Start.ToString("dd MMM HH:mm")} | Low | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}. --");
                             // How much do we want?
                             next = plan.Plans.GetNext(p);
@@ -288,12 +291,12 @@ namespace Rwb.Luxopus.Jobs
                                 powerRequired = bup.GetKwkh(t0.DayOfWeek, (next?.Start.Hour ?? p.Start.Hour + 3), startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0));
                             }
                             int battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
-                            notes.AppendLine($"Low: AdjustLimit      battRequired {battRequired}%");
-                            notes.AppendLine($"     AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
-                            notes.AppendLine($"     AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0)})");
+                            notes.AppendLine($"  AdjustLimit      battRequired {battRequired}%");
+                            notes.AppendLine($"  AdjustLimit startOfGeneration {startOfGeneration:HH:mm} ");
+                            notes.AppendLine($"  AdjustLimit     powerRequired {powerRequired:0.0}kWh = bup.GetKwkh({t0.DayOfWeek}, {(next?.Start.Hour ?? p.Start.Hour + 3)}, {startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0)})");
 
                             int chargeFromGrid = _Batt.BatteryMinimumLimit + battRequired;
-                            notes.AppendLine($"     chargeFromGrid {_Batt.BatteryMinimumLimit + battRequired} = BatteryAbsoluteMinimum {_Batt.BatteryMinimumLimit} + battRequired {battRequired} (used)");
+                            notes.AppendLine($"  chargeFromGrid {_Batt.BatteryMinimumLimit + battRequired} = BatteryAbsoluteMinimum {_Batt.BatteryMinimumLimit} + battRequired {battRequired} (used)");
 
                             DateTime tForecast = p.Start;
                             if (tForecast.Hour > 12)
@@ -307,23 +310,23 @@ namespace Rwb.Luxopus.Jobs
                                 {
                                     generationPrediction = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start)).Single().Records[0].Values["_value"] / 10.0;
                                     double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
-                                    notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%).");
+                                    notes.AppendLine($"  Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%).");
                                     double generationMedianForMonth = (double)(await InfluxQuery.QueryAsync(Query.GenerationMedianForMonth, DateTime.UtcNow)).Single().Records[0].Values["_value"] / 10.0;
                                     generationMedianForMonth = generationMedianForMonth / 10.0;
                                     if (generationPrediction > generationMedianForMonth)
                                     {
                                         generationPrediction = (generationPrediction + generationMedianForMonth) / 2.0;
                                         battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
-                                        notes.AppendLine($"Low: Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%) adjusted towards monthly median of {generationMedianForMonth:0.0}kWH.");
+                                        notes.AppendLine($"  Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%) adjusted towards monthly median of {generationMedianForMonth:0.0}kWH.");
                                     }
                                     powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, peak.Start.Hour);
                                     battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
-                                    notes.AppendLine($"     Predicted        use of {powerRequired:0.0}kW ({battRequired:0}%).");
+                                    notes.AppendLine($"  Predicted        use of {powerRequired:0.0}kW ({battRequired:0}%).");
 
                                     double freeKw = plan.Plans.FutureFreeHoursBeforeNextDischarge(p) * 3.2;
                                     if (freeKw > 0)
                                     {
-                                        notes.AppendLine($"    Free: {freeKw:0.0}kW.");
+                                        notes.AppendLine($"  Free: {freeKw:0.0}kW.");
                                     }
 
                                     double powerAvailableForBatt = generationPrediction - powerRequired + freeKw;
@@ -348,37 +351,37 @@ namespace Rwb.Luxopus.Jobs
                                         if (totalBuyToSell > peak.Sell)
                                         {
                                             buyToSellAtPeak = true;
-                                            notes.AppendLine($"     store and sell {peak.Sell:0.000} < (buy and sell {totalBuyToSell:0.000} = ({peak.Sell:0.00} * 0.89 - {p.Buy:0.00})) + (sell immediately {solarSoldImmediately:0.00})  therefore buy to sell at peak.");
+                                            notes.AppendLine($"  store and sell {peak.Sell:0.000} < (buy and sell {totalBuyToSell:0.000} = ({peak.Sell:0.00} * 0.89 - {p.Buy:0.00})) + (sell immediately {solarSoldImmediately:0.00})  therefore buy to sell at peak.");
                                             // Need to keep battery space for generation over 3.6kW that would otherwise be clipped.
                                             // Plan should specify charge last.
                                         }
                                         else
                                         {
-                                            notes.AppendLine($"     store and sell {peak.Sell:0.000} >= (buy and sell {totalBuyToSell:0.000} = ({peak.Sell:0.00} * 0.89 - {p.Buy:0.00})) + (sell immediately {solarSoldImmediately:0.00})  therefore do not buy to sell at peak.");
+                                            notes.AppendLine($"  store and sell {peak.Sell:0.000} >= (buy and sell {totalBuyToSell:0.000} = ({peak.Sell:0.00} * 0.89 - {p.Buy:0.00})) + (sell immediately {solarSoldImmediately:0.00})  therefore do not buy to sell at peak.");
                                             // Make sure that all solar goes to battery.
                                             // Therefore be cautious about how much to buy.
                                         }
                                     }
 
                                     double predictedGenerationToBatt = powerAvailableForBatt > 0 ? _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt) : 0;
-                                    notes.AppendLine($"     Generation prediction factor: {(predictedGenerationToBatt / battDischargeableAtPeak).ToString("0.0")}");
-                                    notes.AppendLine($"     Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
+                                    notes.AppendLine($"  Generation prediction factor: {(predictedGenerationToBatt / battDischargeableAtPeak).ToString("0.0")}");
+                                    notes.AppendLine($"  Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
                                     if (predictedGenerationToBatt > battDischargeableAtPeak * 2)
                                     {
-                                        notes.AppendLine($"     Generation prediction is high.");
+                                        notes.AppendLine($"  Generation prediction is high.");
                                         if (predictedGenerationToBatt > battDischargeableAtPeak * 3 && generationPrediction > generationMedianForMonth)
                                         {
-                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 21 : 13)}%.");
+                                            notes.AppendLine($"  Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 21 : 13)}%.");
                                             chargeFromGrid = _Batt.BatteryMinimumLimit;
                                         }
                                         else if (chargeFromGrid > (buyToSell ? 34 : 21))
                                         {
-                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 34 : 21)}%.");
+                                            notes.AppendLine($"  Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 34 : 21)}%.");
                                             chargeFromGrid = buyToSell ? 34 : 21;
                                         }
                                         else if (chargeFromGrid < (buyToSell ? 21 : 13))
                                         {
-                                            notes.AppendLine($"       Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 21 : 13)}%.");
+                                            notes.AppendLine($"  Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 21 : 13)}%.");
                                             chargeFromGrid = buyToSell ? 21 : 13;
                                         }
                                     }
@@ -386,23 +389,23 @@ namespace Rwb.Luxopus.Jobs
                                     {
                                         chargeFromGrid = _Batt.BatteryMinimumLimit + battDischargeableAtPeak + battRequired;
                                         chargeFromGrid = chargeFromGrid > 100 ? 100 : chargeFromGrid;
-                                        notes.AppendLine($"     Generation prediction is low (factor {(predictedGenerationToBatt / battDischargeableAtPeak).ToString("0.0")}): charge to {chargeFromGrid}% = {_Batt.BatteryMinimumLimit}% + {battDischargeableAtPeak}% + {battRequired}%. ");
+                                        notes.AppendLine($"  Generation prediction is low (factor {(predictedGenerationToBatt / battDischargeableAtPeak).ToString("0.0")}): charge to {chargeFromGrid}% = {_Batt.BatteryMinimumLimit}% + {battDischargeableAtPeak}% + {battRequired}%. ");
                                     }
                                     else
                                     {
                                         chargeFromGrid = _Batt.BatteryMinimumLimit + battDischargeableAtPeak - Convert.ToInt32(predictedGenerationToBatt);
                                         chargeFromGrid = chargeFromGrid < 34 ? 34 : chargeFromGrid;
-                                        notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}% = {_Batt.BatteryMinimumLimit}% + {battDischargeableAtPeak}% - {predictedGenerationToBatt:0}% (min 34%).");
+                                        notes.AppendLine($"  chargeFromGrid: {chargeFromGrid:0}% = {_Batt.BatteryMinimumLimit}% + {battDischargeableAtPeak}% - {predictedGenerationToBatt:0}% (min 34%).");
                                         if (!buyToSellAtPeak && chargeFromGrid > 100 - battDischargeableAtPeak && predictedGenerationToBatt > battDischargeableAtPeak)
                                         {
-                                            notes.AppendLine($"     chargeFromGrid: {chargeFromGrid:0}% reduced to {100 - battDischargeableAtPeak}% because all generation must go to battery.");
+                                            notes.AppendLine($"  chargeFromGrid: {chargeFromGrid:0}% reduced to {100 - battDischargeableAtPeak}% because all generation must go to battery.");
                                             chargeFromGrid = 100 - battDischargeableAtPeak;
                                         }
                                         int battLevelEnd = _Batt.BatteryMinimumLimit + battDischargeableAtPeak + 8;
                                         battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
                                         if (chargeFromGrid > battLevelEnd)
                                         {
-                                            notes.AppendLine($"     chargeFromGrid limited to {battLevelEnd} = min ({_Batt.BatteryMinimumLimit}) + peak dischargeable ({battDischargeableAtPeak}) + 8%.");
+                                            notes.AppendLine($"  chargeFromGrid limited to {battLevelEnd} = min ({_Batt.BatteryMinimumLimit}) + peak dischargeable ({battDischargeableAtPeak}) + 8%.");
                                             chargeFromGrid = battLevelEnd;
                                         }
                                     }
@@ -410,12 +413,13 @@ namespace Rwb.Luxopus.Jobs
                             }
                             catch (Exception e)
                             {
-                                Logger.LogError(e, "Failed to execute cloud query.");
+                                Logger.LogError(e, "Error creating plan.");
                             }
 
-                            if ((bcSince > bcPeriod - 3))
+                            notes.AppendLine($"  Battery calibration: {bcSince} / {bcPeriod}.");
+                            if (bcSince > bcPeriod - 3)
                             {
-                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Charging overridden from {chargeFromGrid} to 100. ***");
+                                notes.AppendLine($"    *** Charging overridden from {chargeFromGrid} to 100. ***");
                                 chargeFromGrid = 100;
                             }
 
@@ -428,6 +432,7 @@ namespace Rwb.Luxopus.Jobs
                             };
                             break;
                         case FluxCase.Zero:
+                            notes.AppendLine();
                             notes.AppendLine($"-- {p.Start.ToString("dd MMM HH:mm")} | Zero | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}. --");
                             p.Action = new PeriodAction()
                             {
