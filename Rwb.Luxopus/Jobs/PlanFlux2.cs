@@ -204,20 +204,20 @@ namespace Rwb.Luxopus.Jobs
                                 notes.AppendLine($"Peak: overnight low not found; using {dischargeToGrid}% = 100% minus maximum dischargeable {battDischargeableAtPeak}%.");
                             }
 
-                            if (bcSince > bcPeriod - 3)
+                            if (bcSince > bcPeriod - 1)
                             {
-                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Discharging overridden from {dischargeToGrid} to {100 - battDischargeableAtPeak}. ***");
-                                dischargeToGrid = 100 - battDischargeableAtPeak;
+                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Discharging overridden from {dischargeToGrid} to {100}. ***");
+                                dischargeToGrid = 100;
                             }
                             else if (bcSince > bcPeriod - 2)
                             {
                                 notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Discharging overridden from {dischargeToGrid} to {100 - (battDischargeableAtPeak * 3 / 2)}. ***");
                                 dischargeToGrid = 100 - (battDischargeableAtPeak * 3 / 2);
                             }
-                            else if (bcSince > bcPeriod - 1)
+                            else if (bcSince > bcPeriod - 3)
                             {
-                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Discharging overridden from {dischargeToGrid} to {100}. ***");
-                                dischargeToGrid = 100;
+                                notes.AppendLine($"Battery calibration: {bcSince} / {bcPeriod}. *** Discharging overridden from {dischargeToGrid} to {100 - battDischargeableAtPeak}. ***");
+                                dischargeToGrid = 100 - battDischargeableAtPeak;
                             }
 
                             p.Action = new PeriodAction()
