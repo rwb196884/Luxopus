@@ -158,7 +158,7 @@ namespace Rwb.Luxopus.Jobs
                     notes.AppendLine($"*** Failed to get battery calibration info. ***");
                 }
 
-                foreach (PeriodPlan p in plan.Plans)
+                foreach (PeriodPlan p in plan.Plans.Where(z => z.Start >= plan.Current.Start))
                 {
                     switch (GetFluxCase(plan, p))
                     {
@@ -364,8 +364,9 @@ namespace Rwb.Luxopus.Jobs
                                     }
 
                                     double predictedGenerationToBatt = powerAvailableForBatt > 0 ? _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt) : 0;
-                                    notes.AppendLine($"  Generation prediction factor: {(predictedGenerationToBatt / battDischargeableAtPeak).ToString("0.0")}");
                                     notes.AppendLine($"  Power to batt: {powerAvailableForBatt:0.0}kW ({predictedGenerationToBatt:0}%).");
+
+                                    notes.AppendLine($"  Generation prediction factor: {(predictedGenerationToBatt / battDischargeableAtPeak).ToString("0.0")}");
                                     if (predictedGenerationToBatt > battDischargeableAtPeak * 2)
                                     {
                                         notes.AppendLine($"  Generation prediction is high.");
@@ -389,7 +390,7 @@ namespace Rwb.Luxopus.Jobs
                                     {
                                         chargeFromGrid = _Batt.BatteryMinimumLimit + battDischargeableAtPeak + battRequired;
                                         chargeFromGrid = chargeFromGrid > 100 ? 100 : chargeFromGrid;
-                                        notes.AppendLine($"  Generation prediction is low (factor {(predictedGenerationToBatt / battDischargeableAtPeak).ToString("0.0")}): charge to {chargeFromGrid}% = {_Batt.BatteryMinimumLimit}% + {battDischargeableAtPeak}% + {battRequired}%. ");
+                                        notes.AppendLine($"  Generation prediction is low (factor {(predictedGenerationToBatt / battDischargeableAtPeak).ToString("0.0")}): charge to {chargeFromGrid}% =  min {_Batt.BatteryMinimumLimit}% + dischargeable {battDischargeableAtPeak}% + required {battRequired}% (low generation of {predictedGenerationToBatt}% disregarded). ");
                                     }
                                     else
                                     {

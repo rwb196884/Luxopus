@@ -395,8 +395,9 @@ from(bucket: ""solar"")
                         }
                         else
                         {
-                            why = $"Batt level {battLevel}%{s} is ahead of target {battLevelEnd}% by {powerRequiredKwh:0.0}kWh ({hoursToCharge:0.0} hours until {endOfCharge:HH:mm}). ";
+                            double aheadkWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
                             battChargeRateWanted = 94;
+                            why = $"Batt level {battLevel}%{s} is ahead of target {bti.BatteryTarget}% by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (set charge rate to {battChargeRateWanted}%).";
                             if (generationMax > 3000 && t0.Month >= 4 && t0.Month <= 8)
                             {
                                 chargeLastWanted = true;
