@@ -167,7 +167,7 @@ from(bucket: ""solar"")
                 }
 
                 BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
-                int battHeadroomScaled = Scale.Apply(bti.Start, bti.End, DateTime.UtcNow, 0, 100 - battLevelEnd, ScaleMethod.Linear);
+                int battHeadroomScaled = 100 - battLevelEnd - Scale.Apply(bti.Start, bti.End, DateTime.UtcNow, 0, 100 - battLevelEnd, ScaleMethod.Linear);
 
                 if (battLevel < bti.BatteryTargetS && generationRecentMean < 1500)
                 {
@@ -180,6 +180,7 @@ from(bucket: ""solar"")
                 actionInfo.AppendLine($"  Inverter output: {inverterOutput}W");
                 actionInfo.AppendLine($"    Battery level: {battLevel}%");
                 actionInfo.AppendLine($"   Battery target: {bti.TargetDescription})");
+                actionInfo.AppendLine($" Battery headroom: {battHeadroomScaled}% scaled of total {100 - battLevelEnd}%)");
                 actionInfo.AppendLine($"      Charge last: {(chargeLast ? "yes" : "no")}");
                 actionInfo.AppendLine($"Discharge to grid: {dischargeToGridCurrent})");
 
@@ -231,13 +232,7 @@ from(bucket: ""solar"")
                     }
 
                     // Generation probably not limited therefore send less to battery.
-                    if (battLevel >= bti.BatteryTarget)
-                    {
-                        battChargeRateWanted = 91;
-                        chargeLastWanted = true;
-                        actionInfo.AppendLine($"Charge last enabled because ahead of target.");
-                    }
-                    else if (battLevel < bti.BatteryTarget)
+                    if (battLevel < bti.BatteryTarget)
                     {
                         chargeLastWanted = false;
                         battChargeRateWanted = battChargeRateNeeded;
@@ -253,6 +248,27 @@ from(bucket: ""solar"")
                         {
                             actionInfo.AppendLine($"Charge last disabled because behind target; required charge rate is {battChargeRateNeeded}% which is below generation of {generation}kW.");
                         }
+                    }
+                    else if(battLevel < bti.BatteryTarget + battHeadroomScaled)
+                    {
+                        chargeLastWanted = false;
+                        battChargeRateWanted = battChargeRateNeeded;
+                        int minToBatt = _Batt.TransferKiloWattsToPercent((Convert.ToDouble(generation) - 3000.0) / 1000.0);
+                        if (battChargeRateWanted < minToBatt)
+                        {
+                            actionInfo.AppendLine($"Charge last disabled because headroom is available; required charge rate is {battChargeRateNeeded}% overidden to {minToBatt}% because generation {generation}kW.");
+                            battChargeRateWanted = _Batt.RoundPercent(minToBatt);
+                        }
+                        else
+                        {
+                            actionInfo.AppendLine($"Charge last disabled because headroom is available; required charge rate is {battChargeRateNeeded}% which is below generation of {generation}kW.");
+                        }
+                    }
+                    else
+                    {
+                        battChargeRateWanted = 91;
+                        chargeLastWanted = true;
+                        actionInfo.AppendLine($"Charge last enabled because ahead of target.");
                     }
                 }
                 else
