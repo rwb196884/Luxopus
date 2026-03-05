@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using System;
+using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -36,6 +37,9 @@ namespace Rwb.Luxopus.Services
 
         public DateTime GenerationStart { get; set; }
         public DateTime GenerationEnd { get; set; }
+
+        public DateTime Start { get; set;}
+        public DateTime End { get; set; }
 
         public string TargetDescription {  get { return $"{BatteryTarget}% ({BatteryTargetS}% < {BatteryTargetL}% < {BatteryTargetF}%)"; } }
     }
@@ -127,14 +131,16 @@ from(bucket: ""solar"")
                ).First().Records.First().GetValue<double>();
 
             // Get fully charged before the discharge period.
-            DateTime tBattChargeFrom = gStart > plan.Current.Start ? gStart : plan.Current.Start;
+            info.Start = gStart > plan.Current.Start ? gStart : plan.Current.Start;
 
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
             DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
 
-            int battLevelTargetF = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Fast);
-            int battLevelTargetL = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Linear);
-            int battLevelTargetS = Scale.Apply(tBattChargeFrom, (gEnd < plan.Next.Start ? gEnd : plan.Next.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1), nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Slow);
+            info.End = (gEnd < plan.Next!.Start ? gEnd : plan.Next!.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1);
+
+            int battLevelTargetF = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Fast);
+            int battLevelTargetL = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Linear);
+            int battLevelTargetS = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Slow);
 
             ScaleMethod sm = ScaleMethod.Linear;
             if (info.BatteryLevelCurrent < battLevelTargetS && generationRecentMean < 1500)
