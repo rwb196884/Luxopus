@@ -167,7 +167,7 @@ from(bucket: ""solar"")
                 }
 
                 BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
-                int battHeadroomScaled = 100 - battLevelEnd - Scale.Apply(bti.Start, bti.End, DateTime.UtcNow, 0, 100 - battLevelEnd, ScaleMethod.Linear);
+                int battHeadroomScaled = Scale.Apply(bti.Start, bti.End, DateTime.UtcNow, 0, 100 - battLevelEnd, ScaleMethod.Linear);
 
                 if (battLevel < bti.BatteryTargetS && generationRecentMean < 1500)
                 {
