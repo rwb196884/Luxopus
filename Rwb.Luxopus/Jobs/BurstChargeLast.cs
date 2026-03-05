@@ -166,7 +166,8 @@ from(bucket: ""solar"")
                     battLevelEnd = battLevelEnd < battLevel ? battLevel : battLevelEnd;
                 }
 
-                BatteryTargetInfo bti =await _BatteryTargetService.Compute(plan, battLevelEnd);
+                BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
+                int battHeadroomScaled = Scale.Apply(bti.Start, bti.End, DateTime.UtcNow, 0, 100 - battLevelEnd, ScaleMethod.Linear);
 
                 if (battLevel < bti.BatteryTargetS && generationRecentMean < 1500)
                 {
@@ -206,7 +207,7 @@ from(bucket: ""solar"")
                 {
                     chargeLastWanted = true;
                     battChargeRateWanted = 90;
-                    actionInfo.AppendLine($"Predicted to be a good day ({prediction:0.0}kWh) or high recent generation ({generationRecentMean}kW) therefore charge last before 9am.");
+                    actionInfo.AppendLine($"Predicted to be a good day ({prediction:0.0}kWh) or high recent generation ({generationRecentMean / 1000:#0.0}kW) therefore charge last before 9am.");
                 }
                 else if (generation > 3200)
                 {
