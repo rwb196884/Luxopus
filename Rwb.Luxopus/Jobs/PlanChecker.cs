@@ -157,6 +157,7 @@ namespace Rwb.Luxopus.Jobs
                 battLevelEnd = battLevelEnd < battLevel ? battLevel : battLevelEnd;
             }
             BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
+            int battHeadroomScaled = Scale.Apply(bti.Start, bti.End, DateTime.UtcNow, 0, 100 - battLevelEnd, ScaleMethod.Linear);
 
             string why = "no change";
 
@@ -308,12 +309,6 @@ from(bucket: ""solar"")
                            ).First().Records.First().GetValue<double>();
 
                         // Get fully charged before the discharge period.
-                        DateTime tBattChargeFrom = bti.GenerationStart > plan.Current!.Start ? bti.GenerationStart : plan.Current!.Start;
-
-                        int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current!.Start);
-                        DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
-
-
                         if (t0.Month >= 4 && t0.Month <= 8 && DateTime.Now.Hour < 9 && bti.PredictionBatteryPercent > _BatteryTargetService.DefaultBatteryLevelEnd)
                         {
                             chargeLastWanted = true;
@@ -377,27 +372,26 @@ from(bucket: ""solar"")
                             goto Apply;
                         }
 
-                        DateTime endOfCharge = bti.GenerationEnd < plan.Next.Start ? bti.GenerationEnd : plan.Next.Start;
-                        double hoursToCharge = (endOfCharge - t0).TotalHours;
+                        double hoursToCharge = (bti.End - t0).TotalHours;
                         double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd - battLevel);
                         string s = bti.BatteryTarget != battLevel ? $" (prediction {bti.PredictionKWh:0.0}kWh so battery level should be {bti.BatteryTarget}% ({bti.BatteryTargetS}% < {bti.BatteryTargetL}% < {bti.BatteryTargetF}%))" : "";
 
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;
-                        if (battLevel < bti.BatteryTarget)
+                        if (battLevel < bti.BatteryTarget + battHeadroomScaled)
                         {
                             extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
                             chargeLastWanted = false;
                             double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
                             int b = _Batt.TransferKiloWattsToPercent(kW * 1.2);
                             battChargeRateWanted = _Batt.RoundPercent(b);
-                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
+                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
                         }
                         else
                         {
                             double aheadkWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
                             battChargeRateWanted = 94;
-                            why = $"Batt level {battLevel}%{s} is ahead of target {bti.BatteryTarget}% by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {endOfCharge:HH:mm} (set charge rate to {battChargeRateWanted}%).";
+                            why = $"Batt level {battLevel}%{s} is ahead of target {bti.BatteryTarget}% by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (set charge rate to {battChargeRateWanted}%).";
                             if (generationMax > 3000 && t0.Month >= 3 && t0.Month <= 9)
                             {
                                 chargeLastWanted = true;

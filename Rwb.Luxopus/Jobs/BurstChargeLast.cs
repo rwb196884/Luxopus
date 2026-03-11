@@ -158,8 +158,7 @@ from(bucket: ""solar"")
                 int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
                 //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
 
-                int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.CapacityKiloWattHoursToPercent(3 * 3.6) + 8 ;
-                battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
+                int battLevelEnd = _BatteryTargetService.DefaultBatteryLevelEnd;
                 if (plan.Next.Buy <= 0)
                 {
                     battLevelEnd -= _Batt.CapacityKiloWattHoursToPercent(plan.Plans.FutureFreeHoursBeforeNextDischarge(currentPeriod) * 3.2);
@@ -235,24 +234,15 @@ from(bucket: ""solar"")
                     if (battLevel < bti.BatteryTarget)
                     {
                         chargeLastWanted = false;
-                        battChargeRateWanted = battChargeRateNeeded;
+                        battChargeRateWanted = 91;
+                        actionInfo.AppendLine($"Charge last disabled because behind target; required charge rate is {battChargeRateNeeded}% overidden to {92}% to catch up.");
 
-                        // Increase the batt charge rate to avoid clipping.
-                        int minToBatt = _Batt.TransferKiloWattsToPercent((Convert.ToDouble(generation) - 3000.0) / 1000.0);
-                        if (battChargeRateWanted < minToBatt)
-                        {
-                            actionInfo.AppendLine($"Charge last disabled because behind target; required charge rate is {battChargeRateNeeded}% overidden to {minToBatt}% because generation {generation}kW.");
-                            battChargeRateWanted = _Batt.RoundPercent(minToBatt);
-                        }
-                        else
-                        {
-                            actionInfo.AppendLine($"Charge last disabled because behind target; required charge rate is {battChargeRateNeeded}% which is below generation of {generation}kW.");
-                        }
                     }
                     else if(battLevel < bti.BatteryTarget + battHeadroomScaled)
                     {
                         chargeLastWanted = false;
                         battChargeRateWanted = battChargeRateNeeded;
+                        // Increase the batt charge rate to avoid clipping.
                         int minToBatt = _Batt.TransferKiloWattsToPercent((Convert.ToDouble(generation) - 3000.0) / 1000.0);
                         if (battChargeRateWanted < minToBatt)
                         {
@@ -293,7 +283,7 @@ from(bucket: ""solar"")
                         }
                         actionInfo.AppendLine($"Looks like it could be a good day. Battery level {battLevel}%, target of {bti.TargetDescription} therefore keep some space.");
                     }
-                    else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > bti.BatteryTarget + 2)
+                    else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > bti.BatteryTarget + battHeadroomScaled)
                     {
                         // It's gone quiet but it might get busy again: try to discharge some over-charge.
                         dischargeToGridWanted = new LuxAction()
