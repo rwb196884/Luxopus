@@ -1,9 +1,11 @@
-﻿using InfluxDB.Client.Core.Flux.Domain;
+﻿using Accord.Collections;
+using InfluxDB.Client.Core.Flux.Domain;
 using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -471,7 +473,6 @@ namespace Rwb.Luxopus.Jobs
 
                 int battLevel = await InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
                 battLevel = battLevel < _Batt.BatteryMinimumLimit ? _Batt.BatteryMinimumLimit : battLevel;
-                plan.Current.Battery = battLevel;
 
                 //PeriodPlan current = plan.Current;
                 //next = plan.Next;
@@ -482,6 +483,17 @@ namespace Rwb.Luxopus.Jobs
                 //    next = plan.Plans.GetNext(current);
                 //}
 
+                // Calculate battery levels.
+                PeriodPlan current = plan.Current;
+                plan.Current.Battery = battLevel;
+                next = plan.Next;
+                while (next != null)
+                {
+                    next.Battery = await BattCalc(InfluxQuery, _Batt, bup, current, next);
+                    current = next;
+                    next = plan.Plans.GetNext(current);
+                }
+
                 PlanService.Save(plan);
                 Email.SendPlanEmail(plan, notes.ToString());
             }
@@ -490,6 +502,55 @@ namespace Rwb.Luxopus.Jobs
                 Logger.LogError("PlanFlux2 failed; rescheduling.");
                 _At.Schedule(async () => await this.WorkAsync(CancellationToken.None), DateTime.Now.AddMinutes(2));
             }
+        }
+
+        private static async Task<int> BattCalc(IInfluxQueryService influxQuery, IBatteryService bs, BatteryUsageProfile bup, PeriodPlan plan, PeriodPlan next)
+        {
+            int batt = plan.Battery;
+
+            TimeSpan dt = next.Start - plan.Start;
+            double useKwH = bup.GetKwkh(plan.Start.DayOfWeek, plan.Start.Hour, next.Start.Hour);
+            int useBatt = bs.CapacityKiloWattHoursToPercent(useKwH);
+
+            int gen = 0;
+            DateTime startOfGeneration = plan.Start.Date.AddHours(10);
+            DateTime endOfGeneration = plan.Start.Date.AddHours(15);
+            try
+            {
+                (startOfGeneration, _) = (await influxQuery.QueryAsync(Query.StartOfGeneration, plan.Start)).First().FirstOrDefault<double>();
+                (endOfGeneration, _) = (await influxQuery.QueryAsync(Query.EndOfGeneration, plan.Start)).First().FirstOrDefault<double>();
+                TimeSpan dtg = endOfGeneration - startOfGeneration;
+
+                double genHoursInPeriod = 0;
+                if( plan.Start < endOfGeneration && next.Start > startOfGeneration)
+                {
+                    genHoursInPeriod = ( (next.Start > endOfGeneration ? endOfGeneration : next.Start) - (plan.Start < startOfGeneration ? startOfGeneration : plan.Start)).TotalHours;
+                }
+
+                (_, double prediction) = (await influxQuery.QueryAsync(Query.PredictionToday, plan.Start)).First().FirstOrDefault<double>();
+
+                gen = bs.CapacityKiloWattHoursToPercent((prediction/10.0) * genHoursInPeriod / dtg.TotalHours);
+            }
+            catch (Exception e) { }
+
+            if (plan.Action.ChargeFromGrid > 0)
+            {
+                int b = plan.Battery + Convert.ToInt32(Math.Floor(bs.MaxCharge * dt.TotalHours));
+                batt =  (plan.Action.ChargeFromGrid < b ? plan.Action.ChargeFromGrid : b) - useBatt + gen;
+            }
+            else if (plan.Action.DischargeToGrid < 100)
+            {
+                int b = plan.Battery - Convert.ToInt32(Math.Floor(bs.MaxDischarge * dt.TotalHours));
+                batt =  (plan.Action.DischargeToGrid > b ? plan.Action.DischargeToGrid : b) - useBatt + gen;
+            }
+            else
+            {
+                batt =  plan.Battery - useBatt + gen;
+            }
+
+            if (batt > 100) { return 100; }
+            if( batt < 5) { return 5; }
+            return batt;
         }
     }
 }
