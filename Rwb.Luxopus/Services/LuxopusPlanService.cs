@@ -311,7 +311,7 @@ namespace Rwb.Luxopus.Services
 
         public void Save(Plan plan)
         {
-            using (FileStream fs = new FileStream(Path.Combine(Settings.PlanLocation, GetFilename(plan)), FileMode.OpenOrCreate))
+            using (FileStream fs = new FileStream(Path.Combine(Settings.PlanLocation, GetFilename(plan)), FileMode.Create))
             {
                 using (StreamWriter w = new StreamWriter(fs))
                 {

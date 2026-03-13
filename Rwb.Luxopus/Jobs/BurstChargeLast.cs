@@ -50,19 +50,29 @@ namespace Rwb.Luxopus.Jobs
 
             DateTime t0 = DateTime.UtcNow;
 
-            Plan? plan = _Plans.Load(t0);
-
-            if (plan == null)
+            Plan? plan = null;
+            try
             {
-                plan = _Plans.Load(t0.AddDays(-2));
-                if (plan != null)
+                plan = _Plans.Load(t0);
+
+                if (plan == null)
                 {
-                    Logger.LogWarning($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}. Using plan from {plan.Current.Start.ToString("yyyy-MM-dd HH:mm")}.");
-                    foreach (PeriodPlan p in plan.Plans)
+                    plan = _Plans.Load(t0.AddDays(-2));
+                    if (plan != null)
                     {
-                        p.Start = p.Start.AddDays(2);
+                        Logger.LogWarning($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}. Using plan from {plan.Current.Start.ToString("yyyy-MM-dd HH:mm")}.");
+                        foreach (PeriodPlan p in plan.Plans)
+                        {
+                            p.Start = p.Start.AddDays(2);
+                        }
                     }
                 }
+            }
+            catch (Exception e)
+            {
+                Logger.LogError(e, "Error loading plan.");
+                await _Lux.SetBatteryChargeRateAsync(100);
+                await _Lux.SetChargeLastAsync(false);
             }
 
             if (plan == null || plan.Next == null)
@@ -238,7 +248,7 @@ from(bucket: ""solar"")
                         actionInfo.AppendLine($"Charge last disabled because behind target; required charge rate is {battChargeRateNeeded}% overidden to {92}% to catch up.");
 
                     }
-                    else if(battLevel < bti.BatteryTarget + battHeadroomScaled)
+                    else if (battLevel < bti.BatteryTarget + battHeadroomScaled)
                     {
                         chargeLastWanted = false;
                         battChargeRateWanted = battChargeRateNeeded;
