@@ -215,7 +215,7 @@ namespace Rwb.Luxopus.Jobs
                 //else
                 //{
                     dischargeToGridWanted.Limit = plan.Current!.Action.DischargeToGrid;
-                    if (dischargeToGridWanted.End < tNext) { dischargeToGridWanted.End = tNext; }
+                    dischargeToGridWanted.End = tNext;
                 //}
 
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - dischargeToGridWanted.Limit);
