@@ -158,6 +158,8 @@ namespace Rwb.Luxopus.Jobs
             }
             BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
             int battHeadroomScaled = Scale.Apply(bti.Start, bti.End, DateTime.UtcNow, 0, 100 - battLevelEnd, ScaleMethod.Linear);
+            actions.AppendLine($"Target {battLevelEnd}% plus headroom {battHeadroomScaled}% = {battLevelEnd + battHeadroomScaled}%.");
+            battLevelEnd = battLevelEnd + battHeadroomScaled;
 
             string why = "no change";
 
