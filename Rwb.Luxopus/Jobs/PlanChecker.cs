@@ -201,22 +201,22 @@ namespace Rwb.Luxopus.Jobs
                 dischargeToGridWanted.Enable = true;
                 if (dischargeToGridWanted.Start > plan.Current!.Start) { dischargeToGridWanted.Start = plan.Current!.Start; }
 
-                PeriodPlan? next = plan.Plans.GetNext(plan.Current!);
-                while (next != null && Plan.DischargeToGridCondition(next) && next.Action.DischargeToGrid == plan.Current.Action.DischargeToGrid)
-                {
-                    next = plan.Plans.GetNext(next);
-                }
-                if (next != null)
-                {
-                    PeriodPlan endOfRun = plan.Plans.GetPrevious(next);
-                    dischargeToGridWanted.Limit = endOfRun.Action.DischargeToGrid;
-                    dischargeToGridWanted.End = next.Start;
-                }
-                else
-                {
+                //PeriodPlan? next = plan.Plans.GetNext(plan.Current!);
+                //while (next != null && Plan.DischargeToGridCondition(next) && next.Action.DischargeToGrid == plan.Current.Action.DischargeToGrid)
+                //{
+                //    next = plan.Plans.GetNext(next);
+                //}
+                //if (next != null)
+                //{
+                //    PeriodPlan endOfRun = plan.Plans.GetPrevious(next);
+                //    dischargeToGridWanted.Limit = endOfRun.Action.DischargeToGrid;
+                //    dischargeToGridWanted.End = next.Start;
+                //}
+                //else
+                //{
                     dischargeToGridWanted.Limit = plan.Current!.Action.DischargeToGrid;
                     if (dischargeToGridWanted.End < tNext) { dischargeToGridWanted.End = tNext; }
-                }
+                //}
 
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - dischargeToGridWanted.Limit);
                 double hoursToCharge = (dischargeToGridWanted.End - t0).TotalHours;
