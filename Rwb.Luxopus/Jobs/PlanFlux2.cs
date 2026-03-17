@@ -243,6 +243,19 @@ namespace Rwb.Luxopus.Jobs
                                 //BatteryChargeRate = 75,
                                 //BatteryGridDischargeRate = 100,
                             };
+
+                            PeriodPlan? previousDischarge = plan.Plans.GetPrevious(p, Plan.DischargeToGridCondition);
+                            if (previousDischarge != null && previousDischarge.Start.Day == p.Start.Day)
+                            {
+                                double generationPredictionTomorrow = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start.AddDays(1))).Single().Records[0].Values["_value"] / 10.0;
+                                int batteryPredictionTomorrow = _Batt.CapacityKiloWattHoursToPercent(generationPredictionTomorrow);
+                                if (generationPredictionTomorrow > _Batt.CapacityPercentToKiloWattHours(_Batt.MaxDischarge * 3) * 2)
+                                {
+                                    p.Action.DischargeToGrid = _Batt.BatteryMinimumLimit;
+                                }
+                                notes.AppendLine($"Generation prediction {generationPrediction:0.0}kWh is {batteryPredictionTomorrow}% of battery (more than twice max dischargeable of {_Batt.MaxDischarge * 3}%) therefore continue to discharge.");
+                            }
+
                             break;
                         //case FluxCase.Evening:
                         //    // Continue to discharge in BST (ish).
@@ -305,7 +318,7 @@ namespace Rwb.Luxopus.Jobs
                             }
                             try
                             {
-                                PeriodPlan? peak = plan.Plans.FirstOrDefault(z => z.Start > p.Start && GetFluxCase(plan, z) == FluxCase.Peak);
+                                PeriodPlan? peak = plan.Plans.GetNext(p, z => GetFluxCase(plan, z) == FluxCase.Peak);
                                 if (next != null && peak != null)
                                 {
                                     generationPrediction = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start)).Single().Records[0].Values["_value"] / 10.0;
@@ -319,9 +332,20 @@ namespace Rwb.Luxopus.Jobs
                                         battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
                                         notes.AppendLine($"  Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%) adjusted towards monthly median of {generationMedianForMonth:0.0}kWH.");
                                     }
-                                    powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, peak.Start.Hour);
-                                    battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
-                                    notes.AppendLine($"  Predicted        use of {powerRequired:0.0}kW ({battRequired:0}%).");
+
+                                    if (battPrediction > Convert.ToDouble(_Batt.MaxDischarge * 3) * 2)
+                                    {
+                                        powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, startOfGeneration.Hour + 1);
+                                        battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
+                                        notes.AppendLine($"  Predicted        use of {powerRequired:0.0}kW ({battRequired:0}%) to start of generation at {startOfGeneration:HH:mm}.");
+                                    }
+                                    else
+                                    {
+                                        // Not a good day; need to buy to use.
+                                        powerRequired = bup.GetKwkh(p.Start.DayOfWeek, plan.Plans.GetNext(p).Start.Hour, peak.Start.Hour);
+                                        battRequired = _Batt.CapacityKiloWattHoursToPercent(powerRequired);
+                                        notes.AppendLine($"  Predicted        use of {powerRequired:0.0}kW ({battRequired:0}%) to peak time at {peak.Start:HH:mm}.");
+                                    }
 
                                     double freeKw = plan.Plans.FutureFreeHoursBeforeNextDischarge(p) * 3.2;
                                     if (freeKw > 0)
