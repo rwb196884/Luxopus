@@ -216,8 +216,8 @@ namespace Rwb.Luxopus.Jobs
                 //}
                 //else
                 //{
-                    dischargeToGridWanted.Limit = plan.Current!.Action.DischargeToGrid;
-                    dischargeToGridWanted.End = tNext;
+                dischargeToGridWanted.Limit = plan.Current!.Action.DischargeToGrid;
+                dischargeToGridWanted.End = tNext;
                 //}
 
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevel - dischargeToGridWanted.Limit);
@@ -380,6 +380,9 @@ from(bucket: ""solar"")
 
                         double hoursToCharge = (bti.End - t0).TotalHours;
                         double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd + battHeadroomScaled - battLevel);
+                        double kW = powerRequiredKwh / hoursToCharge;
+                        int b = _Batt.TransferKiloWattsToPercent(kW * 1.05);
+                        battChargeRateWanted = _Batt.RoundPercent(b);
 
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;
@@ -387,25 +390,22 @@ from(bucket: ""solar"")
                         {
                             extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + battHeadroomScaled - battLevel);
                             chargeLastWanted = false;
-                            double kW = powerRequiredKwh / hoursToCharge;
-                            int b = _Batt.TransferKiloWattsToPercent(kW * 1.05);
-                            battChargeRateWanted = _Batt.RoundPercent(b);
                             why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {battLevelEnd + battHeadroomScaled}% ({bti.TargetDescription}) in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
                         }
                         else
                         {
                             double aheadkWh = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget - battHeadroomScaled);
-                            battChargeRateWanted = 94;
-                            why = $"Batt level {battLevel}% is ahead of target {bti.BatteryTarget + battHeadroomScaled}% ({bti.TargetDescription}) by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get to {battLevelEnd + battHeadroomScaled}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (set charge rate to {battChargeRateWanted}%).";
+                            why = $"Batt level {battLevel}% is ahead of target {bti.BatteryTarget + battHeadroomScaled}% ({bti.TargetDescription}) by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get to {battLevelEnd + battHeadroomScaled}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm}.";
                             if (generationMax > 3000 && t0.Month >= 3 && t0.Month <= 9)
                             {
                                 chargeLastWanted = true;
-                                why += $" Charge last (peak generation {generationMax / 1000:0.0}kW).";
+                                battChargeRateWanted = 94;
+                                why += $" Charge last (peak generation {generationMax / 1000:0.0}kW). Charge rate {battChargeRateWanted}%.";
                             }
                             else
                             {
                                 chargeLastWanted = false;
-                                why += $" Do not charge last (not March to September, peak generation {generationMax / 1000:0.0}kW).";
+                                why += $" Do not charge last (not March to September, peak generation {generationMax / 1000:0.0}kW). Charge rate {battChargeRateWanted}%.";
                             }
                         }
 
@@ -439,7 +439,7 @@ from(bucket: ""solar"")
 
                             if (generationRecentMax < 3600 && battLevel < bti.BatteryTarget + 5 && generationMeanDifference < 0)
                             {
-                                battChargeRateWanted = battChargeRateWanted > 40 ? 97 : battChargeRateWanted * 2;
+                                battChargeRateWanted = battChargeRateWanted > 40 ? 96 : battChargeRateWanted * 2;
                                 chargeLastWanted = false;
                                 why += $" Rate of generation is decreasing ({generationMeanDifference:0}W) therefore override to {battChargeRateWanted}%.";
                             }
