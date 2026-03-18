@@ -144,8 +144,8 @@ namespace Rwb.Luxopus.Services
                         Enable = true,
                         Start = nextCharge.Start,
                         End = after?.Start ?? nextCharge.Start.AddMinutes(30),
-                        Limit = nextCharge.Action.ChargeFromGrid,
-                        Rate = nextCharge.Action.ChargeFromGrid > 50 ? 90 : 40
+                        Limit = nextCharge.Action.DischargeToGrid,
+                        Rate = nextCharge.Action.DischargeToGrid < 50 ? 90 : 40
                     };
                 }
 
