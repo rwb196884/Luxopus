@@ -95,11 +95,19 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
 
-            DateTime gStart = DateTime.Today.AddHours(9); //sunrise;
-            DateTime gEnd = DateTime.Today.AddHours(16); // sunset
-            (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
-            (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
-            if (t0 < gStart || t0 > gEnd) { return; }
+            int battLevelEnd = _BatteryTargetService.DefaultBatteryLevelEnd;
+            if (plan.Next.Buy <= 0)
+            {
+                battLevelEnd -= _Batt.CapacityKiloWattHoursToPercent(plan.Plans.FutureFreeHoursBeforeNextDischarge(currentPeriod) * 3.2);
+                int battLevelZ = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
+
+                battLevelEnd = battLevelEnd < battLevelZ ? battLevelZ : battLevelEnd;
+            }
+
+            BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
+            int battHeadroomScaled = Scale.Apply(bti.Start, bti.End, DateTime.UtcNow, 0, 100 - battLevelEnd, ScaleMethod.Linear);
+
+            if (t0 < bti.GenerationStart || t0 > bti.GenerationEnd) { return; }
 
             (DateTime _, long generationMax) = (await _InfluxQuery.QueryAsync(@$"
             from(bucket: ""solar"")
@@ -136,7 +144,7 @@ namespace Rwb.Luxopus.Jobs
 
             string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
 
-            DateTime tBattChargeFrom = gStart > currentPeriod.Start ? gStart : currentPeriod.Start;
+            DateTime tBattChargeFrom = bti.GenerationStart > currentPeriod.Start ? bti.GenerationStart : currentPeriod.Start;
 
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(tBattChargeFrom);
             DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
@@ -168,16 +176,6 @@ from(bucket: ""solar"")
                 int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
                 //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
 
-                int battLevelEnd = _BatteryTargetService.DefaultBatteryLevelEnd;
-                if (plan.Next.Buy <= 0)
-                {
-                    battLevelEnd -= _Batt.CapacityKiloWattHoursToPercent(plan.Plans.FutureFreeHoursBeforeNextDischarge(currentPeriod) * 3.2);
-                    battLevelEnd = battLevelEnd < battLevel ? battLevel : battLevelEnd;
-                }
-
-                BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
-                int battHeadroomScaled = Scale.Apply(bti.Start, bti.End, DateTime.UtcNow, 0, 100 - battLevelEnd, ScaleMethod.Linear);
-
                 if (battLevel < bti.BatteryTargetS && generationRecentMean < 1500)
                 {
                     battLevelStart = bti.BatteryTargetF;
@@ -194,7 +192,7 @@ from(bucket: ""solar"")
                 actionInfo.AppendLine($"Discharge to grid: {dischargeToGridCurrent})");
 
                 // Plan A
-                double hoursToCharge = ((gEnd < plan.Next.Start ? gEnd : plan.Next.Start) - t0).TotalHours;
+                double hoursToCharge = ((bti.GenerationEnd < plan.Next.Start ? bti.GenerationEnd : plan.Next.Start) - t0).TotalHours;
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd - battLevel);
 
                 // Are we behind schedule?
@@ -338,7 +336,7 @@ from(bucket: ""solar"")
 
                 if (battChargeRateWanted < battChargeRate && battLevel < bti.BatteryTarget)
                 {
-                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}% (should be {bti.TargetDescription}) to {battLevelEnd}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
+                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}% (should be {bti.TargetDescription}) to {battLevelEnd}% in {hoursToCharge:0.0} hours until {bti.GenerationEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
                     battChargeRateWanted = battChargeRate;
                 }
             }

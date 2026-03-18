@@ -96,11 +96,6 @@ namespace Rwb.Luxopus.Jobs
             //(DateTime sunset, _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
             //if (t0 < sunrise || t0 > sunset) { return; }
             // Generation start and end. Guess from yesterday.
-            DateTime gStart = DateTime.Today.AddHours(9); //sunrise;
-            DateTime gEnd = DateTime.Today.AddHours(16); // sunset
-            (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
-            (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, currentPeriod.Start)).First().FirstOrDefault<double>();
-            if (t0 < gStart || t0 > gEnd) { return; }
 
             (DateTime _, long generationMax) = (await _InfluxQuery.QueryAsync(@$"
             from(bucket: ""solar"")
@@ -133,14 +128,15 @@ namespace Rwb.Luxopus.Jobs
 
             string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
 
-            DateTime tBattChargeFrom = gStart > currentPeriod.Start ? gStart : currentPeriod.Start;
-
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
             DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
 
             int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.CapacityKiloWattHoursToPercent(3 * 3.6) + 8;
             battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
+            
             BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
+            if (t0 < bti.GenerationStart || t0 > bti.GenerationEnd) { return; }
+            //DateTime tBattChargeFrom = bti.GenerationStart > currentPeriod.Start ? bti.GenerationStart : currentPeriod.Start;
 
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {
