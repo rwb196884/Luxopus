@@ -231,13 +231,6 @@ namespace Rwb.Luxopus.Jobs
                                                                                     // Selling at peak for 34p * 0.9 = 30p. Day rate to buy is 33p. Therefore MUST NOT BUT before low.
                                                                                     // Need about 20% to get over night, therefore estimate 10% to get to low.
                             };
-
-                            PeriodPlan? previous = plan.Plans.GetPrevious(p);
-                            if( ! Plan.ChargeFromGridCondition(previous) && ! Plan.DischargeToGridCondition(previous))
-                            {
-                                previous.Action.DischargeToGrid = p.Action.ChargeFromGrid;
-                            }
-
                             break;
                         case FluxCase.Daytime:
                             notes.AppendLine();
@@ -249,27 +242,6 @@ namespace Rwb.Luxopus.Jobs
                                 //BatteryChargeRate = 75,
                                 //BatteryGridDischargeRate = 100,
                             };
-
-                            PeriodPlan? previousDischarge = plan.Plans.GetPrevious(p, Plan.DischargeToGridCondition);
-                            if (previousDischarge != null && previousDischarge.Start.Day == p.Start.Day)
-                            {
-                                double generationPredictionTomorrow = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start.AddDays(1))).Single().Records[0].Values["_value"] / 10.0;
-                                int batteryPredictionTomorrow = _Batt.CapacityKiloWattHoursToPercent(generationPredictionTomorrow);
-
-                                if (generationPredictionTomorrow > _Batt.CapacityPercentToKiloWattHours(_Batt.MaxDischarge * 3) * 2)
-                                {
-                                    PeriodPlan? nextCharge = plan.Plans.GetNext(p);
-                                    // NO! The action hasn't been set yet.
-                                    if( nextCharge != null && ! Plan.ChargeFromGridCondition(nextCharge) ) { nextCharge = null; }
-
-                                    p.Action.DischargeToGrid = nextCharge ?.Action.ChargeFromGrid ?? _Batt.BatteryMinimumLimit;
-                                    notes.AppendLine($"Generation prediction {generationPredictionTomorrow:0.0}kWh is {batteryPredictionTomorrow}% of battery (more than twice max dischargeable of {_Batt.MaxDischarge * 3}%) therefore continue to discharge.");
-                                }
-                                else
-                                {
-                                    notes.AppendLine($"Generation prediction {generationPredictionTomorrow:0.0}kWh is {batteryPredictionTomorrow}% of battery (less than twice max dischargeable of {_Batt.MaxDischarge * 3}%) therefore do not continue to discharge.");
-                                }
-                            }
 
                             break;
                         //case FluxCase.Evening:
@@ -411,8 +383,8 @@ namespace Rwb.Luxopus.Jobs
                                         notes.AppendLine($"  Generation prediction is high.");
                                         if (predictedGenerationToBatt > battDischargeableAtPeak * 3 && generationPrediction > generationMedianForMonth)
                                         {
-                                            notes.AppendLine($"  Charge from grid overidden from {chargeFromGrid:0}% to {(buyToSell ? 21 : 13)}%.");
-                                            chargeFromGrid = _Batt.BatteryMinimumLimit;
+                                            notes.AppendLine($"  Charge from grid overidden from {chargeFromGrid:0}% to 5%.");
+                                            chargeFromGrid = 5 + _Batt.CapacityKiloWattHoursToPercent( bup.GetKwkh(p.Start.DayOfWeek, next.Start.Hour, startOfGeneration.Hour + 1));// _Batt.BatteryMinimumLimit;
                                         }
                                         else if (chargeFromGrid > (buyToSell ? 34 : 21))
                                         {
@@ -470,6 +442,14 @@ namespace Rwb.Luxopus.Jobs
                                 //BatteryChargeRate = 100,
                                 //BatteryGridDischargeRate = 0,
                             };
+
+                            // Discharge anything extra we still have if today was good.
+                            PeriodPlan? previous = plan.Plans.GetPrevious(p);
+                            if (previous != null && !Plan.ChargeFromGridCondition(previous) && !Plan.DischargeToGridCondition(previous))
+                            {
+                                previous.Action.DischargeToGrid = p.Action.ChargeFromGrid + _Batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(p.Start.DayOfWeek, p.Start.Hour, next.Start.Hour));
+                            }
+
                             break;
                         case FluxCase.Zero:
                             notes.AppendLine();
@@ -559,34 +539,34 @@ namespace Rwb.Luxopus.Jobs
                 TimeSpan dtg = endOfGeneration - startOfGeneration;
 
                 double genHoursInPeriod = 0;
-                if( plan.Start < endOfGeneration && next.Start > startOfGeneration)
+                if (plan.Start < endOfGeneration && next.Start > startOfGeneration)
                 {
-                    genHoursInPeriod = ( (next.Start > endOfGeneration ? endOfGeneration : next.Start) - (plan.Start < startOfGeneration ? startOfGeneration : plan.Start)).TotalHours;
+                    genHoursInPeriod = ((next.Start > endOfGeneration ? endOfGeneration : next.Start) - (plan.Start < startOfGeneration ? startOfGeneration : plan.Start)).TotalHours;
                 }
 
                 (_, double prediction) = (await influxQuery.QueryAsync(Query.PredictionToday, plan.Start)).First().FirstOrDefault<double>();
 
-                gen = bs.CapacityKiloWattHoursToPercent((prediction/10.0) * genHoursInPeriod / dtg.TotalHours);
+                gen = bs.CapacityKiloWattHoursToPercent((prediction / 10.0) * genHoursInPeriod / dtg.TotalHours);
             }
             catch (Exception e) { }
 
             if (plan.Action.ChargeFromGrid > 0)
             {
                 int b = plan.Battery + Convert.ToInt32(Math.Floor(bs.MaxCharge * dt.TotalHours));
-                batt =  (plan.Action.ChargeFromGrid < b ? plan.Action.ChargeFromGrid : b) - useBatt + gen;
+                batt = (plan.Action.ChargeFromGrid < b ? plan.Action.ChargeFromGrid : b) - useBatt + gen;
             }
             else if (plan.Action.DischargeToGrid < 100)
             {
                 int b = plan.Battery - Convert.ToInt32(Math.Floor(bs.MaxDischarge * dt.TotalHours));
-                batt =  (plan.Action.DischargeToGrid > b ? plan.Action.DischargeToGrid : b) - useBatt + gen;
+                batt = (plan.Action.DischargeToGrid > b ? plan.Action.DischargeToGrid : b) - useBatt + gen;
             }
             else
             {
-                batt =  plan.Battery - useBatt + gen;
+                batt = plan.Battery - useBatt + gen;
             }
 
             if (batt > 100) { return 100; }
-            if( batt < 5) { return 5; }
+            if (batt < 5) { return 5; }
             return batt;
         }
     }
