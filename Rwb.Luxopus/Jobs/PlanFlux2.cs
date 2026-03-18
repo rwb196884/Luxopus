@@ -447,7 +447,8 @@ namespace Rwb.Luxopus.Jobs
                             PeriodPlan? previous = plan.Plans.GetPrevious(p);
                             if (previous != null && !Plan.ChargeFromGridCondition(previous) && !Plan.DischargeToGridCondition(previous))
                             {
-                                previous.Action.DischargeToGrid = p.Action.ChargeFromGrid + _Batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(p.Start.DayOfWeek, p.Start.Hour, next.Start.Hour));
+                                // Usage can be enormous due to floor heating; hack by adding 3 hours.
+                                previous.Action.DischargeToGrid = p.Action.ChargeFromGrid + _Batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(p.Start.DayOfWeek, p.Start.Hour + 3, next.Start.Hour + 3));
                             }
 
                             break;
