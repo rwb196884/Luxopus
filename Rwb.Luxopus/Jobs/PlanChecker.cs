@@ -380,7 +380,6 @@ from(bucket: ""solar"")
 
                         double hoursToCharge = (bti.End - t0).TotalHours;
                         double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd + battHeadroomScaled - battLevel);
-                        string s = bti.BatteryTarget != battLevel ? $" (prediction {bti.PredictionKWh:0.0}kWh so battery level should be {bti.BatteryTarget}% plus headroom {battHeadroomScaled}% ({bti.BatteryTargetS}% < {bti.BatteryTargetL}% < {bti.BatteryTargetF}%))" : "";
 
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;
@@ -391,13 +390,13 @@ from(bucket: ""solar"")
                             double kW = powerRequiredKwh / hoursToCharge;
                             int b = _Batt.TransferKiloWattsToPercent(kW * 1.05);
                             battChargeRateWanted = _Batt.RoundPercent(b);
-                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% plus headroom {battHeadroomScaled}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
+                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {battLevelEnd + battHeadroomScaled}% ({bti.TargetDescription}) in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
                         }
                         else
                         {
                             double aheadkWh = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget - battHeadroomScaled);
                             battChargeRateWanted = 94;
-                            why = $"Batt level {battLevel}%{s} is ahead of target {bti.BatteryTarget}% plus headroom {battHeadroomScaled}% by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (set charge rate to {battChargeRateWanted}%).";
+                            why = $"Batt level {battLevel}% is ahead of target {bti.BatteryTarget + battHeadroomScaled}% ({bti.TargetDescription}) by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get to {battLevelEnd + battHeadroomScaled}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (set charge rate to {battChargeRateWanted}%).";
                             if (generationMax > 3000 && t0.Month >= 3 && t0.Month <= 9)
                             {
                                 chargeLastWanted = true;
