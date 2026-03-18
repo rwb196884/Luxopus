@@ -12,6 +12,7 @@
     <Version Condition=" '$(VersionSuffix)' != '' ">$(VersionSuffix)</Version>
     <LangVersion>8</LangVersion>
     <!-- EF requires nullable. Otherwise, 6.-->
+    <!--<NoWarn>8602,8629,8618</NoWarn>-->
   </PropertyGroup>
 
   <ItemGroup>

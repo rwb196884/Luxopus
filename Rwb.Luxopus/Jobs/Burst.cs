@@ -154,7 +154,7 @@ namespace Rwb.Luxopus.Jobs
                 actionInfo.AppendLine($" Battery target: {bti.BatteryTarget}%");
 
                 // Plan A
-                double hoursToCharge = (gEnd - t0).TotalHours;
+                double hoursToCharge = (bti.GenerationEnd - t0).TotalHours;
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(100 - battLevel);
 
                 // Are we behind schedule?
@@ -231,7 +231,7 @@ from(bucket: ""solar"")
                 if (battChargeRateWanted < battChargeRate && battLevel < bti.BatteryTarget)
                 {
                     string s = bti.BatteryTarget != battLevel ? $" (should be {bti.BatteryTarget}%)" : "";
-                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {100}% in {hoursToCharge:0.0} hours until {gEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
+                    actionInfo.AppendLine($"{kW:0.0}kWh needed to get from {battLevel}%{s} to {100}% in {hoursToCharge:0.0} hours until {bti.GenerationEnd:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%). But current setting is {battChargeRate}% therefore not changed.");
                     battChargeRateWanted = battChargeRate;
                 }
             }
