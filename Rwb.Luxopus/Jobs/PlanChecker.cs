@@ -401,12 +401,12 @@ from(bucket: ""solar"")
                             if (generationMax > 3000 && t0.Month >= 3 && t0.Month <= 9)
                             {
                                 chargeLastWanted = true;
-                                why += $" Charge last (March to September, peak generation {generationMax / 1000:0.0}kW).";
+                                why += $" Charge last (peak generation {generationMax / 1000:0.0}kW).";
                             }
                             else
                             {
                                 chargeLastWanted = false;
-                                why += $" Do not charge last (peak generation {generationMax / 1000:0.0}kW).";
+                                why += $" Do not charge last (not March to September, peak generation {generationMax / 1000:0.0}kW).";
                             }
                         }
 
