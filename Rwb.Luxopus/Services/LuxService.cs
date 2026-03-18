@@ -87,21 +87,35 @@ namespace Rwb.Luxopus.Services
             };
         }
 
-        public static LuxAction? NextCharge(Plan plan, LuxAction current)
+        public static LuxAction? NextCharge(Plan plan, LuxAction current, bool run)
         {
             LuxAction a = current.Clone();
 
             a.Enable = plan.Plans.Any(z => Plan.ChargeFromGridCondition(z));
             if (plan != null && a.Enable)
             {
+                if (!run)
+                {
+                    PeriodPlan nextCharge = plan.Plans.GetNext(plan.Current, Plan.ChargeFromGridCondition)!;
+                    PeriodPlan? after = plan.Plans.GetNext(nextCharge);
+                    return new LuxAction()
+                    {
+                        Enable = true,
+                        Start = nextCharge.Start,
+                        End = after?.Start ?? nextCharge.Start.AddMinutes(30),
+                        Limit = nextCharge.Action.ChargeFromGrid,
+                        Rate = nextCharge.Action.ChargeFromGrid > 50 ? 90 : 40
+                    };
+                }
+
                 PeriodPlan currentPeriod = plan!.Current!;
                 PeriodPlan? runFirst = plan.Plans.Where(z => z.Start >= currentPeriod.Start).OrderBy(z => z.Start).FirstOrDefault(z => Plan.ChargeFromGridCondition(z));
                 if(runFirst == null) { return null; }
                 a.Start = runFirst.Start;
                 a.Limit = runFirst.Action!.ChargeFromGrid;
 
-                (IEnumerable<PeriodPlan> run, PeriodPlan? next) = plan.GetNextRun(runFirst, Plan.ChargeFromGridCondition);
-                a.End = (next?.Start ?? run.Last().Start.AddMinutes(30));
+                (IEnumerable<PeriodPlan> runPlans, PeriodPlan? next) = plan.GetNextRun(runFirst, Plan.ChargeFromGridCondition);
+                a.End = (next?.Start ?? runPlans.Last().Start.AddMinutes(30));
 
                 // If we're charging now and started already then no change is needed.
                 if (Plan.ChargeFromGridCondition(currentPeriod) && a.Start > currentPeriod.Start)
@@ -114,21 +128,35 @@ namespace Rwb.Luxopus.Services
             return a;
         }
 
-        public static LuxAction? NextDisharge(Plan plan, LuxAction current)
+        public static LuxAction? NextDisharge(Plan plan, LuxAction current, bool run)
         {
             LuxAction a = current.Clone();
 
             a.Enable = plan.Plans.Any(z => Plan.DischargeToGridCondition(z));
             if (plan != null && a.Enable)
             {
+                if (!run)
+                {
+                    PeriodPlan nextCharge = plan.Plans.GetNext(plan.Current, Plan.DischargeToGridCondition)!;
+                    PeriodPlan? after = plan.Plans.GetNext(nextCharge);
+                    return new LuxAction()
+                    {
+                        Enable = true,
+                        Start = nextCharge.Start,
+                        End = after?.Start ?? nextCharge.Start.AddMinutes(30),
+                        Limit = nextCharge.Action.ChargeFromGrid,
+                        Rate = nextCharge.Action.ChargeFromGrid > 50 ? 90 : 40
+                    };
+                }
+
                 PeriodPlan currentPeriod = plan!.Current!;
                 PeriodPlan? runFirst = plan.Plans.Where(z => z.Start >= currentPeriod.Start).OrderBy(z => z.Start).FirstOrDefault(z => Plan.DischargeToGridCondition(z));
                 if (runFirst == null) { return null; }
                 a.Start = runFirst.Start;
                 a.Limit = runFirst.Action!.DischargeToGrid;
 
-                (IEnumerable<PeriodPlan> run, PeriodPlan? next) = plan.GetNextRun(runFirst, Plan.DischargeToGridCondition);
-                a.End = (next?.Start ?? run.Last().Start.AddMinutes(30));
+                (IEnumerable<PeriodPlan> runPlans, PeriodPlan? next) = plan.GetNextRun(runFirst, Plan.DischargeToGridCondition);
+                a.End = (next?.Start ?? runPlans.Last().Start.AddMinutes(30));
 
                 // If we're charging now and started already then no change is needed.
                 if (Plan.DischargeToGridCondition(currentPeriod) && a.Start > currentPeriod.Start)

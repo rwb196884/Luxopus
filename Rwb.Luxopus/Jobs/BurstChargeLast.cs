@@ -136,7 +136,7 @@ namespace Rwb.Luxopus.Jobs
 
             // Get the planned discharge settings -- we may override them.
             LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
-            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent);
+            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false);
 
             bool chargeLast = _Lux.GetChargeLast(settings);
             bool chargeLastWanted = chargeLast;
@@ -211,7 +211,7 @@ from(bucket: ""solar"")
 
                     // So does charge from grid.
                     LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
-                    LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent);
+                    LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false);
                     if (chargeFromGridWanted != null && chargeFromGridCurrent.Enable && chargeFromGridCurrent.Start < DateTime.UtcNow && chargeFromGridCurrent.End > DateTime.UtcNow)
                     {
                         // Could be plan or because of zero or negative price; it's not important why. We just want to prevent clipping.

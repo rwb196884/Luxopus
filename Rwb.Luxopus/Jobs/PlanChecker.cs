@@ -119,7 +119,7 @@ namespace Rwb.Luxopus.Jobs
 
             // Discharge to grid -- according to plan.
             LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
-            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent);
+            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false);
 
             if (Plan.DischargeToGridCondition(plan.Current!) && dischargeToGridWanted.Enable)
             {
@@ -147,7 +147,7 @@ namespace Rwb.Luxopus.Jobs
 
             // Charge from grid -- according to plan.
             LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
-            LuxAction? chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent);
+            LuxAction? chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false);
 
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
             int battLevelEnd = _BatteryTargetService.DefaultBatteryLevelEnd;
@@ -184,8 +184,8 @@ namespace Rwb.Luxopus.Jobs
                 //}
                 //else
                 //{
-                    chargeFromGridWanted.Limit = plan.Current!.Action.ChargeFromGrid;
-                    if (chargeFromGridCurrent.End < tNext) { chargeFromGridWanted.End = tNext; }
+                chargeFromGridWanted.Limit = plan.Current!.Action.ChargeFromGrid;
+                if (chargeFromGridCurrent.End < tNext) { chargeFromGridWanted.End = tNext; }
                 //}
 
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(chargeFromGridWanted.Limit - battLevel);
@@ -247,7 +247,7 @@ namespace Rwb.Luxopus.Jobs
                 }
                 else
                 {
-                        // Get fully charged before the discharge period.
+                    // Get fully charged before the discharge period.
                     // Throttling and discharge of over-generation is managed by the burst job.
                     // Just set the main strategy.
                     if (battLevel >= 100 - 2 /* It will still get about 60W. */)
@@ -388,14 +388,14 @@ from(bucket: ""solar"")
                         {
                             extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + battHeadroomScaled - battLevel);
                             chargeLastWanted = false;
-                            double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
-                            int b = _Batt.TransferKiloWattsToPercent(kW * 1.2);
+                            double kW = powerRequiredKwh / hoursToCharge;
+                            int b = _Batt.TransferKiloWattsToPercent(kW * 1.05);
                             battChargeRateWanted = _Batt.RoundPercent(b);
                             why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% plus headroom {battHeadroomScaled}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
                         }
                         else
                         {
-                            double aheadkWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + battHeadroomScaled - battLevel);
+                            double aheadkWh = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget - battHeadroomScaled);
                             battChargeRateWanted = 94;
                             why = $"Batt level {battLevel}%{s} is ahead of target {bti.BatteryTarget}% plus headroom {battHeadroomScaled}% by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get from {battLevel}%{s} to {battLevelEnd}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (set charge rate to {battChargeRateWanted}%).";
                             if (generationMax > 3000 && t0.Month >= 3 && t0.Month <= 9)
@@ -424,18 +424,18 @@ from(bucket: ""solar"")
                                 chargeLastWanted = false;
                                 why += $" Generation prediction to battery is {bti.PredictionBatteryPercent}% therefore override to 99%.";
                             }
-                            else if (generationRecentMax < 3000 && extraPowerNeeded > 0)
+                            else if (generationRecentMax < 2500 && extraPowerNeeded > 0)
                             {
                                 battChargeRateWanted = 98;
                                 chargeLastWanted = false;
-                                why += $" But we are behind by {extraPowerNeeded:0.0}kW therefore override to 98%.";
+                                why += $" But we are behind by {extraPowerNeeded:0.0}kW and recent generation max is {generationRecentMax / 1000:0.0}kW therefore override to 98%.";
                             }
 
-                            if ((powerRequiredKwh + extraPowerNeeded * 1.5 /* caution factor */ ) / hoursToCharge > generationRecentMean)
+                            if (powerRequiredKwh / hoursToCharge > generationRecentMean)
                             {
                                 battChargeRateWanted = 97;
                                 chargeLastWanted = false;
-                                why += $" Need {(powerRequiredKwh + extraPowerNeeded):0.0}kWh in {hoursToCharge:0.0} hours but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 97%.";
+                                why += $" Need {powerRequiredKwh:0.0}kWh in {hoursToCharge:0.0} hours (rate )but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 97%.";
                             }
 
                             if (generationRecentMax < 3600 && battLevel < bti.BatteryTarget + 5 && generationMeanDifference < 0)
