@@ -140,7 +140,6 @@ namespace Rwb.Luxopus.Jobs
 
             bool chargeLast = _Lux.GetChargeLast(settings);
             bool chargeLastWanted = chargeLast;
-            bool battLevelAboveTarget = false;
 
             string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
 
@@ -148,9 +147,6 @@ namespace Rwb.Luxopus.Jobs
 
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(tBattChargeFrom);
             DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
-
-            (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, currentPeriod.Start)).First().FirstOrDefault<double>();
-            prediction = prediction / 10;
 
             long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -170,18 +166,11 @@ from(bucket: ""solar"")
             {
                 JsonElement.ObjectEnumerator r = j.RootElement.EnumerateObject();
                 int generation = r.Single(z => z.Name == "ppv").Value.GetInt32();
-                int export = r.Single(z => z.Name == "pToGrid").Value.GetInt32();
+                //int export = r.Single(z => z.Name == "pToGrid").Value.GetInt32();
                 int inverterOutput = r.Single(z => z.Name == "pinv").Value.GetInt32();
                 int battLevel = r.Single(z => z.Name == "soc").Value.GetInt32();
-                int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
+                //int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
                 //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
-
-                if (battLevel < bti.BatteryTargetS && generationRecentMean < 1500)
-                {
-                    battLevelStart = bti.BatteryTargetF;
-                }
-
-                battLevelAboveTarget = battLevel > bti.BatteryTargetF;
 
                 actionInfo.AppendLine($"       Generation: {generation}W");
                 actionInfo.AppendLine($"  Inverter output: {inverterOutput}W");
@@ -193,29 +182,28 @@ from(bucket: ""solar"")
 
                 // Plan A
                 double hoursToCharge = ((bti.GenerationEnd < plan.Next.Start ? bti.GenerationEnd : plan.Next.Start) - t0).TotalHours;
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd - battLevel);
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd + battHeadroomScaled - battLevel);
 
                 // Are we behind schedule?
-                double extraPowerNeeded = 0.0;
-                if (battLevel < bti.BatteryTarget)
+                if (battLevel < bti.BatteryTarget + battHeadroomScaled)
                 {
-                    extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
-                    actionInfo.AppendLine($"Behind by {extraPowerNeeded:#,##0.0}kWh.");
+                    double b = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + battHeadroomScaled - battLevel);
+                    actionInfo.AppendLine($"Battery level {battLevel}% is less than target {bti.BatteryTarget}% plus headroom {battHeadroomScaled}%; behind by {b:#,##0.0}kWh.");
                 }
-                else if (bti.BatteryTarget < battLevel)
+                else if (battLevel > bti.BatteryTarget + battHeadroomScaled)
                 {
-                    double a = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget);
-                    actionInfo.AppendLine($"Ahead by {a:#,##0.0}kWh.");
+                    double a = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget - battHeadroomScaled);
+                    actionInfo.AppendLine($"Battery level {battLevel}% is greater than target {bti.BatteryTarget}% plus headroom {battHeadroomScaled}%; ahead by {a:#,##0.0}kWh.");
                 }
 
-                double kW = (powerRequiredKwh + extraPowerNeeded) / hoursToCharge;
+                double kW = powerRequiredKwh / hoursToCharge;
                 battChargeRateNeeded = _Batt.RoundPercent(_Batt.CapacityKiloWattHoursToPercent(kW));
 
-                if (DateTime.Now.Hour <= 9 && (bti.ScaleMethod == ScaleMethod.Slow || generationRecentMean > 800 || prediction > _Batt.CapacityPercentToKiloWattHours(89)) && battLevel >= bti.BatteryTarget - 5)
+                if (DateTime.Now.Hour <= 9 && (bti.ScaleMethod == ScaleMethod.Slow || generationRecentMean > 800 || bti.PredictionBatteryPercent < 150) && battLevel >= bti.BatteryTarget - 5)
                 {
                     chargeLastWanted = true;
-                    battChargeRateWanted = 90;
-                    actionInfo.AppendLine($"Predicted to be a good day ({prediction:0.0}kWh) or high recent generation ({generationRecentMean / 1000:#0.0}kW) therefore charge last before 9am.");
+                    battChargeRateWanted = 100;
+                    actionInfo.AppendLine($"Predicted to be a good day ({bti.PredictionKWh:0.0}kWh, {bti.PredictionBatteryPercent}%) or high recent generation ({generationRecentMean / 1000:#0.0}kW) therefore charge last before 9am.");
                 }
                 else if (generation > 3200)
                 {
@@ -243,12 +231,13 @@ from(bucket: ""solar"")
                     {
                         chargeLastWanted = false;
                         battChargeRateWanted = 91;
-                        actionInfo.AppendLine($"Charge last disabled because behind target; required charge rate is {battChargeRateNeeded}% overidden to {92}% to catch up.");
+                        actionInfo.AppendLine($"Charge last disabled because behind target {bti.BatteryTarget}%. Required charge rate (including headroom of {battHeadroomScaled}%) is {battChargeRateNeeded}%. Overidden to {92}% to catch up.");
 
                     }
                     else if (battLevel < bti.BatteryTarget + battHeadroomScaled)
                     {
                         chargeLastWanted = false;
+                        actionInfo.AppendLine($"Charge last disabled because behind target {bti.BatteryTarget}% plus headroom {battHeadroomScaled}%; required charge rate is {battChargeRateNeeded}% overidden to {92}% to catch up.");
                         battChargeRateWanted = battChargeRateNeeded;
                         // Increase the batt charge rate to avoid clipping.
                         int minToBatt = _Batt.TransferKiloWattsToPercent((Convert.ToDouble(generation) - 3000.0) / 1000.0);
