@@ -231,6 +231,13 @@ namespace Rwb.Luxopus.Jobs
                                                                                     // Selling at peak for 34p * 0.9 = 30p. Day rate to buy is 33p. Therefore MUST NOT BUT before low.
                                                                                     // Need about 20% to get over night, therefore estimate 10% to get to low.
                             };
+
+                            PeriodPlan? previous = plan.Plans.GetPrevious(p);
+                            if( ! Plan.ChargeFromGridCondition(previous) && ! Plan.DischargeToGridCondition(previous))
+                            {
+                                previous.Action.DischargeToGrid = p.Action.ChargeFromGrid;
+                            }
+
                             break;
                         case FluxCase.Daytime:
                             notes.AppendLine();
@@ -248,11 +255,20 @@ namespace Rwb.Luxopus.Jobs
                             {
                                 double generationPredictionTomorrow = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start.AddDays(1))).Single().Records[0].Values["_value"] / 10.0;
                                 int batteryPredictionTomorrow = _Batt.CapacityKiloWattHoursToPercent(generationPredictionTomorrow);
+
                                 if (generationPredictionTomorrow > _Batt.CapacityPercentToKiloWattHours(_Batt.MaxDischarge * 3) * 2)
                                 {
-                                    p.Action.DischargeToGrid = _Batt.BatteryMinimumLimit;
+                                    PeriodPlan? nextCharge = plan.Plans.GetNext(p);
+                                    // NO! The action hasn't been set yet.
+                                    if( nextCharge != null && ! Plan.ChargeFromGridCondition(nextCharge) ) { nextCharge = null; }
+
+                                    p.Action.DischargeToGrid = nextCharge ?.Action.ChargeFromGrid ?? _Batt.BatteryMinimumLimit;
+                                    notes.AppendLine($"Generation prediction {generationPredictionTomorrow:0.0}kWh is {batteryPredictionTomorrow}% of battery (more than twice max dischargeable of {_Batt.MaxDischarge * 3}%) therefore continue to discharge.");
                                 }
-                                notes.AppendLine($"Generation prediction {generationPredictionTomorrow:0.0}kWh is {batteryPredictionTomorrow}% of battery (more than twice max dischargeable of {_Batt.MaxDischarge * 3}%) therefore continue to discharge.");
+                                else
+                                {
+                                    notes.AppendLine($"Generation prediction {generationPredictionTomorrow:0.0}kWh is {batteryPredictionTomorrow}% of battery (less than twice max dischargeable of {_Batt.MaxDischarge * 3}%) therefore do not continue to discharge.");
+                                }
                             }
 
                             break;
