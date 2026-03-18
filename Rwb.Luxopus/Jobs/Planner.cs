@@ -66,16 +66,16 @@ namespace Rwb.Luxopus.Jobs
 
         public override string ToString()
         {
-            string chargeFromGrid = ChargeFromGrid > 0 ? $"{ChargeFromGrid:000}<--" : SpacesForToString;
-            string dischargeTo = DischargeToGrid < 100 ? $"{DischargeToGrid:000}-->" : SpacesForToString;
+            string chargeFromGrid = ChargeFromGrid > 0 ? $"{ChargeFromGrid,3}<--" : SpacesForToString;
+            string dischargeTo = DischargeToGrid < 100 ? $"{DischargeToGrid,3}-->" : SpacesForToString;
             return $"{chargeFromGrid} | {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
         }
 
         public string ToString(int batt)
         {
-            string chargeFromGrid = ChargeFromGrid > 0 ? $"{ChargeFromGrid:000}<--" : SpacesForToString;
-            string dischargeTo = DischargeToGrid < 100 ? $"{DischargeToGrid:000}-->" : SpacesForToString;
-            return $"{chargeFromGrid} | {batt:#00}% | {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
+            string chargeFromGrid = ChargeFromGrid > 0 ? $"{ChargeFromGrid,3}<--" : SpacesForToString;
+            string dischargeTo = DischargeToGrid < 100 ? $"{DischargeToGrid,3}-->" : SpacesForToString;
+            return $"{chargeFromGrid} | {batt,3}% | {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
         }
     }
 
