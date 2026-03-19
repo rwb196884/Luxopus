@@ -31,7 +31,7 @@ fi
 echo "Plan is: ${planDir}/${f}"
 echo "(Suggested adjustment is -11 to +32 of plan.)"
 
-cat "${planDir}/$f" | jq ".Plans[].Action.ChargeFromGrid |= if . > 0 then $1 else . end" > "${planDir}/${f}.tmp"
+cat "${planDir}/$f" | jq "jq ".Plans[] | select( .Action != null) | .Action.ChargeFromGrid |=  if . >= 0 then $1 else . end" > "${planDir}/${f}.tmp"
 mv "${planDir}/${f}.tmp" "${planDir}/$f"
 
 cat "${planDir}/$f" | jq '.Plans[] | select(.Action.ChargeFromGrid > 0)' | jq '"\(.Start) \(.Buy) -> \(.Action.ChargeFromGrid)%"'
