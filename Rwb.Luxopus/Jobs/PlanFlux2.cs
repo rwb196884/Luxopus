@@ -384,7 +384,7 @@ namespace Rwb.Luxopus.Jobs
                                         if (predictedGenerationToBatt > battDischargeableAtPeak * 3 && generationPrediction > generationMedianForMonth)
                                         {
                                             notes.AppendLine($"  Charge from grid overidden from {chargeFromGrid:0}% to 5%.");
-                                            chargeFromGrid = 5 + _Batt.CapacityKiloWattHoursToPercent( bup.GetKwkh(p.Start.DayOfWeek, next.Start.Hour, startOfGeneration.Hour + 1));// _Batt.BatteryMinimumLimit;
+                                            chargeFromGrid = 5 + _Batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(p.Start.DayOfWeek, next.Start.Hour, startOfGeneration.Hour + 1));// _Batt.BatteryMinimumLimit;
                                         }
                                         else if (chargeFromGrid > (buyToSell ? 34 : 21))
                                         {
@@ -447,8 +447,13 @@ namespace Rwb.Luxopus.Jobs
                             PeriodPlan? previous = plan.Plans.GetPrevious(p);
                             if (previous != null && !Plan.ChargeFromGridCondition(previous) && !Plan.DischargeToGridCondition(previous))
                             {
+                                if(previous.Action == null) { previous.Action = new PeriodAction(); }
                                 // Usage can be enormous due to floor heating; hack by adding 3 hours.
                                 previous.Action.DischargeToGrid = p.Action.ChargeFromGrid + _Batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(p.Start.DayOfWeek, p.Start.Hour + 3, next.Start.Hour + 3));
+                                if (previous.Action.DischargeToGrid > 100)
+                                {
+                                    previous.Action.DischargeToGrid = 100;
+                                }
                             }
 
                             break;
