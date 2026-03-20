@@ -529,6 +529,16 @@ namespace Rwb.Luxopus.Jobs
 
         private static async Task<int> BattCalc(IInfluxQueryService influxQuery, IBatteryService bs, BatteryUsageProfile bup, PeriodPlan plan, PeriodPlan next)
         {
+            if (Plan.ChargeFromGridCondition(plan))
+            {
+                int cMax = plan.Battery + Convert.ToInt32(Math.Floor(bs.MaxCharge * (next.Start - plan.Start).TotalHours));
+                if (plan.Action.ChargeFromGrid < cMax)
+                {
+                    return plan.Action.ChargeFromGrid;
+                }
+                return cMax;
+            }
+
             int batt = plan.Battery;
 
             TimeSpan dt = next.Start - plan.Start;
