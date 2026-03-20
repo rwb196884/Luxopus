@@ -209,20 +209,33 @@ from(bucket: ""solar"")
                 {
                     // Forced discharge causes clipping.
 
-                    // So does charge from grid.
+                    // So does charge from grid. (E.g., when electricity is free.)
                     LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
-                    LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false);
-                    if (chargeFromGridWanted != null && chargeFromGridCurrent.Enable && chargeFromGridCurrent.Start < DateTime.UtcNow && chargeFromGridCurrent.End > DateTime.UtcNow)
+                    LuxAction? chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false);
+                    if (chargeFromGridCurrent.Enable && chargeFromGridCurrent.Start < DateTime.UtcNow && chargeFromGridCurrent.End > DateTime.UtcNow)
                     {
-                        // Could be plan or because of zero or negative price; it's not important why. We just want to prevent clipping.
-                        chargeFromGridWanted.Enable = false;
-                        // TODO: revert to plan.
-                        bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
-                        if (changedCharge)
+                        if (chargeFromGridWanted != null)
                         {
-                            actionInfo.AppendLine($"Charge from grid enabled: true -> false.");
-                            actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
-                            actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
+                            chargeFromGridWanted = new LuxAction()
+                            {
+                                Enable = false,
+                                Start = chargeFromGridCurrent.Start,
+                                End = chargeFromGridCurrent.End,
+                            };
+                            actionInfo.AppendLine($"Charge from grid disabled: true -> false. (No future charge in plan.)");
+                        }
+                        else
+                        {
+                            // Could be plan or because of zero or negative price; it's not important why. We just want to prevent clipping.
+                            chargeFromGridWanted.Enable = false;
+                            // TODO: revert to plan.
+                            bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
+                            if (changedCharge)
+                            {
+                                actionInfo.AppendLine($"Charge from grid disabled: true -> false.");
+                                actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
+                                actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
+                            }
                         }
                     }
 
