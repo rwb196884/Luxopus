@@ -66,12 +66,12 @@ namespace Rwb.Luxopus.Jobs
             DateTime t0 = DateTime.UtcNow;
 
             Plan? plan = _Plans.Load(t0);
-            //if (plan == null || plan.Plans?.Count == 0 || plan.Current == null)
-            //{
-            //    Logger.LogWarning($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}. Trying to make a new one.");
-            //    await _Planner.RunAsync(cancellationToken);
-            //    _Plans.Load(t0);
-            //}
+            if (plan == null || plan.Plans?.Count == 0 || plan.Current == null)
+            {
+                Logger.LogWarning($"No plan at UTC {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}.");
+                //await _Planner.RunAsync(cancellationToken);
+                //_Plans.Load(t0);
+            }
 
             if (plan == null || plan.Plans?.Count == 0 || plan.Current == null)
             {
@@ -119,7 +119,7 @@ namespace Rwb.Luxopus.Jobs
 
             // Discharge to grid -- according to plan.
             LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
-            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false);
+            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false) ?? dischargeToGridCurrent;
 
             if (Plan.DischargeToGridCondition(plan.Current!) && dischargeToGridWanted.Enable)
             {
@@ -147,7 +147,7 @@ namespace Rwb.Luxopus.Jobs
 
             // Charge from grid -- according to plan.
             LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
-            LuxAction? chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false);
+            LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false) ?? chargeFromGridCurrent;
 
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
             int battLevelEnd = _BatteryTargetService.DefaultBatteryLevelEnd;

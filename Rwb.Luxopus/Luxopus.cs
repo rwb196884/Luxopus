@@ -37,7 +37,7 @@ namespace Rwb.Luxopus
             ////PlanZero planZero,
             //PlanFlux2 planFlux,
             //Burst burst
-            AtJob at,
+            //AtJob at,
             Planner planner,
             PlanChecker planChecker,
             BurstManager burst,
@@ -72,17 +72,17 @@ namespace Rwb.Luxopus
             AddJob(planner, "21 16 * * *"); // Tried to call from octopusPrices whenever there are new prices but ended up with no plan.
             //AddJob(burst, "* 8-15 * * *");
             AddJob(burst, "* 8-15 * 3-9 *");
-            AddJob(at, "*/8 * * * *");
+            //AddJob(at, "*/8 * * * *");
             AddJob(generationForecast, "21 16 * * *");
             //AddJob(hanchuJob, "*/5 * * * *"); // every 5 minutes.
 
             _StartupTasks = new List<Job>()
             {
-                planner, // For dev.
-                burst, // dev
-                //hanchuJob,
-                octopusPrices,
-                //planChecker,
+                //planner, // For dev.
+                //burst, // dev
+                ////hanchuJob,
+                //octopusPrices,
+                ////planChecker,
 
                 octopusMeters,
                 luxMonitor,

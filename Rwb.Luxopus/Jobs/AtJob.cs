@@ -7,9 +7,7 @@ using System.Threading.Tasks;
 
 namespace Rwb.Luxopus.Jobs
 {
-    /// <summary>
-    /// This needs to run at 11pm at inverter time.
-    /// </summary>
+    [Obsolete("?", true)]
     public class AtJob : Job
     {
         private readonly IAtService _AtService;

@@ -96,7 +96,8 @@ namespace Rwb.Luxopus.Services
             {
                 if (!run)
                 {
-                    PeriodPlan nextCharge = plan.Plans.GetNext(plan.Current, Plan.ChargeFromGridCondition)!;
+                    PeriodPlan? nextCharge = plan.Plans.GetNext(plan.Current, Plan.ChargeFromGridCondition)!;
+                    if (nextCharge != null) { return null; }
                     PeriodPlan? after = plan.Plans.GetNext(nextCharge);
                     return new LuxAction()
                     {
