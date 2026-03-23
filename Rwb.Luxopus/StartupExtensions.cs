@@ -50,6 +50,7 @@ namespace Rwb.Luxopus
                     services.Register<IBatteryService, BatteryService, BatterySettings>(context);
                     services.Register<IAtService, AtService, AtSettings>(context);
                     services.AddScoped<BatteryTargetService>();
+                    //services.Register<IHanchuService, HanchuService, HanchuSettings>(context);
 
                     // Main thingy.
                     services.AddScoped<Luxopus>();
@@ -64,8 +65,9 @@ namespace Rwb.Luxopus
                     services.AddScoped<SolarPosition>();
                     services.AddScoped<Sunrise>();
                     services.AddScoped<Openweathermap>();
-                    services.AddScoped<AtJob>();
+                    //services.AddScoped<AtJob>();
                     services.AddScoped<GenerationForecast>();
+                    //services.AddScoped<HanchuJob>();
 
                     services.AddScoped<PlanChecker>();
                     //services.AddScoped<Burst>();
