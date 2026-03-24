@@ -92,12 +92,12 @@ namespace Rwb.Luxopus.Services
             LuxAction a = current.Clone();
 
             a.Enable = plan.Plans.Any(z => Plan.ChargeFromGridCondition(z));
-            if (plan != null && a.Enable)
+            if (plan != null)
             {
                 if (!run)
                 {
                     PeriodPlan? nextCharge = plan.Plans.GetNext(plan.Current, Plan.ChargeFromGridCondition)!;
-                    if (nextCharge != null) { return null; }
+                    if (nextCharge == null) { return null; }
                     PeriodPlan? after = plan.Plans.GetNext(nextCharge);
                     return new LuxAction()
                     {
