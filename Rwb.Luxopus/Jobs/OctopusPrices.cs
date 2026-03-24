@@ -48,7 +48,7 @@ namespace Rwb.Luxopus.Jobs
             TariffCode te = await _Octopus.GetElectricityCurrentTariff(TariffType.Export, DateTime.Today);
             bool gotPrices = false;
 
-            foreach (string t in (await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code))
+            foreach (string t in (await _Octopus.GetElectricityTariffs()).Where(z => !z.ValidTo.HasValue || z.ValidTo > DateTime.Now.AddDays(-5)).Select(z => z.Code).Distinct(/* A tariff may have multiple periods. */))
             {
                 Dictionary<string, string> tags = new Dictionary<string, string>()
                 {
