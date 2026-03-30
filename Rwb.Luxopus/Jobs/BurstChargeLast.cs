@@ -182,7 +182,8 @@ from(bucket: ""solar"")
 
                 // Plan A
                 double hoursToCharge = ((bti.GenerationEnd < plan.Next.Start ? bti.GenerationEnd : plan.Next.Start) - t0).TotalHours;
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd + battHeadroomScaled - battLevel);
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours( battLevelEnd + battHeadroomScaled - battLevel);
+                powerRequiredKwh = powerRequiredKwh < 0 ? 0 : powerRequiredKwh;
 
                 // Are we behind schedule?
                 if (battLevel < bti.BatteryTarget + battHeadroomScaled)
@@ -243,7 +244,7 @@ from(bucket: ""solar"")
                     if (battLevel < bti.BatteryTarget)
                     {
                         chargeLastWanted = false;
-                        battChargeRateWanted = 91;
+                        battChargeRateWanted = 99;
                         actionInfo.AppendLine($"Charge last disabled because behind target {bti.BatteryTarget}%. Required charge rate (including headroom of {battHeadroomScaled}%) is {battChargeRateNeeded}%. Overidden to {92}% to catch up.");
 
                     }
@@ -266,7 +267,7 @@ from(bucket: ""solar"")
                     }
                     else
                     {
-                        battChargeRateWanted = 91;
+                        battChargeRateWanted = 98;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Charge last enabled because ahead of target.");
                     }
@@ -278,7 +279,7 @@ from(bucket: ""solar"")
                     {
                         // It's early and it looks like it's going to be a good day.
                         // So keep the battery empty to make space for later.
-                        battChargeRateWanted = 91;
+                        battChargeRateWanted = 97;
                         chargeLastWanted = true;
                         if (battLevel > bti.BatteryTarget - 5)
                         {
@@ -304,13 +305,14 @@ from(bucket: ""solar"")
                             Limit = bti.BatteryTarget - 2,
                             Rate = 91
                         };
-                        battChargeRateWanted = 91;
+                        battChargeRateWanted = 96;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {bti.BatteryTarget}% therefore take opportunity to discharge.");
                     }
                     else
                     {
                         chargeLastWanted = false;
+                        battChargeRateWanted = 95;
                     }
 
                     if (plan.Current.Buy <= 0)
