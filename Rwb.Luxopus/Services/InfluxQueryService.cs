@@ -254,6 +254,7 @@ from(bucket: ""{Settings.Bucket}"")
                     {
                         Start = z.Key,
                         Buy = z.SingleOrDefault(z => (string)z.GetValueByKey("type") == "buy")?.GetValue<decimal>("_value") ?? -1M,
+                        // TODO: Use previous. Can happen at midnight if one price changes but the other doesn't, e.g., 2026-03-31 to 2026-04-01.
                         Sell = z.SingleOrDefault(z => (string)z.GetValueByKey("type") == "sell")?.GetValue<decimal>("_value") ?? -1M
                     })
                     .ToList();

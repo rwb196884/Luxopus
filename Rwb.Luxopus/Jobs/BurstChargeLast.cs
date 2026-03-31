@@ -136,7 +136,10 @@ namespace Rwb.Luxopus.Jobs
 
             // Get the planned discharge settings -- we may override them.
             LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
-            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false);
+            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false) ?? dischargeToGridCurrent;
+
+            LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
+            LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false) ?? chargeFromGridCurrent;
 
             bool chargeLast = _Lux.GetChargeLast(settings);
             bool chargeLastWanted = chargeLast;
@@ -182,7 +185,7 @@ from(bucket: ""solar"")
 
                 // Plan A
                 double hoursToCharge = ((bti.GenerationEnd < plan.Next.Start ? bti.GenerationEnd : plan.Next.Start) - t0).TotalHours;
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours( battLevelEnd + battHeadroomScaled - battLevel);
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd + battHeadroomScaled - battLevel);
                 powerRequiredKwh = powerRequiredKwh < 0 ? 0 : powerRequiredKwh;
 
                 // Are we behind schedule?
@@ -211,33 +214,9 @@ from(bucket: ""solar"")
                     // Forced discharge causes clipping.
 
                     // So does charge from grid. (E.g., when electricity is free.)
-                    LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
-                    LuxAction? chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false);
                     if (chargeFromGridCurrent.Enable && chargeFromGridCurrent.Start < DateTime.UtcNow && chargeFromGridCurrent.End > DateTime.UtcNow)
                     {
-                        if (chargeFromGridWanted != null)
-                        {
-                            chargeFromGridWanted = new LuxAction()
-                            {
-                                Enable = false,
-                                Start = chargeFromGridCurrent.Start,
-                                End = chargeFromGridCurrent.End,
-                            };
-                            actionInfo.AppendLine($"Charge from grid disabled: true -> false. (No future charge in plan.)");
-                        }
-                        else
-                        {
-                            // Could be plan or because of zero or negative price; it's not important why. We just want to prevent clipping.
-                            chargeFromGridWanted.Enable = false;
-                            // TODO: revert to plan.
-                            bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
-                            if (changedCharge)
-                            {
-                                actionInfo.AppendLine($"Charge from grid disabled: true -> false.");
-                                actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
-                                actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
-                            }
-                        }
+                        chargeFromGridWanted.Enable = false;
                     }
 
                     // Generation probably not limited therefore send less to battery.
@@ -309,17 +288,35 @@ from(bucket: ""solar"")
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {bti.BatteryTarget}% therefore take opportunity to discharge.");
                     }
+                    else if (plan.Next != null && Plan.DischargeToGridCondition(plan.Next) && battLevel < bti.BatteryLevelEnd + battHeadroomScaled && plan.Current.Buy * 1.1M < plan.Next.Sell)
+                    {
+                        // If buy is lower then next sell then we can buy to catch up.
+                        double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + battHeadroomScaled - battLevel);
+                        double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
+                        int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
+                        if (rate < 34) { rate = 34; }
+                        if (rate > 100) { rate = 100; }
+                        chargeFromGridWanted = new LuxAction()
+                        {
+                            Enable = true,
+                            Start = plan.Current.Start,
+                            End = plan.Next.Start,
+                            Limit = bti.BatteryLevelEnd + battHeadroomScaled,
+                            Rate = rate
+                        };
+                        actionInfo.AppendLine($"Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therfore top up from {battLevel}% to target {bti.BatteryLevelEnd}% + headroom {battHeadroomScaled}% = {bti.BatteryLevelEnd + battHeadroomScaled}%.");
+                        battChargeRateWanted = 95;
+                    }
                     else
                     {
                         chargeLastWanted = false;
-                        battChargeRateWanted = 95;
+                        battChargeRateWanted = 94;
                     }
 
                     if (plan.Current.Buy <= 0)
                     {
                         // Fill your boots.
-                        LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
-                        LuxAction chargeFromGridWanted = new LuxAction()
+                        chargeFromGridWanted = new LuxAction()
                         {
                             Enable = true,
                             Start = plan.Current.Start,
@@ -328,13 +325,6 @@ from(bucket: ""solar"")
                             Rate = 100
                         };
 
-                        bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
-                        if (changedCharge)
-                        {
-                            actionInfo.AppendLine($"Charge from grid because buy price is {plan.Current.Buy:#,##0.000}.");
-                            actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
-                            actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
-                        }
                     }
                 }
 
@@ -352,14 +342,19 @@ from(bucket: ""solar"")
                 actions.AppendLine($"SetChargeLastAsync({chargeLastWanted}) was {chargeLast}.");
             }
 
-            if (dischargeToGridWanted != null)
+            bool changedDischarge = await _Lux.SetDischargeToGrid(dischargeToGridCurrent, dischargeToGridWanted);
+            if (changedDischarge)
             {
-                bool changedDischarge = await _Lux.SetDischargeToGrid(dischargeToGridCurrent, dischargeToGridWanted);
-                if (changedDischarge)
-                {
-                    actions.AppendLine($"Discharge to grid was: {dischargeToGridCurrent}");
-                    actions.AppendLine($" Discharge to grid is: {dischargeToGridWanted}");
-                }
+                actions.AppendLine($"Discharge to grid was: {dischargeToGridCurrent}");
+                actions.AppendLine($" Discharge to grid is: {dischargeToGridWanted}");
+            }
+
+            bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
+            if (changedCharge)
+            {
+                actionInfo.AppendLine($"Charge from grid because buy price is {plan.Current.Buy:#,##0.000}.");
+                actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
+                actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
             }
 
             if (battChargeRateWanted < battChargeRateNeeded)
