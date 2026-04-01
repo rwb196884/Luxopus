@@ -392,9 +392,9 @@ from(bucket: ""solar"")
                             chargeLastWanted = false;
                             why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {battLevelEnd + battHeadroomScaled}% ({bti.TargetDescription}) in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
 
-                            if (plan.Current.Buy * 1.1M < plan.Next.Sell && DateTime.UtcNow > plan.Next.Start.AddHours(-3))
+                            if (battLevel < bti.BatteryTarget && plan.Current.Buy * 1.1M < plan.Next.Sell && DateTime.UtcNow > plan.Next.Start.AddHours(-3))
                             {
-                                double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + battHeadroomScaled - battLevel);
+                                double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
                                 double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
                                 int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
                                 if (rate < 34) { rate = 34; }
@@ -404,7 +404,7 @@ from(bucket: ""solar"")
                                     Enable = true,
                                     Start = plan.Current.Start,
                                     End = plan.Next.Start,
-                                    Limit = bti.BatteryTarget + battHeadroomScaled,
+                                    Limit = bti.BatteryTarget,
                                     Rate = rate
                                 };
                                 why += $"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}% + headroom {battHeadroomScaled}% = {bti.BatteryLevelEnd + battHeadroomScaled}%.";

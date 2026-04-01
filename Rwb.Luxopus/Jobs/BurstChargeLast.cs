@@ -288,10 +288,10 @@ from(bucket: ""solar"")
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {bti.BatteryTarget}% therefore take opportunity to discharge.");
                     }
-                    else if (plan.Next != null && Plan.DischargeToGridCondition(plan.Next) && DateTime.UtcNow > plan.Next.Start.AddHours(-3) && battLevel < bti.BatteryLevelEnd + battHeadroomScaled && plan.Current.Buy * 1.1M < plan.Next.Sell)
+                    else if (battLevel < bti.BatteryTarget && plan.Next != null && Plan.DischargeToGridCondition(plan.Next) && DateTime.UtcNow > plan.Next.Start.AddHours(-3) && battLevel < bti.BatteryLevelEnd + battHeadroomScaled && plan.Current.Buy * 1.1M < plan.Next.Sell)
                     {
                         // If buy is lower then next sell then we can buy to catch up.
-                        double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + battHeadroomScaled - battLevel);
+                        double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
                         double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
                         int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
                         if (rate < 34) { rate = 34; }
@@ -301,7 +301,7 @@ from(bucket: ""solar"")
                             Enable = true,
                             Start = plan.Current.Start,
                             End = plan.Next.Start,
-                            Limit = bti.BatteryTarget + battHeadroomScaled,
+                            Limit = bti.BatteryTarget,
                             Rate = rate
                         };
                         actionInfo.AppendLine($"Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therfore top up from {battLevel}% to target {bti.BatteryLevelEnd}% + headroom {battHeadroomScaled}% = {bti.BatteryLevelEnd + battHeadroomScaled}%.");
