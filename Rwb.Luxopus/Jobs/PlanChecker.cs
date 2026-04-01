@@ -119,7 +119,7 @@ namespace Rwb.Luxopus.Jobs
 
             // Discharge to grid -- according to plan.
             LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
-            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false) ?? dischargeToGridCurrent;
+            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false) ?? dischargeToGridCurrent.Clone();
 
             if (Plan.DischargeToGridCondition(plan.Current!) && dischargeToGridWanted.Enable)
             {
@@ -147,7 +147,7 @@ namespace Rwb.Luxopus.Jobs
 
             // Charge from grid -- according to plan.
             LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
-            LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false) ?? chargeFromGridCurrent;
+            LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false) ?? chargeFromGridCurrent.Clone();
 
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
             int battLevelEnd = _BatteryTargetService.DefaultBatteryLevelEnd;
@@ -413,7 +413,7 @@ from(bucket: ""solar"")
                         }
                         else
                         {
-                            chargeFromGridWanted = chargeFromGridCurrent;
+                            chargeFromGridWanted = chargeFromGridCurrent.Clone();
                             if(chargeFromGridWanted.Start.TimeOfDay <= DateTime.UtcNow.TimeOfDay && chargeFromGridWanted.End.TimeOfDay >= DateTime.UtcNow.TimeOfDay) { chargeFromGridWanted.Enable = false; }
                             double aheadkWh = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget - battHeadroomScaled);
                             why = $"Batt level {battLevel}% is ahead of target {bti.BatteryTarget + battHeadroomScaled}% ({bti.TargetDescription}) by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get to {battLevelEnd + battHeadroomScaled}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm}.";

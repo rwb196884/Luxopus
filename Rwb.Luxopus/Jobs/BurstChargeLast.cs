@@ -136,10 +136,10 @@ namespace Rwb.Luxopus.Jobs
 
             // Get the planned discharge settings -- we may override them.
             LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
-            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false) ?? dischargeToGridCurrent;
+            LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false) ?? dischargeToGridCurrent.Clone();
 
             LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
-            LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false) ?? chargeFromGridCurrent;
+            LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false) ?? chargeFromGridCurrent.Clone();
 
             bool chargeLast = _Lux.GetChargeLast(settings);
             bool chargeLastWanted = chargeLast;
