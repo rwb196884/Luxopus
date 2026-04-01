@@ -288,7 +288,7 @@ from(bucket: ""solar"")
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {bti.BatteryTarget}% therefore take opportunity to discharge.");
                     }
-                    else if (plan.Next != null && Plan.DischargeToGridCondition(plan.Next) && battLevel < bti.BatteryLevelEnd + battHeadroomScaled && plan.Current.Buy * 1.1M < plan.Next.Sell)
+                    else if (plan.Next != null && Plan.DischargeToGridCondition(plan.Next) && DateTime.UtcNow > plan.Next.Start.AddHours(-3) && battLevel < bti.BatteryLevelEnd + battHeadroomScaled && plan.Current.Buy * 1.1M < plan.Next.Sell)
                     {
                         // If buy is lower then next sell then we can buy to catch up.
                         double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + battHeadroomScaled - battLevel);
