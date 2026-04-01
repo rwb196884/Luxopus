@@ -413,6 +413,8 @@ from(bucket: ""solar"")
                         }
                         else
                         {
+                            chargeFromGridWanted = chargeFromGridCurrent;
+                            if(chargeFromGridWanted.Start.TimeOfDay <= DateTime.UtcNow.TimeOfDay && chargeFromGridWanted.End.TimeOfDay >= DateTime.UtcNow.TimeOfDay) { chargeFromGridWanted.Enable = false; }
                             double aheadkWh = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget - battHeadroomScaled);
                             why = $"Batt level {battLevel}% is ahead of target {bti.BatteryTarget + battHeadroomScaled}% ({bti.TargetDescription}) by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get to {battLevelEnd + battHeadroomScaled}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm}.";
                             if (generationMax > 3000 && t0.Month >= 3 && t0.Month <= 9)
