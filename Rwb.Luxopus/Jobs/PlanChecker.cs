@@ -404,7 +404,7 @@ from(bucket: ""solar"")
                                     Enable = true,
                                     Start = plan.Current.Start,
                                     End = plan.Next.Start,
-                                    Limit = bti.BatteryLevelEnd + battHeadroomScaled,
+                                    Limit = bti.BatteryTarget + battHeadroomScaled,
                                     Rate = rate
                                 };
                                 why += $"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}% + headroom {battHeadroomScaled}% = {bti.BatteryLevelEnd + battHeadroomScaled}%.";
