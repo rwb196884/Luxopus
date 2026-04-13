@@ -262,7 +262,7 @@ namespace Rwb.Luxopus.Jobs
                         if (generationMaxLastHour < 3600)
                         {
                             battChargeRateWanted = 100;
-                            chargeLastWanted = true;
+                            chargeLastWanted = false;
                             why = $"Battery is full ({battLevel}%) and max generation in last hour is {generationMaxLastHour}.";
                         }
                         else
@@ -453,16 +453,16 @@ from(bucket: ""solar"")
 
                             if (powerRequiredKwh / hoursToCharge > generationRecentMean)
                             {
+                                why += $" Need {powerRequiredKwh:0.0}kWh in {hoursToCharge:0.0} hours (rate {battChargeRateWanted}%) but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 97%.";
                                 battChargeRateWanted = 97;
                                 chargeLastWanted = false;
-                                why += $" Need {powerRequiredKwh:0.0}kWh in {hoursToCharge:0.0} hours (rate )but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 97%.";
                             }
 
                             if (generationRecentMax < 3600 && battLevel < bti.BatteryTarget + 5 && generationMeanDifference < 0)
                             {
+                                why += $" Rate of generation is decreasing ({generationMeanDifference:0}W) therefore override battery charge rate from {battChargeRateWanted}% to {(battChargeRateWanted > 40 ? 96 : battChargeRateWanted * 2)}%.";
                                 battChargeRateWanted = battChargeRateWanted > 40 ? 96 : battChargeRateWanted * 2;
                                 chargeLastWanted = false;
-                                why += $" Rate of generation is decreasing ({generationMeanDifference:0}W) therefore override to {battChargeRateWanted}%.";
                             }
                         }
                     }

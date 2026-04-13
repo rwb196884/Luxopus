@@ -182,6 +182,7 @@ from(bucket: ""solar"")
                 actionInfo.AppendLine($" Battery headroom: {battHeadroomScaled}% scaled of total {100 - battLevelEnd}%)");
                 actionInfo.AppendLine($"      Charge last: {(chargeLast ? "yes" : "no")}");
                 actionInfo.AppendLine($"Discharge to grid: {dischargeToGridCurrent})");
+                actionInfo.AppendLine($" Charge from grid: {chargeFromGridCurrent})");
 
                 // Plan A
                 double hoursToCharge = ((bti.GenerationEnd < plan.Next.Start ? bti.GenerationEnd : plan.Next.Start) - t0).TotalHours;
@@ -233,11 +234,11 @@ from(bucket: ""solar"")
                         actionInfo.AppendLine($"Charge last disabled because behind target {bti.BatteryTarget}% plus headroom {battHeadroomScaled}%; required charge rate is {battChargeRateNeeded}% overidden to {92}% to catch up.");
                         battChargeRateWanted = battChargeRateNeeded;
                         // Increase the batt charge rate to avoid clipping.
-                        int minToBatt = _Batt.TransferKiloWattsToPercent((Convert.ToDouble(generation) - 3000.0) / 1000.0);
+                        int minToBatt = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent((Convert.ToDouble(generation) - 3000.0) / 1000.0));
                         if (battChargeRateWanted < minToBatt)
                         {
                             actionInfo.AppendLine($"Charge last disabled because headroom is available; required charge rate is {battChargeRateNeeded}% overidden to {minToBatt}% because generation {generation}kW.");
-                            battChargeRateWanted = _Batt.RoundPercent(minToBatt);
+                            battChargeRateWanted = minToBatt;
                         }
                         else
                         {
@@ -288,7 +289,7 @@ from(bucket: ""solar"")
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {bti.BatteryTarget}% therefore take opportunity to discharge.");
                     }
-                    else if (battLevel < bti.BatteryTarget && plan.Next != null && Plan.DischargeToGridCondition(plan.Next) && DateTime.UtcNow > plan.Next.Start.AddHours(-3) && battLevel < bti.BatteryLevelEnd + battHeadroomScaled && plan.Current.Buy * 1.1M < plan.Next.Sell)
+                    else if (battLevel < bti.BatteryTarget && plan.Next != null && Plan.DischargeToGridCondition(plan.Next) && DateTime.UtcNow > plan.Next.Start.AddHours(-3) && plan.Current.Buy * 1.1M < plan.Next.Sell && generationRecentMax < 3000)
                     {
                         // If buy is lower then next sell then we can buy to catch up.
                         double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
@@ -304,7 +305,7 @@ from(bucket: ""solar"")
                             Limit = bti.BatteryTarget,
                             Rate = rate
                         };
-                        actionInfo.AppendLine($"Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therfore top up from {battLevel}% to target {bti.BatteryLevelEnd}% + headroom {battHeadroomScaled}% = {bti.BatteryLevelEnd + battHeadroomScaled}%.");
+                        actionInfo.AppendLine($"Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therfore top up from {battLevel}% to target {bti.BatteryTarget}%.");
                         battChargeRateWanted = 95;
                     }
                     else
