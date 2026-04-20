@@ -144,7 +144,7 @@ namespace Rwb.Luxopus.Jobs
 
             LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
             LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false) ?? chargeFromGridCurrent.Clone();
-            if (chargeFromGridWanted.Start < DateTime.UtcNow && chargeFromGridWanted.End > DateTime.UtcNow)
+            if (chargeFromGridWanted.Start.TimeOfDay < DateTime.UtcNow.TimeOfDay && chargeFromGridWanted.End.TimeOfDay > DateTime.UtcNow.TimeOfDay)
             {
                 chargeFromGridWanted.Enable = false;
             }
@@ -297,13 +297,17 @@ from(bucket: ""solar"")
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {bti.BatteryTarget}% therefore take opportunity to discharge.");
                     }
-                    else if (battLevel < bti.BatteryTarget && plan.Next != null && Plan.DischargeToGridCondition(plan.Next) && DateTime.UtcNow > plan.Next.Start.AddHours(-3) && plan.Current.Buy * 1.1M < plan.Next.Sell && generationRecentMax < 3000)
+                    else if (battLevel < bti.BatteryTarget 
+                        //&& battLevel < _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3 
+                        && plan.Next != null && Plan.DischargeToGridCondition(plan.Next) 
+                        && DateTime.UtcNow > plan.Next.Start.AddHours(-2) 
+                        && plan.Current.Buy * 1.1M < plan.Next.Sell && generationRecentMax < 3000)
                     {
                         // If buy is lower then next sell then we can buy to catch up.
                         double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
                         double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
                         int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
-                        if (rate < 34) { rate = 34; }
+                        if (rate < 13) { rate = 13; }
                         if (rate > 100) { rate = 100; }
                         chargeFromGridWanted = new LuxAction()
                         {
@@ -314,6 +318,7 @@ from(bucket: ""solar"")
                             Rate = rate
                         };
                         actionInfo.AppendLine($"Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therfore top up from {battLevel}% to target {bti.BatteryTarget}%.");
+                        chargeLastWanted = false;
                         battChargeRateWanted = 95;
                     }
                     else
@@ -361,7 +366,10 @@ from(bucket: ""solar"")
             bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
             if (changedCharge)
             {
-                actionInfo.AppendLine($"Charge from grid because buy price is {plan.Current.Buy:#,##0.000}.");
+                if (chargeFromGridWanted.Enable)
+                {
+                    actionInfo.AppendLine($"Charge from grid ON; buy price is {plan.Current.Buy:#,##0.000}.");
+                }
                 actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
                 actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
             }

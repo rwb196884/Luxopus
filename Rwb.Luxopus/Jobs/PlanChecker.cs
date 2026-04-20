@@ -392,12 +392,12 @@ from(bucket: ""solar"")
                             chargeLastWanted = false;
                             why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {battLevelEnd + battHeadroomScaled}% ({bti.TargetDescription}) in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
 
-                            if (battLevel < bti.BatteryTarget && plan.Current.Buy * 1.1M < plan.Next.Sell && DateTime.UtcNow > plan.Next.Start.AddHours(-3))
+                            if (battLevel < bti.BatteryTarget && plan.Current.Buy * 1.1M < plan.Next.Sell && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
                             {
                                 double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
                                 double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
                                 int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
-                                if (rate < 34) { rate = 34; }
+                                if (rate < 13) { rate = 13; }
                                 if (rate > 100) { rate = 100; }
                                 chargeFromGridWanted = new LuxAction()
                                 {
