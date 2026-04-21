@@ -262,7 +262,7 @@ from(bucket: ""solar"")
                 else
                 {
                     // Low generation.
-                    if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 9 /* up to 11AM BST && sm == ScaleMethod.Slow */ && bti.PredictionBatteryPercent < 200 && generationMax > 1000 && battLevel > bti.BatteryTarget - 8)
+                    if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 9 /* up to 11AM BST && sm == ScaleMethod.Slow */ && bti.PredictionBatteryPercent > 200 && generationMax > 1000 && battLevel > bti.BatteryTarget - 8)
                     {
                         // It's early and it looks like it's going to be a good day.
                         // So keep the battery empty to make space for later.
