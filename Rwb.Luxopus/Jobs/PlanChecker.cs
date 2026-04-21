@@ -501,25 +501,21 @@ from(bucket: ""solar"")
                 actions.AppendLine($"SetChargeLastAsync({chargeLastWanted}) was {chargeLast}.");
             }
 
-            // Charge from grid.
-            if (chargeFromGridWanted != null)
+            bool changedDischarge = await _Lux.SetDischargeToGrid(dischargeToGridCurrent, dischargeToGridWanted);
+            if (changedDischarge)
             {
-                bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
-                if (changedCharge)
-                {
-                    actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
-                    actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
-                }
+                actions.AppendLine($"Discharge to grid was: {dischargeToGridCurrent}");
+                actions.AppendLine($" Discharge to grid is: {dischargeToGridWanted}");
             }
 
-            // Discharge to grid.
-            if (dischargeToGridWanted != null)
+            bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
+            if (changedCharge)
             {
-                bool changedDischarge = await _Lux.SetDischargeToGrid(dischargeToGridCurrent, dischargeToGridWanted);
-                if (changedDischarge)
+                actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
+                actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
+                if (chargeFromGridWanted.Enable)
                 {
-                    actions.AppendLine($"Discharge to grid was: {dischargeToGridCurrent}");
-                    actions.AppendLine($"Discharge to grid is : {dischargeToGridWanted}");
+                    actions.AppendLine($"  Buy @ {plan.Current.Buy:#,##0.000}.");
                 }
             }
 

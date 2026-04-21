@@ -365,12 +365,12 @@ from(bucket: ""solar"")
             bool changedCharge = await _Lux.SetChargeFromGrid(chargeFromGridCurrent, chargeFromGridWanted);
             if (changedCharge)
             {
-                if (chargeFromGridWanted.Enable)
-                {
-                    actionInfo.AppendLine($"Charge from grid ON; buy price is {plan.Current.Buy:#,##0.000}.");
-                }
                 actions.AppendLine($"Charge from grid was: {chargeFromGridCurrent}");
                 actions.AppendLine($"Charge from grid is : {chargeFromGridWanted}");
+                if (chargeFromGridWanted.Enable)
+                {
+                    actionInfo.AppendLine($"  Buy @ {plan.Current.Buy:#,##0.000}.");
+                }
             }
 
             if (battChargeRateWanted < battChargeRateNeeded)
