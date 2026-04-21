@@ -32,6 +32,9 @@ namespace Rwb.Luxopus.Services
             }
         }
 
+        public int HeadroomTotal { get; set; }
+        public int HeadroomScaled { get; set; }
+
         public double PredictionKWh { get; set; }
         public int PredictionBatteryPercent { get; set; }
 
@@ -165,6 +168,10 @@ from(bucket: ""solar"")
             info.BatteryTargetL = battLevelTargetL;
             info.BatteryTargetS = battLevelTargetS;
             info.BatteryLevelEnd = battLevelEnd;
+
+            info.HeadroomTotal = 100 - battLevelEnd;
+            info.HeadroomScaled = Scale.Apply(info.Start, info.End, DateTime.UtcNow, 0, info.BatteryLevelEnd, ScaleMethod.Linear);
+
 
             return info;
         }

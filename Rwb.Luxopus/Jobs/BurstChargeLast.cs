@@ -105,7 +105,6 @@ namespace Rwb.Luxopus.Jobs
             }
 
             BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
-            int battHeadroomScaled = Scale.Apply(bti.Start, bti.End, DateTime.UtcNow, 0, 100 - battLevelEnd, ScaleMethod.Linear);
 
             if (t0 < bti.GenerationStart || t0 > bti.GenerationEnd) { return; }
 
@@ -187,26 +186,26 @@ from(bucket: ""solar"")
                 actionInfo.AppendLine($"  Inverter output: {inverterOutput}W");
                 actionInfo.AppendLine($"    Battery level: {battLevel}%");
                 actionInfo.AppendLine($"   Battery target: {bti.TargetDescription})");
-                actionInfo.AppendLine($" Battery headroom: {battHeadroomScaled}% scaled of total {100 - battLevelEnd}%)");
+                actionInfo.AppendLine($" Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - battLevelEnd}%)");
                 actionInfo.AppendLine($"      Charge last: {(chargeLast ? "yes" : "no")}");
                 actionInfo.AppendLine($"Discharge to grid: {dischargeToGridCurrent})");
                 actionInfo.AppendLine($" Charge from grid: {chargeFromGridCurrent})");
 
                 // Plan A
                 double hoursToCharge = ((bti.GenerationEnd < plan.Next.Start ? bti.GenerationEnd : plan.Next.Start) - t0).TotalHours;
-                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd + battHeadroomScaled - battLevel);
+                double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd + bti.HeadroomScaled - battLevel);
                 powerRequiredKwh = powerRequiredKwh < 0 ? 0 : powerRequiredKwh;
 
                 // Are we behind schedule?
-                if (battLevel < bti.BatteryTarget + battHeadroomScaled)
+                if (battLevel < bti.BatteryTarget + bti.HeadroomScaled)
                 {
-                    double b = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + battHeadroomScaled - battLevel);
-                    actionInfo.AppendLine($"Battery level {battLevel}% is less than target {bti.BatteryTarget}% plus headroom {battHeadroomScaled}%; behind by {b:#,##0.0}kWh.");
+                    double b = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + bti.HeadroomScaled - battLevel);
+                    actionInfo.AppendLine($"Battery level {battLevel}% is less than target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%; behind by {b:#,##0.0}kWh.");
                 }
-                else if (battLevel > bti.BatteryTarget + battHeadroomScaled)
+                else if (battLevel > bti.BatteryTarget + bti.HeadroomScaled)
                 {
-                    double a = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget - battHeadroomScaled);
-                    actionInfo.AppendLine($"Battery level {battLevel}% is greater than target {bti.BatteryTarget}% plus headroom {battHeadroomScaled}%; ahead by {a:#,##0.0}kWh.");
+                    double a = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget - bti.HeadroomScaled);
+                    actionInfo.AppendLine($"Battery level {battLevel}% is greater than target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%; ahead by {a:#,##0.0}kWh.");
                 }
 
                 double kW = powerRequiredKwh / hoursToCharge;
@@ -233,13 +232,13 @@ from(bucket: ""solar"")
                     {
                         chargeLastWanted = false;
                         battChargeRateWanted = 99;
-                        actionInfo.AppendLine($"Charge last disabled because behind target {bti.BatteryTarget}%. Required charge rate (including headroom of {battHeadroomScaled}%) is {battChargeRateNeeded}%. Overidden to {92}% to catch up.");
+                        actionInfo.AppendLine($"Charge last disabled because behind target {bti.BatteryTarget}%. Required charge rate (including headroom of {bti.HeadroomScaled}%) is {battChargeRateNeeded}%. Overidden to {92}% to catch up.");
 
                     }
-                    else if (battLevel < bti.BatteryTarget + battHeadroomScaled)
+                    else if (battLevel < bti.BatteryTarget + bti.HeadroomScaled)
                     {
                         chargeLastWanted = false;
-                        actionInfo.AppendLine($"Charge last disabled because behind target {bti.BatteryTarget}% plus headroom {battHeadroomScaled}%; required charge rate is {battChargeRateNeeded}% overidden to {92}% to catch up.");
+                        actionInfo.AppendLine($"Charge last disabled because behind target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%; required charge rate is {battChargeRateNeeded}% overidden to {92}% to catch up.");
                         battChargeRateWanted = battChargeRateNeeded;
                         // Increase the batt charge rate to avoid clipping.
                         int minToBatt = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent((Convert.ToDouble(generation) - 3000.0) / 1000.0));
@@ -263,7 +262,7 @@ from(bucket: ""solar"")
                 else
                 {
                     // Low generation.
-                    if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 9 /* up to 11AM BST && sm == ScaleMethod.Slow */ && generationMax > 1000 && battLevel > bti.BatteryTarget - 8)
+                    if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 9 /* up to 11AM BST && sm == ScaleMethod.Slow */ && bti.PredictionBatteryPercent < 200 && generationMax > 1000 && battLevel > bti.BatteryTarget - 8)
                     {
                         // It's early and it looks like it's going to be a good day.
                         // So keep the battery empty to make space for later.
@@ -282,7 +281,7 @@ from(bucket: ""solar"")
                         }
                         actionInfo.AppendLine($"Looks like it could be a good day. Battery level {battLevel}%, target of {bti.TargetDescription} therefore keep some space.");
                     }
-                    else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > bti.BatteryTarget + battHeadroomScaled)
+                    else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > bti.BatteryTarget + bti.HeadroomScaled)
                     {
                         // It's gone quiet but it might get busy again: try to discharge some over-charge.
                         dischargeToGridWanted = new LuxAction()

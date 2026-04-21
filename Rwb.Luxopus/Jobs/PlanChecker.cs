@@ -158,8 +158,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
-            int battHeadroomScaled = Scale.Apply(bti.Start, bti.End, DateTime.UtcNow, 0, 100 - battLevelEnd, ScaleMethod.Linear);
-            string targetInfo = $"target {battLevelEnd}% plus headroom {battHeadroomScaled}% = {battLevelEnd + battHeadroomScaled}%";
+            string targetInfo = $"target {battLevelEnd}% plus headroom {bti.HeadroomScaled}% = {battLevelEnd + bti.HeadroomScaled}%";
 
             string why = "no change";
 
@@ -379,18 +378,18 @@ from(bucket: ""solar"")
                         */
 
                         double hoursToCharge = (bti.End - t0).TotalHours;
-                        double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd + battHeadroomScaled - battLevel);
+                        double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(battLevelEnd + bti.HeadroomScaled - battLevel);
                         double kW = powerRequiredKwh / hoursToCharge;
                         int b = _Batt.TransferKiloWattsToPercent(kW * 1.05);
                         battChargeRateWanted = _Batt.RoundPercent(b);
 
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;
-                        if (battLevel < bti.BatteryTarget + battHeadroomScaled)
+                        if (battLevel < bti.BatteryTarget + bti.HeadroomScaled)
                         {
-                            extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + battHeadroomScaled - battLevel);
+                            extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + bti.HeadroomScaled - battLevel);
                             chargeLastWanted = false;
-                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {battLevelEnd + battHeadroomScaled}% ({bti.TargetDescription}) in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
+                            why = $"{powerRequiredKwh:0.0}kWh needed to get from {battLevel}% to {battLevelEnd + bti.HeadroomScaled}% ({bti.TargetDescription}) in {hoursToCharge:0.0} hours until {bti.End:HH:mm} (mean rate {kW:0.0}kW -> {battChargeRateWanted}%).";
 
                             if (battLevel < bti.BatteryTarget && plan.Current.Buy * 1.1M < plan.Next.Sell && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
                             {
@@ -407,7 +406,7 @@ from(bucket: ""solar"")
                                     Limit = bti.BatteryTarget,
                                     Rate = rate
                                 };
-                                why += $"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}% + headroom {battHeadroomScaled}% = {bti.BatteryLevelEnd + battHeadroomScaled}%.";
+                                why += $"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}% + headroom {bti.HeadroomScaled}% = {bti.BatteryLevelEnd + bti.HeadroomScaled}%.";
                                 battChargeRateWanted = 95;
                             }
                         }
@@ -415,8 +414,8 @@ from(bucket: ""solar"")
                         {
                             chargeFromGridWanted = chargeFromGridCurrent.Clone();
                             if(chargeFromGridWanted.Start.TimeOfDay <= DateTime.UtcNow.TimeOfDay && chargeFromGridWanted.End.TimeOfDay >= DateTime.UtcNow.TimeOfDay) { chargeFromGridWanted.Enable = false; }
-                            double aheadkWh = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget - battHeadroomScaled);
-                            why = $"Batt level {battLevel}% is ahead of target {bti.BatteryTarget + battHeadroomScaled}% ({bti.TargetDescription}) by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get to {battLevelEnd + battHeadroomScaled}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm}.";
+                            double aheadkWh = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget - bti.HeadroomScaled);
+                            why = $"Batt level {battLevel}% is ahead of target {bti.BatteryTarget + bti.HeadroomScaled}% ({bti.TargetDescription}) by {aheadkWh:0.0}kWh. {powerRequiredKwh:0.0}kWh needed to get to {battLevelEnd + bti.HeadroomScaled}% in {hoursToCharge:0.0} hours until {bti.End:HH:mm}.";
                             if (generationMax > 3000 && t0.Month >= 3 && t0.Month <= 9)
                             {
                                 chargeLastWanted = true;
@@ -469,7 +468,7 @@ from(bucket: ""solar"")
                     else
                     {
                         // No plan. Set defaults.
-                        if (battLevel > battLevelEnd + battHeadroomScaled)
+                        if (battLevel > battLevelEnd + bti.HeadroomScaled)
                         {
                             why = $"No information. Battery level {battLevel}% is above {targetInfo}. (Current target of {bti.TargetDescription}. )";
                             chargeLastWanted = false;
