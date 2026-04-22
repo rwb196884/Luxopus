@@ -44,6 +44,16 @@ namespace Rwb.Luxopus.Services
         public DateTime Start { get; set;}
         public DateTime End { get; set; }
 
+        public double HoursToCharge { get; set; }
+
+        public double ChargeNeededkWH { get; set; }
+        public double ChargeRateNeededkW { get; set; }
+        public int ChargeRateNeededPercent { get; set; }
+
+        public double ChargeNeededHkWH { get; set; }
+        public double ChargeRateNeededHkW { get; set; }
+        public int ChargeRateNeededHPercent { get; set; }
+
         public string TargetDescription {  get { return $"{BatteryTarget}% ({BatteryTargetS}% < {BatteryTargetL}% < {BatteryTargetF}%)"; } }
     }
 
@@ -104,19 +114,19 @@ namespace Rwb.Luxopus.Services
             info.GenerationStart = gStart;
             info.GenerationEnd = gEnd;
 
-            (DateTime _, long generationMax) = //(DateTime.Now, 0);
-    (await _InfluxQuery.QueryAsync(@$"
-from(bucket: ""solar"")
-  |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
-  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-  |> max()")).First().FirstOrDefault<long>();
+//            (DateTime _, long generationMax) = //(DateTime.Now, 0);
+//    (await _InfluxQuery.QueryAsync(@$"
+//from(bucket: ""solar"")
+//  |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
+//  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+//  |> max()")).First().FirstOrDefault<long>();
 
-            long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
-from(bucket: ""solar"")
-  |> range(start: -45m, stop: now())
-  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-  |> max()")
-               ).First().Records.First().GetValue<long>();
+//            long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
+//from(bucket: ""solar"")
+//  |> range(start: -45m, stop: now())
+//  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+//  |> max()")
+//               ).First().Records.First().GetValue<long>();
 
             double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -125,13 +135,13 @@ from(bucket: ""solar"")
   |> mean()")
                ).First().Records.First().GetValue<double>();
 
-            double generationMeanDifference = (await _InfluxQuery.QueryAsync(@$"
-from(bucket: ""solar"")
-  |> range(start: -45m, stop: now())
-  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-  |> difference()
-  |> mean()")
-               ).First().Records.First().GetValue<double>();
+//            double generationMeanDifference = (await _InfluxQuery.QueryAsync(@$"
+//from(bucket: ""solar"")
+//  |> range(start: -45m, stop: now())
+//  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+//  |> difference()
+//  |> mean()")
+//               ).First().Records.First().GetValue<double>();
 
             // Get fully charged before the discharge period.
             info.Start = gStart > plan.Current.Start ? gStart : plan.Current.Start;
@@ -139,7 +149,7 @@ from(bucket: ""solar"")
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
             DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
 
-            info.End = (gEnd < plan.Next!.Start ? gEnd : plan.Next!.Start).AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1);
+            info.End = (gEnd < plan.Next!.Start ? gEnd : plan.Next!.Start);//.AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1);
 
             int battLevelTargetF = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Fast);
             int battLevelTargetL = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Linear);
@@ -169,8 +179,26 @@ from(bucket: ""solar"")
             info.BatteryTargetS = battLevelTargetS;
             info.BatteryLevelEnd = battLevelEnd;
 
-            info.HeadroomTotal = 100 - battLevelEnd;
-            info.HeadroomScaled = Scale.Apply(info.Start, info.End, DateTime.UtcNow, 0, info.BatteryLevelEnd, ScaleMethod.Linear);
+            info.HeadroomTotal = 100 - info.BatteryLevelEnd;
+            info.HeadroomScaled = Scale.Apply(info.Start, info.End, DateTime.UtcNow, 0, info.HeadroomTotal, info.ScaleMethod);
+
+            info.HoursToCharge = ((info.GenerationEnd < plan.Next.Start ? info.GenerationEnd : plan.Next.Start) - DateTime.UtcNow).TotalHours;
+
+            // To target.
+            int powerRequiredPercent = info.BatteryLevelEnd - info.BatteryLevelCurrent;
+            powerRequiredPercent = powerRequiredPercent < 0 ? 5 : powerRequiredPercent;
+            info.ChargeNeededkWH = _Batt.CapacityPercentToKiloWattHours(powerRequiredPercent);
+
+            info.ChargeRateNeededkW = info.ChargeNeededkWH / info.HoursToCharge;
+            info.ChargeRateNeededPercent = _Batt.TransferKiloWattsToPercent(info.ChargeRateNeededkW);
+
+            // To headroom scaled.
+            powerRequiredPercent = info.BatteryLevelEnd + info.HeadroomScaled - info.BatteryLevelCurrent;
+            powerRequiredPercent = powerRequiredPercent < 0 ? 5 : powerRequiredPercent;
+            info.ChargeNeededHkWH = _Batt.CapacityPercentToKiloWattHours(powerRequiredPercent);
+
+            info.ChargeRateNeededHkW = info.ChargeNeededHkWH / info.HoursToCharge;
+            info.ChargeRateNeededHPercent = _Batt.TransferKiloWattsToPercent(info.ChargeRateNeededHkW);
 
 
             return info;
