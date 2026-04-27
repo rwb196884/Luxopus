@@ -202,7 +202,7 @@ from(bucket: ""solar"")
                     actionInfo.AppendLine($"Battery level {battLevel}% is greater than target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%; ahead by {a:#,##0.0}kWh.");
                 }
 
-                if (DateTime.Now.Hour <= 9 && (bti.ScaleMethod == ScaleMethod.Slow || generationRecentMean > 800 || bti.PredictionBatteryPercent < 150) && battLevel >= bti.BatteryTarget - 5)
+                if (DateTime.Now.Hour <= 9 && (bti.ScaleMethod == ScaleMethod.Slow || generationRecentMean > 800 || bti.PredictionBatteryPercent > 150) && battLevel >= bti.BatteryTarget - 5)
                 {
                     chargeLastWanted = true;
                     battChargeRateWanted = 100;
