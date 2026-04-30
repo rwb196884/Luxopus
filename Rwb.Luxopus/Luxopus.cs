@@ -78,6 +78,8 @@ namespace Rwb.Luxopus
 
             _StartupTasks = new List<Job>()
             {
+                //octopusPrices,
+                //planChecker,
                 //planner, // For dev.
                 //burst, // dev
                 ////hanchuJob,
@@ -86,7 +88,6 @@ namespace Rwb.Luxopus
 
                 octopusMeters,
                 luxMonitor,
-                octopusPrices,
                 sunPosition,
                 sunrise,
                 openweathermap,
