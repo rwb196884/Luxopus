@@ -312,7 +312,6 @@ namespace Rwb.Luxopus.Jobs
                                     double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
                                     notes.AppendLine($"  Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%).");
                                     double generationMedianForMonth = (double)(await InfluxQuery.QueryAsync(Query.GenerationMedianForMonth, DateTime.UtcNow)).Single().Records[0].Values["_value"] / 10.0;
-                                    generationMedianForMonth = generationMedianForMonth / 10.0;
                                     if (generationPrediction > generationMedianForMonth)
                                     {
                                         generationPrediction = (generationPrediction + generationMedianForMonth) / 2.0;
