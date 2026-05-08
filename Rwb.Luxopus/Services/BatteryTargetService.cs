@@ -182,6 +182,11 @@ from(bucket: ""solar"")
             info.HeadroomTotal = 100 - info.BatteryLevelEnd;
             info.HeadroomScaled = Scale.Apply(info.Start, info.End, DateTime.UtcNow, 0, info.HeadroomTotal, info.ScaleMethod);
 
+            if(info.HeadroomTotal > 0 && info.ScaleMethod == ScaleMethod.Slow)
+            {
+                info.ScaleMethod = ScaleMethod.Linear;
+            }
+
             info.HoursToCharge = ((info.GenerationEnd < plan.Next.Start ? info.GenerationEnd : plan.Next.Start) - DateTime.UtcNow).TotalHours;
 
             // To target.

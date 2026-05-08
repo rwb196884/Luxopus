@@ -202,7 +202,7 @@ from(bucket: ""solar"")
                     actionInfo.AppendLine($"Battery level {battLevel}% is greater than target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%; ahead by {a:#,##0.0}kWh.");
                 }
 
-                if (DateTime.Now.Hour <= 9 && (bti.ScaleMethod == ScaleMethod.Slow || generationRecentMean > 800 || bti.PredictionBatteryPercent > 150) && battLevel >= bti.BatteryTarget - 5)
+                if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 9 && (bti.ScaleMethod == ScaleMethod.Slow || generationRecentMean > 800 || bti.PredictionBatteryPercent > 150) && battLevel >= bti.BatteryTarget - 5)
                 {
                     chargeLastWanted = true;
                     battChargeRateWanted = 100;
@@ -259,26 +259,7 @@ from(bucket: ""solar"")
                 else
                 {
                     // Low generation.
-                    if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 9 /* up to 11AM BST && sm == ScaleMethod.Slow */ && bti.PredictionBatteryPercent > 200 && generationMax > 1000 && battLevel > bti.BatteryTarget - 8)
-                    {
-                        // It's early and it looks like it's going to be a good day.
-                        // So keep the battery empty to make space for later.
-                        battChargeRateWanted = 97;
-                        chargeLastWanted = true;
-                        if (battLevel > bti.BatteryTarget - 5)
-                        {
-                            dischargeToGridWanted = new LuxAction()
-                            {
-                                Enable = true,
-                                Start = currentPeriod.Start,
-                                End = dischargeToGridCurrent.End >= plan.Next.Start ? dischargeToGridCurrent.End : plan.Next.Start,
-                                Limit = bti.BatteryTarget - 5,
-                                Rate = 91
-                            };
-                        }
-                        actionInfo.AppendLine($"Looks like it could be a good day. Battery level {battLevel}%, target of {bti.TargetDescription} therefore keep some space.");
-                    }
-                    else if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > bti.BatteryTarget + bti.HeadroomScaled)
+                    if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > bti.BatteryTarget + bti.HeadroomScaled)
                     {
                         // It's gone quiet but it might get busy again: try to discharge some over-charge.
                         dischargeToGridWanted = new LuxAction()
@@ -296,12 +277,12 @@ from(bucket: ""solar"")
                     else if (battLevel < bti.BatteryTarget 
                         //&& battLevel < _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3 
                         && plan.Next != null && Plan.DischargeToGridCondition(plan.Next) 
-                        && DateTime.UtcNow > plan.Next.Start.AddHours(-2) 
+                        && t0 > plan.Next.Start.AddHours(-2) 
                         && plan.Current.Buy * 1.1M < plan.Next.Sell && generationRecentMax < 3000)
                     {
                         // If buy is lower then next sell then we can buy to catch up.
                         double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
-                        double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
+                        double dt = (plan.Next.Start - t0).TotalHours;
                         int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
                         if (rate < 13) { rate = 13; }
                         if (rate > 100) { rate = 100; }
