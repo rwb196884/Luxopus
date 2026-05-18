@@ -448,7 +448,7 @@ from(bucket: ""solar"")
 
                             if (bti.ChargeRateNeededHkW < generationRecentMean)
                             {
-                                why += $" Need {bti.ChargeNeededHkWH:0.0}kWh in {bti.HoursToCharge:0.0} hours (rate {battChargeRateWanted}%) but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 97%.";
+                                why += $" Need {bti.ChargeNeededHkWH:0.0}kWh in {bti.HoursToCharge:0.0} hours (rate {bti.ChargeRateNeededHkW:0.0}kW, {bti.ChargeRateNeededHPercent}%) but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 97%.";
                                 battChargeRateWanted = 97;
                                 chargeLastWanted = false;
                             }
