@@ -234,24 +234,26 @@ from(bucket: ""solar"")
                     }
                     else if (battLevel < bti.BatteryTarget + bti.HeadroomScaled)
                     {
-                        chargeLastWanted = false;
-                        actionInfo.AppendLine($"Charge last disabled because behind target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%; required charge rate is {bti.ChargeRateNeededHPercent}% overidden to {92}% to catch up.");
-                        battChargeRateWanted = bti.ChargeRateNeededHPercent;
+                         actionInfo.AppendLine($"Behind target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%; required charge rate is {bti.ChargeRateNeededHPercent}%.");
                         // Increase the batt charge rate to avoid clipping.
-                        int minToBatt = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent((Convert.ToDouble(generation) - 3000.0) / 1000.0));
-                        if (battChargeRateWanted < minToBatt)
+                        double kwForBattAfterCL = (Convert.ToDouble(generation) - 3600.0) / 1000.0;
+                        int pcForBattAfterCL = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwForBattAfterCL));
+                        if (battChargeRateWanted < pcForBattAfterCL)
                         {
-                            actionInfo.AppendLine($"Charge last disabled because headroom is available; required charge rate is {bti.ChargeRateNeededHPercent}% overidden to {minToBatt}% because generation {generation}kW.");
-                            battChargeRateWanted = minToBatt;
+                            actionInfo.AppendLine($"  Generation {generation}kW leaves {kwForBattAfterCL}kW ({pcForBattAfterCL}%) to battery after charge last but charge rate needed is {bti.ChargeRateNeededHkW}kW ({bti.ChargeRateNeededHPercent}%) therefore charge last.");
+                            battChargeRateWanted = 98;
+                            chargeLastWanted = true;
                         }
                         else
                         {
-                            actionInfo.AppendLine($"Charge last disabled because headroom is available; required charge rate is {bti.ChargeRateNeededHPercent}% which is below generation of {generation}kW.");
+                            actionInfo.AppendLine($"  Generation {generation}kW leaves {kwForBattAfterCL}kW ({pcForBattAfterCL}%) to battery after charge last but charge rate needed is {bti.ChargeRateNeededHkW}kW ({bti.ChargeRateNeededHPercent}%) therefore do not charge last.");
+                            battChargeRateWanted = bti.ChargeRateNeededHPercent;
+                            chargeLastWanted = false;
                         }
                     }
                     else
                     {
-                        battChargeRateWanted = 98;
+                        battChargeRateWanted = 97;
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Charge last enabled because ahead of target.");
                     }
