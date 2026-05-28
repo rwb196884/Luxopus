@@ -240,13 +240,13 @@ from(bucket: ""solar"")
                         int pcForBattAfterCL = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwForBattAfterCL));
                         if (battChargeRateWanted < pcForBattAfterCL)
                         {
-                            actionInfo.AppendLine($"  Generation {generation}kW leaves {kwForBattAfterCL}kW ({pcForBattAfterCL}%) to battery after charge last but charge rate needed is {bti.ChargeRateNeededHkW}kW ({bti.ChargeRateNeededHPercent}%) therefore charge last.");
+                            actionInfo.AppendLine($"  Generation {generation:0.0}kW leaves {kwForBattAfterCL:0.0}kW ({pcForBattAfterCL}%) to battery after charge last but charge rate needed is {bti.ChargeRateNeededHkW:0.0}kW ({bti.ChargeRateNeededHPercent}%) therefore charge last.");
                             battChargeRateWanted = 98;
                             chargeLastWanted = true;
                         }
                         else
                         {
-                            actionInfo.AppendLine($"  Generation {generation}kW leaves {kwForBattAfterCL}kW ({pcForBattAfterCL}%) to battery after charge last but charge rate needed is {bti.ChargeRateNeededHkW}kW ({bti.ChargeRateNeededHPercent}%) therefore do not charge last.");
+                            actionInfo.AppendLine($"  Generation {generation:0.0}kW leaves {kwForBattAfterCL:0.0}kW ({pcForBattAfterCL}%) to battery after charge last but charge rate needed is {bti.ChargeRateNeededHkW:0.0}kW ({bti.ChargeRateNeededHPercent}%) therefore do not charge last.");
                             battChargeRateWanted = bti.ChargeRateNeededHPercent;
                             chargeLastWanted = false;
                         }
