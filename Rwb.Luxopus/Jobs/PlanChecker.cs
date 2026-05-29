@@ -385,7 +385,7 @@ from(bucket: ""solar"")
                         {
                             extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + bti.HeadroomScaled - battLevel);
                             chargeLastWanted = false;
-                            why = $"{bti.ChargeNeededHkWH:0.0}kWh needed to get from {battLevel}% to {battLevelEnd}% + {bti.HeadroomScaled}% ({bti.TargetDescription}) in {bti.HoursToCharge:0.0} hours until {bti.End:HH:mm} (mean rate {bti.ChargeNeededHkWH:0.0}kW -> {battChargeRateWanted}%).";
+                            why = $"{bti.ChargeNeededHkWH:0.0}kWh needed to get from {battLevel}% to {battLevelEnd}% + {bti.HeadroomScaled}% ({bti.TargetDescription}) in {bti.HoursToCharge:0.0} hours until {bti.End:HH:mm} (mean rate {bti.ChargeRateNeededHkW:0.0}kW -> {battChargeRateWanted}%).";
 
                             if (battLevel < bti.BatteryTarget && plan.Current.Buy * 1.1M < plan.Next.Sell && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
                             {
