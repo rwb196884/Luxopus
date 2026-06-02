@@ -436,28 +436,24 @@ from(bucket: ""solar"")
                             if (bti.PredictionBatteryPercent < 200)
                             {
                                 battChargeRateWanted = 99;
-                                chargeLastWanted = false;
                                 why += $" Generation prediction to battery is {bti.PredictionBatteryPercent}% therefore override to 99%.";
                             }
                             else if (generationRecentMax < 2500 && extraPowerNeeded > 0)
                             {
                                 battChargeRateWanted = 98;
-                                chargeLastWanted = false;
                                 why += $" But we are behind by {extraPowerNeeded:0.0}kW and recent generation max is {generationRecentMax / 1000:0.0}kW therefore override to 98%.";
                             }
 
-                            if (bti.ChargeRateNeededHkW < generationRecentMean/ 1000)
+                            if (bti.ChargeRateNeededHkW > generationRecentMean/ 1000)
                             {
                                 why += $" Need {bti.ChargeNeededHkWH:0.0}kWh in {bti.HoursToCharge:0.0} hours (rate {bti.ChargeRateNeededHkW:0.0}kW, {bti.ChargeRateNeededHPercent}%) but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 97%.";
                                 battChargeRateWanted = 97;
-                                chargeLastWanted = false;
                             }
 
                             if (generationRecentMax < 3600 && battLevel < bti.BatteryTarget + bti.HeadroomScaled && generationMeanDifference < 0)
                             {
                                 why += $" Rate of generation is decreasing ({generationMeanDifference:0}W) therefore override battery charge rate from {battChargeRateWanted}% to {(battChargeRateWanted > 40 ? 96 : battChargeRateWanted * 2)}%.";
                                 battChargeRateWanted = battChargeRateWanted > 40 ? 96 : battChargeRateWanted * 2;
-                                chargeLastWanted = false;
                             }
                         }
                     }
