@@ -224,10 +224,13 @@ from(bucket: ""solar"")
                         chargeFromGridWanted.Enable = false;
                     }
 
+                    double kwForBattAfterCL = generationRecentMean  - 3.6;
+                    int pcForBattAfterCL = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwForBattAfterCL));
+
                     // Generation probably not limited therefore send less to battery.
                     if (battLevel < bti.BatteryTarget)
                     {
-                        if (generationRecentMean > 3600 + bti.ChargeRateNeededHkW)
+                        if (bti.ChargeRateNeededHPercent < pcForBattAfterCL)
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 99;
@@ -245,9 +248,7 @@ from(bucket: ""solar"")
                     {
                         actionInfo.AppendLine($"Behind target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%; required charge rate is {bti.ChargeRateNeededHPercent}%.");
                         // Increase the batt charge rate to avoid clipping.
-                        double kwForBattAfterCL = (Convert.ToDouble(generation) - 3600.0) / 1000.0;
-                        int pcForBattAfterCL = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwForBattAfterCL));
-                        if (battChargeRateWanted < pcForBattAfterCL)
+                        if (bti.ChargeRateNeededHPercent < pcForBattAfterCL)
                         {
                             actionInfo.AppendLine($"  Generation {generation:0.0}kW leaves {kwForBattAfterCL:0.0}kW ({pcForBattAfterCL}%) to battery after charge last but charge rate needed is {bti.ChargeRateNeededHkW:0.0}kW ({bti.ChargeRateNeededHPercent}%) therefore charge last.");
                             battChargeRateWanted = 98;
