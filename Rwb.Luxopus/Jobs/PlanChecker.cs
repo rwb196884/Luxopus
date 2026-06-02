@@ -435,13 +435,13 @@ from(bucket: ""solar"")
                         {
                             if (bti.PredictionBatteryPercent < 200)
                             {
+                                why += $" Generation prediction to battery is {bti.PredictionBatteryPercent}% therefore override {battChargeRateWanted}% to 99%.";
                                 battChargeRateWanted = 99;
-                                why += $" Generation prediction to battery is {bti.PredictionBatteryPercent}% therefore override to 99%.";
                             }
                             else if (generationRecentMax < 2500 && extraPowerNeeded > 0)
                             {
-                                battChargeRateWanted = 98;
                                 why += $" But we are behind by {extraPowerNeeded:0.0}kW and recent generation max is {generationRecentMax / 1000:0.0}kW therefore override to 98%.";
+                                battChargeRateWanted = 98;
                             }
 
                             if (bti.ChargeRateNeededHkW > generationRecentMean/ 1000 && battChargeRateWanted < bti.ChargeRateNeededHPercent)
