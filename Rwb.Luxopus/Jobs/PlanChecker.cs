@@ -444,9 +444,9 @@ from(bucket: ""solar"")
                                 why += $" But we are behind by {extraPowerNeeded:0.0}kW and recent generation max is {generationRecentMax / 1000:0.0}kW therefore override to 98%.";
                             }
 
-                            if (bti.ChargeRateNeededHkW > generationRecentMean/ 1000)
+                            if (bti.ChargeRateNeededHkW > generationRecentMean/ 1000 && battChargeRateWanted < bti.ChargeRateNeededHPercent)
                             {
-                                why += $" Need {bti.ChargeNeededHkWH:0.0}kWh in {bti.HoursToCharge:0.0} hours (rate {bti.ChargeRateNeededHkW:0.0}kW, {bti.ChargeRateNeededHPercent}%) but recent generation is {generationRecentMean / 1000:0.0}kW therefore override to 97%.";
+                                why += $" Need {bti.ChargeNeededHkWH:0.0}kWh in {bti.HoursToCharge:0.0} hours (rate {bti.ChargeRateNeededHkW:0.0}kW, {bti.ChargeRateNeededHPercent}%) but recent generation is {generationRecentMean / 1000:0.0}kW therefore override {battChargeRateWanted}% to 97%.";
                                 battChargeRateWanted = 97;
                             }
 
