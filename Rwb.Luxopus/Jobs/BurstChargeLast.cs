@@ -212,7 +212,7 @@ from(bucket: ""solar"")
                 {
                     chargeLastWanted = false;
                     battChargeRateWanted = 100;
-                    actionInfo.AppendLine($"Recent generation {generationRecentMean:0.0}kW is less than charge rate required {bti.ChargeRateNeededHkW:0.0}kW.");
+                    actionInfo.AppendLine($"Recent generation {generationRecentMean / 1000:0.0}kW is less than charge rate required {bti.ChargeRateNeededHkW:0.0}kW.");
                 }
                 else if (generation > 3200)
                 {
@@ -224,7 +224,7 @@ from(bucket: ""solar"")
                         chargeFromGridWanted.Enable = false;
                     }
 
-                    double kwForBattAfterCL = generationRecentMean  - 3.6;
+                    double kwForBattAfterCL = (generationRecentMean  - 3600 ) / 1000;
                     int pcForBattAfterCL = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwForBattAfterCL));
 
                     // Generation probably not limited therefore send less to battery.
@@ -234,7 +234,7 @@ from(bucket: ""solar"")
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 99;
-                            actionInfo.AppendLine($"Required charge rate (including headroom of {bti.HeadroomScaled}%) is {bti.ChargeRateNeededHPercent}%. But generation {generationRecentMean:0.0}kW is greater than 3600 + {bti.ChargeRateNeededHkW:0.0}kW. ");
+                            actionInfo.AppendLine($"Required charge rate (including headroom of {bti.HeadroomScaled}%) is {bti.ChargeRateNeededHPercent}%. But generation {generationRecentMean/1000:0.0}kW is greater than 3600 + {bti.ChargeRateNeededHkW:0.0}kW. ");
                         }
                         else
                         {
