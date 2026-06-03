@@ -226,37 +226,36 @@ from(bucket: ""solar"")
 
                     double kwForBattAfterCL = (generationRecentMean  - 3600 ) / 1000;
                     int pcForBattAfterCL = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwForBattAfterCL));
+                    actionInfo.AppendLine($"Generation {generationRecentMean/1000:0.0}kW leaves {kwForBattAfterCL:0.0}kW ({pcForBattAfterCL}%) for battery after charge last.");
+                    actionInfo.AppendLine($"Required charge rate (including headroom of {bti.HeadroomScaled}%) is {bti.ChargeRateNeededHkW:0.0}kW ({bti.ChargeRateNeededHPercent}%).");
 
                     // Generation probably not limited therefore send less to battery.
                     if (battLevel < bti.BatteryTarget)
                     {
+                        actionInfo.AppendLine($"Battery level {battLevel}% is behind target {bti.BatteryTarget}%.");
                         if (bti.ChargeRateNeededHPercent < pcForBattAfterCL)
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 99;
-                            actionInfo.AppendLine($"Required charge rate (including headroom of {bti.HeadroomScaled}%) is {bti.ChargeRateNeededHPercent}%. But generation {generationRecentMean/1000:0.0}kW is greater than 3600 + {bti.ChargeRateNeededHkW:0.0}kW. ");
                         }
                         else
                         {
                             chargeLastWanted = false;
                             battChargeRateWanted = 99;
-                            actionInfo.AppendLine($"Charge last disabled because behind target {bti.BatteryTarget}%. Required charge rate (including headroom of {bti.HeadroomScaled}%) is {bti.ChargeRateNeededHPercent}%. Overidden to {99}% to catch up.");
                         }
 
                     }
                     else if (battLevel < bti.BatteryTarget + bti.HeadroomScaled)
                     {
-                        actionInfo.AppendLine($"Behind target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%; required charge rate is {bti.ChargeRateNeededHPercent}%.");
+                        actionInfo.AppendLine($"Battery level {battLevel}% is behind target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%.");
                         // Increase the batt charge rate to avoid clipping.
                         if (bti.ChargeRateNeededHPercent < pcForBattAfterCL)
                         {
-                            actionInfo.AppendLine($"  Generation {generation:0.0}kW leaves {kwForBattAfterCL:0.0}kW ({pcForBattAfterCL}%) to battery after charge last but charge rate needed is {bti.ChargeRateNeededHkW:0.0}kW ({bti.ChargeRateNeededHPercent}%) therefore charge last.");
                             battChargeRateWanted = 98;
                             chargeLastWanted = true;
                         }
                         else
                         {
-                            actionInfo.AppendLine($"  Generation {generation:0.0}kW leaves {kwForBattAfterCL:0.0}kW ({pcForBattAfterCL}%) to battery after charge last but charge rate needed is {bti.ChargeRateNeededHkW:0.0}kW ({bti.ChargeRateNeededHPercent}%) therefore do not charge last.");
                             battChargeRateWanted = bti.ChargeRateNeededHPercent;
                             chargeLastWanted = false;
                         }
