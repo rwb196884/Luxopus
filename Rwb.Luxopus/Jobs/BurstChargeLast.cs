@@ -181,14 +181,16 @@ from(bucket: ""solar"")
                 //int battCharge = r.Single(z => z.Name == "pCharge").Value.GetInt32();
                 //int battDisharge = r.Single(z => z.Name == "pDisharge").Value.GetInt32();
 
-                actionInfo.AppendLine($"       Generation: {generation}W");
-                actionInfo.AppendLine($"  Inverter output: {inverterOutput}W");
-                actionInfo.AppendLine($"    Battery level: {battLevel}%");
-                actionInfo.AppendLine($"   Battery target: {bti.TargetDescription})");
-                actionInfo.AppendLine($" Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%)");
-                actionInfo.AppendLine($"      Charge last: {(chargeLast ? "yes" : "no")}");
-                actionInfo.AppendLine($"Discharge to grid: {dischargeToGridCurrent})");
-                actionInfo.AppendLine($" Charge from grid: {chargeFromGridCurrent})");
+                actionInfo.AppendLine($"        Generation: current {generation}W, mean {generationRecentMean/1000:0.0}kW, max {generationRecentMax/1000:0.0}");
+                actionInfo.AppendLine($"   Inverter output: {inverterOutput}W");
+                actionInfo.AppendLine($"     Battery level: {battLevel}%");
+                actionInfo.AppendLine($"    Battery target: {bti.TargetDescription})");
+                actionInfo.AppendLine($"  Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%)");
+                actionInfo.AppendLine($"Charge rate needed: {bti.ChargeNeededkWH}kWh in {bti.HoursToCharge:0.0} hours -> {bti.ChargeRateNeededHkW}kW ({bti.ChargeRateNeededHPercent}%)");
+
+                actionInfo.AppendLine($"       Charge last: {(chargeLast ? "on" : "off")}");
+                actionInfo.AppendLine($" Discharge to grid: {dischargeToGridCurrent})");
+                actionInfo.AppendLine($"  Charge from grid: {chargeFromGridCurrent})");
 
                 // Are we behind schedule?
                 if (battLevel < bti.BatteryTarget + bti.HeadroomScaled)
@@ -211,7 +213,7 @@ from(bucket: ""solar"")
                 else if (generationRecentMean < bti.ChargeRateNeededHkW)
                 {
                     chargeLastWanted = false;
-                    battChargeRateWanted = 100;
+                    battChargeRateWanted = battLevel < bti.BatteryTarget + bti.HeadroomScaled ? 100 : bti.ChargeRateNeededHPercent;
                     actionInfo.AppendLine($"Recent generation {generationRecentMean / 1000:0.0}kW is less than charge rate required {bti.ChargeRateNeededHkW:0.0}kW.");
                 }
                 else if (generation > 3200)
@@ -232,7 +234,6 @@ from(bucket: ""solar"")
                     // Generation probably not limited therefore send less to battery.
                     if (battLevel < bti.BatteryTarget)
                     {
-                        actionInfo.AppendLine($"Battery level {battLevel}% is behind target {bti.BatteryTarget}%.");
                         if (bti.ChargeRateNeededHPercent < pcForBattAfterCL)
                         {
                             chargeLastWanted = true;
@@ -243,27 +244,25 @@ from(bucket: ""solar"")
                             chargeLastWanted = false;
                             battChargeRateWanted = 99;
                         }
-
                     }
                     else if (battLevel < bti.BatteryTarget + bti.HeadroomScaled)
                     {
-                        actionInfo.AppendLine($"Battery level {battLevel}% is behind target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%.");
                         // Increase the batt charge rate to avoid clipping.
                         if (bti.ChargeRateNeededHPercent < pcForBattAfterCL)
                         {
-                            battChargeRateWanted = 98;
                             chargeLastWanted = true;
+                            battChargeRateWanted = 98;
                         }
                         else
                         {
-                            battChargeRateWanted = bti.ChargeRateNeededHPercent;
                             chargeLastWanted = false;
+                            battChargeRateWanted = bti.ChargeRateNeededHPercent;
                         }
                     }
                     else
                     {
-                        battChargeRateWanted = 97;
                         chargeLastWanted = true;
+                        battChargeRateWanted = 97;
                         actionInfo.AppendLine($"Charge last enabled because ahead of target.");
                     }
                 }
