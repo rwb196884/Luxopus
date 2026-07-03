@@ -471,7 +471,7 @@ namespace Rwb.Luxopus.Jobs
                 }
 
                 // check for discharge, z, charge.
-                if (DateTime.Today.Month >= 5 && DateTime.Today.Month <= 9)
+                if (DateTime.Today.Month >= 4 && DateTime.Today.Month <= 9)
                 {
                     foreach (PeriodPlan p1 in plan.Plans.Where(z => Plan.DischargeToGridCondition(z)))
                     {
@@ -487,7 +487,7 @@ namespace Rwb.Luxopus.Jobs
                             catch { }
                             if (gEnd > p1.Start)
                             {
-                                p2.Action.DischargeToGrid = p3.Action.ChargeFromGrid;
+                                p2.Action.DischargeToGrid = 100 - _Batt.MaxDischarge;// p3.Action.ChargeFromGrid;
                             }
                         }
                     }

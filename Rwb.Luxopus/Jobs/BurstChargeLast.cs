@@ -248,7 +248,7 @@ from(bucket: ""solar"")
                     else if (battLevel < bti.BatteryTarget + bti.HeadroomScaled)
                     {
                         // Increase the batt charge rate to avoid clipping.
-                        if (bti.ChargeRateNeededHPercent < pcForBattAfterCL)
+                        if (bti.ChargeRateNeededPercent < pcForBattAfterCL)
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 98;
@@ -256,7 +256,7 @@ from(bucket: ""solar"")
                         else
                         {
                             chargeLastWanted = false;
-                            battChargeRateWanted = bti.ChargeRateNeededHPercent;
+                            battChargeRateWanted = bti.ChargeRateNeededPercent;
                         }
                     }
                     else
