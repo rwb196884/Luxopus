@@ -1,4 +1,5 @@
 ﻿using InfluxDB.Client;
+using InfluxDB.Client.Api.Domain;
 using InfluxDB.Client.Core.Flux.Domain;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -112,7 +113,10 @@ namespace Rwb.Luxopus.Services
         Task<List<FluxTable>> QueryAsync(string flux);
         Task<List<FluxTable>> QueryAsync(Query query, DateTime today);
 
+        Task<(int level, DateTime when)> GetBatteryStartLevelAsync();
+
         Task<int> GetBatteryLevelAsync(DateTime when);
+
         /// <summary>
         /// Get prices at <paramref name="day"/> through to the end of the next day.
         /// </summary>
@@ -123,6 +127,8 @@ namespace Rwb.Luxopus.Services
 
     public enum Query
     {
+        BatteryLow,
+
         //EveningSellMax,
         //OvernightMin,
         //MorningSellMax,
@@ -207,6 +213,18 @@ namespace Rwb.Luxopus.Services
             flux = flux.Replace("bucket: \"solar\"", $"bucket: \"{Settings.Bucket}\"");
             flux = flux.Replace("today()", $"{today.ToString("yyyy-MM-dd")}T00:00:00Z");
             return await QueryAsync(flux);
+        }
+
+        public async Task<(int level, DateTime when)> GetBatteryStartLevelAsync()
+        {
+            string flux = await ReadFluxAsync(Query.BatteryLow.ToString());
+            List<FluxTable> q = await QueryAsync(flux);
+            if (q.Count > 0 && q[0].Records.Count > 0)
+            {
+                (DateTime when, long llevel) = q[0].GetValues<long>().Single();
+                return (Convert.ToInt32(llevel), when);
+            }
+            return (5, DateTime.Today.AddHours(5));
         }
 
         public async Task<int> GetBatteryLevelAsync(DateTime when)

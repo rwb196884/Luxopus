@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using System;
-using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -8,6 +7,7 @@ namespace Rwb.Luxopus.Services
 {
     public class BatteryTargetInfo
     {
+        public int BatteryLevelStart { get; set; }
         public int BatteryLevelCurrent { get; set; }
         public int BatteryLevelEnd { get; set; }
         public ScaleMethod ScaleMethod { get; set; }
@@ -41,7 +41,7 @@ namespace Rwb.Luxopus.Services
         public DateTime GenerationStart { get; set; }
         public DateTime GenerationEnd { get; set; }
 
-        public DateTime Start { get; set;}
+        public DateTime Start { get; set; }
         public DateTime End { get; set; }
 
         public double HoursToCharge { get; set; }
@@ -54,7 +54,15 @@ namespace Rwb.Luxopus.Services
         public double ChargeRateNeededHkW { get; set; }
         public int ChargeRateNeededHPercent { get; set; }
 
-        public string TargetDescription {  get { return $"{BatteryTarget}% ({BatteryTargetS}% < {BatteryTargetL}% < {BatteryTargetF}%)"; } }
+        public string TargetDescription { get { return $"{BatteryTarget}% ({BatteryTargetS}% < {BatteryTargetL}% < {BatteryTargetF}%)"; } }
+
+        public string ChargeDescription
+        {
+            get
+            {
+                return $"{ChargeNeededHkWH:0.0}kWh needed to get from {BatteryLevelCurrent}% to {BatteryLevelEnd}% in {HoursToCharge:0.0} hours until {End:HH:mm} (mean rate {ChargeRateNeededHkW:0.0}kW -> {ChargeRateNeededPercent}%).";
+            }
+        }
     }
 
     public class BatteryTargetService
@@ -62,18 +70,18 @@ namespace Rwb.Luxopus.Services
         private readonly ILogger _Logger;
         private readonly IInfluxQueryService _InfluxQuery;
         private readonly IBatteryService _Batt;
-        private readonly ILuxopusPlanService _Plans;
+        //private readonly ILuxopusPlanService _Plans;
 
         public BatteryTargetService(
-            ILogger<BatteryTargetService> logger, IInfluxQueryService influxQuery, IBatteryService batt, ILuxopusPlanService plans)
+            ILogger<BatteryTargetService> logger, IInfluxQueryService influxQuery, IBatteryService batt/*, ILuxopusPlanService plans*/)
         {
             _Logger = logger;
             _InfluxQuery = influxQuery;
             _Batt = batt;
-            _Plans = plans;
+            //_Plans = plans;
         }
 
-        public int DefaultBatteryLevelEnd
+        private int DefaultBatteryLevelEnd
         {
             get
             {
@@ -85,12 +93,15 @@ namespace Rwb.Luxopus.Services
 
         public async Task<BatteryTargetInfo> Compute(Plan plan, int battLevelEnd = 101)
         {
-            if(battLevelEnd == 101)
+            if (battLevelEnd == 101)
             {
                 battLevelEnd = DefaultBatteryLevelEnd;
             }
 
             BatteryTargetInfo info = new BatteryTargetInfo();
+
+            (int battStart, _) = await _InfluxQuery.GetBatteryStartLevelAsync();
+            info.BatteryLevelStart = battStart;
 
             info.BatteryLevelCurrent = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
 
@@ -114,19 +125,19 @@ namespace Rwb.Luxopus.Services
             info.GenerationStart = gStart;
             info.GenerationEnd = gEnd;
 
-//            (DateTime _, long generationMax) = //(DateTime.Now, 0);
-//    (await _InfluxQuery.QueryAsync(@$"
-//from(bucket: ""solar"")
-//  |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
-//  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-//  |> max()")).First().FirstOrDefault<long>();
+            //            (DateTime _, long generationMax) = //(DateTime.Now, 0);
+            //    (await _InfluxQuery.QueryAsync(@$"
+            //from(bucket: ""solar"")
+            //  |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
+            //  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+            //  |> max()")).First().FirstOrDefault<long>();
 
-//            long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
-//from(bucket: ""solar"")
-//  |> range(start: -45m, stop: now())
-//  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-//  |> max()")
-//               ).First().Records.First().GetValue<long>();
+            //            long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
+            //from(bucket: ""solar"")
+            //  |> range(start: -45m, stop: now())
+            //  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+            //  |> max()")
+            //               ).First().Records.First().GetValue<long>();
 
             double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -135,13 +146,13 @@ from(bucket: ""solar"")
   |> mean()")
                ).First().Records.First().GetValue<double>();
 
-//            double generationMeanDifference = (await _InfluxQuery.QueryAsync(@$"
-//from(bucket: ""solar"")
-//  |> range(start: -45m, stop: now())
-//  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-//  |> difference()
-//  |> mean()")
-//               ).First().Records.First().GetValue<double>();
+            //            double generationMeanDifference = (await _InfluxQuery.QueryAsync(@$"
+            //from(bucket: ""solar"")
+            //  |> range(start: -45m, stop: now())
+            //  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+            //  |> difference()
+            //  |> mean()")
+            //               ).First().Records.First().GetValue<double>();
 
             // Get fully charged before the discharge period.
             info.Start = gStart > plan.Current.Start ? gStart : plan.Current.Start;
@@ -182,7 +193,7 @@ from(bucket: ""solar"")
             info.HeadroomTotal = 100 - info.BatteryLevelEnd;
             info.HeadroomScaled = Scale.Apply(info.Start, info.End, DateTime.UtcNow, 0, info.HeadroomTotal, info.ScaleMethod);
 
-            if(info.HeadroomTotal > 0 && info.ScaleMethod == ScaleMethod.Slow)
+            if (info.HeadroomTotal > 0 && info.ScaleMethod == ScaleMethod.Slow)
             {
                 info.ScaleMethod = ScaleMethod.Linear;
             }

@@ -1,0 +1,7 @@
+import "date"
+
+from(bucket: "solar")
+  |> range(start: date.add(to: today(), d: 4h), stop: date.add(to: today(), d: 9h))
+  |> filter(fn: (r) => r["_measurement"] == "inverter" and  r["_field"] == "batt_level")
+  |> min()
+  |> yield(name: "last")
