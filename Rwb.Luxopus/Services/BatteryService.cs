@@ -116,7 +116,9 @@ namespace Rwb.Luxopus.Services
 
         public int RoundPercent(int percent)
         {
-            if (percent <= 8) { return 8; }
+            if (percent <= 3) { return 3; }
+            else if (percent <= 5) { return 5; }
+            else if (percent <= 8) { return 8; }
             else if (percent <= 13) { return 13; }
             else if (percent <= 21) { return 21; }
             else if (percent <= 34) { return 34; }

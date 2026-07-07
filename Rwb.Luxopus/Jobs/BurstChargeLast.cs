@@ -119,7 +119,8 @@ namespace Rwb.Luxopus.Jobs
             int battOffset = battStart > _Batt.BatteryMinimumLimit ? battStart : _Batt.BatteryMinimumLimit;
             int battLevelEnd = battOffset + _Batt.MaxDischarge * 3; // TODO: work out from plan.
             battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
-            actionInfo.AppendLine($"Target is mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge}% = {battLevelEnd}%.");
+            actionInfo.AppendLine($"Target is mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
+            // TODO: this assumes flux; solar charge target should be set by the plan.
 
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
             if ((plan.Next?.Buy ?? 1) <= 0)
@@ -182,7 +183,6 @@ from(bucket: ""solar"")
                 kwMaxForBattAfterCL = 0;
             }
             int pcMaxForBattAfterCL = kwMaxForBattAfterCL == 0 ? 0 : _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwMaxForBattAfterCL));
-            actionInfo.AppendLine($"Generation max {generationRecentMax / 1000:0.0}kW leaves {kwMaxForBattAfterCL:0.0}kW ({pcMaxForBattAfterCL}%) for battery after charge last.");
 
             double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -196,8 +196,6 @@ from(bucket: ""solar"")
                 kwMeanForBattAfterCL = 0;
             }
             int pcMeanForBattAfterCL = kwMeanForBattAfterCL == 0 ? 0 : _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwMeanForBattAfterCL));
-            actionInfo.AppendLine($"Generation mean {generationRecentMean / 1000:0.0}kW leaves {kwMeanForBattAfterCL:0.0}kW ({pcMeanForBattAfterCL}%) for battery after charge last.");
-
 
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {
@@ -216,22 +214,19 @@ from(bucket: ""solar"")
                 }
                 int pcCurrentForBattAfterCL = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwCurrentForBattAfterCL));
 
-                actionInfo.AppendLine($"          Generation: current {generation}W, mean {generationRecentMean:0}W, max {generationRecentMax:0}W");
+                actionInfo.AppendLine($"          Generation: {generation}W leaves {kwCurrentForBattAfterCL:0.0}kW ({pcCurrentForBattAfterCL}%) for battery after charge last.");
+                actionInfo.AppendLine($"      Generation max: max {generationRecentMax:0}W leaves {kwMaxForBattAfterCL:0.0}kW ({pcMaxForBattAfterCL}%) for battery after charge last.");
+                actionInfo.AppendLine($"     Generation mean: mean {generationRecentMean:0}W leaves {kwMeanForBattAfterCL:0.0}kW ({pcMeanForBattAfterCL}%) for battery after charge last.");
                 actionInfo.AppendLine($"     Inverter output: {inverterOutput}W");
-                if (inverterOutput > 3600)
-                {
-                    actionInfo.AppendLine($"Inverter output - CL: {pcCurrentForBattAfterCL}%");
-                }
-                actionInfo.AppendLine($"       Battery level: {battLevel}%");
-                actionInfo.AppendLine($"      Battery target: {bti.TargetDescription})");
-                actionInfo.AppendLine($"   Charging required: {bti.ChargeDescription})");
-                actionInfo.AppendLine($"    Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%)");
-                actionInfo.AppendLine($"  Charge rate needed: {bti.ChargeDescription}");
                 actionInfo.AppendLine($"         Charge rate: {battChargeRate}%)");
+                actionInfo.AppendLine($"   Charging required: {bti.ChargeDescription}");
+                actionInfo.AppendLine($"       Battery level: {battLevel}%");
+                actionInfo.AppendLine($"      Battery target: {bti.TargetDescription}");
+                actionInfo.AppendLine($"    Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%");
 
                 actionInfo.AppendLine($"       Charge last: {(chargeLast ? "on" : "off")}");
-                actionInfo.AppendLine($" Discharge to grid: {dischargeToGridCurrent})");
-                actionInfo.AppendLine($"  Charge from grid: {chargeFromGridCurrent})");
+                //actionInfo.AppendLine($" Discharge to grid: {dischargeToGridCurrent}");
+                //actionInfo.AppendLine($"  Charge from grid: {chargeFromGridCurrent}");
 
                 //// Are we behind schedule?
                 //if (battLevel < bti.BatteryTarget + bti.HeadroomScaled)

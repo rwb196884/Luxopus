@@ -117,6 +117,7 @@ namespace Rwb.Luxopus.Jobs
             bool chargeLastWanted = chargeLast;
             int battChargeRateWanted = battChargeRate; // No change.
 
+
             // Discharge to grid -- according to plan.
             LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
             LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false) ?? dischargeToGridCurrent.Clone();
@@ -145,13 +146,13 @@ namespace Rwb.Luxopus.Jobs
                 //goto Apply;
             }
 
-            StringBuilder actionInfo = new StringBuilder();
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
 
             // Charge from grid -- according to plan.
             LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
             LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false) ?? chargeFromGridCurrent.Clone();
 
+            StringBuilder actionInfo = new StringBuilder();
             DateTime tNext = plan.Next?.Start ?? DateTime.UtcNow.AddHours(1);
             if (Plan.ChargeFromGridCondition(plan.Current!) && battLevel < plan.Current!.Action.ChargeFromGrid)
             {
@@ -225,7 +226,8 @@ namespace Rwb.Luxopus.Jobs
                 int battOffset = battStart > _Batt.BatteryMinimumLimit ? battStart : _Batt.BatteryMinimumLimit;
                 int battLevelEnd = battOffset + _Batt.MaxDischarge * 3; // TODO: work out from plan.
                 battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
-                actionInfo.AppendLine($"Target is mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge}% = {battLevelEnd}%.");
+                actionInfo.AppendLine($"Target is mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
+                // TODO: this assumes flux; solar charge target should be set by the plan.
 
                 (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
                 bool full = bcSince > bcPeriod - 5;
@@ -241,7 +243,7 @@ namespace Rwb.Luxopus.Jobs
                 }
 
                 BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
-                actionInfo.AppendLine($"Target {battLevelEnd}%.");
+                actionInfo.AppendLine($"Current target: {bti.TargetDescription}");
 
                 if (battLevel + bti.PredictionBatteryPercent >= 150 && t0.Hour <= 8 && t0.Month >= 3 && t0.Month <= 8)
                 {
