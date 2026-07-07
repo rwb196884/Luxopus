@@ -56,26 +56,34 @@ namespace Rwb.Luxopus.Jobs
         /// </summary>
         public int DischargeToGrid { get; set; }
 
+        //public int ChargeFromSolar { get; set; }
+
         public PeriodAction()
         {
             ChargeFromGrid = 0;
             DischargeToGrid = 100;
         }
 
-        public const string SpacesForToString = "      ";
+        public const string SpacesForToString = "    ";
+
+        const char UnicodeUp = '\u2197';
+        const char UnicodeDown = '\u2198';
+        //const char UnicodeSun = '☼';
+        const char UnicodeTo = '\u2192';
 
         public override string ToString()
         {
-            string chargeFromGrid = ChargeFromGrid > 0 ? $"{ChargeFromGrid,3}<--" : SpacesForToString;
-            string dischargeTo = DischargeToGrid < 100 ? $"{DischargeToGrid,3}-->" : SpacesForToString;
+            string chargeFromGrid = ChargeFromGrid > 0 ? $"{UnicodeUp}{ChargeFromGrid,3}" : SpacesForToString;
+            string dischargeTo = DischargeToGrid < 100 ? $"{UnicodeDown}{DischargeToGrid,3}" : SpacesForToString;
+            //string chargeFromSolar = ChargeFromSolar > 0 && ChargeFromGrid <= 100 ? $"{UnicodeSun}-{ChargeFromSolar,3}" : "";
             return $"{chargeFromGrid} | {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
         }
 
         public string ToString(int batt)
         {
-            string chargeFromGrid = ChargeFromGrid > 0 ? $"{ChargeFromGrid,3}<--" : SpacesForToString;
-            string dischargeTo = DischargeToGrid < 100 ? $"{DischargeToGrid,3}-->" : SpacesForToString;
-            return $"{chargeFromGrid} | {batt,3}% | {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
+            string chargeFromGrid = ChargeFromGrid > 0 ? $"{UnicodeUp}{ChargeFromGrid,3}" : SpacesForToString;
+            string dischargeTo = DischargeToGrid < 100 ? $"{UnicodeDown}{DischargeToGrid,3}" : SpacesForToString;
+            return $"{chargeFromGrid} | {UnicodeTo}{batt,3} | {dischargeTo}";// | ChargeRate {BatteryChargeRate} | DischargeRate {BatteryGridDischargeRate}";
         }
     }
 
