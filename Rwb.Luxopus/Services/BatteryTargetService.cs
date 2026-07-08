@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using NCrontab.Scheduler.Internals;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -157,8 +158,14 @@ from(bucket: ""solar"")
             // Get fully charged before the discharge period.
             info.Start = gStart > plan.Current.Start ? gStart : plan.Current.Start;
 
+
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
             DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
+
+            if (battLevelStart + info.PredictionBatteryPercent >= 200 && DateTime.Now.Hour <= 8 && DateTime.Now.Month >= 3 && DateTime.Now.Month <= 8)
+            {
+                info.Start = DateTime.Today.AddHours(10).ToUniversalTime();
+            }
 
             info.End = (gEnd < plan.Next!.Start ? gEnd : plan.Next!.Start);//.AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1);
 
@@ -167,11 +174,11 @@ from(bucket: ""solar"")
             int battLevelTargetS = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Slow);
 
             ScaleMethod sm = ScaleMethod.Linear;
-            if (info.BatteryLevelCurrent < battLevelTargetS && generationRecentMean < 1500)
+            if (prediction <= _Batt.CapacityPercentToKiloWattHours(90))
             {
                 sm = ScaleMethod.Fast;
             }
-            else if (prediction < _Batt.CapacityPercentToKiloWattHours(90))
+            else if (info.BatteryLevelCurrent < battLevelTargetS && generationRecentMean < 1500)
             {
                 sm = ScaleMethod.Fast;
             }
