@@ -8,10 +8,10 @@ namespace Rwb.Luxopus.Jobs
 {
     public enum FluxCase
     {
+        Low,
         Peak,
         Daytime,
-        Low,
-        //Evening,
+        Evening,
         Zero
     }
 
@@ -50,10 +50,10 @@ namespace Rwb.Luxopus.Jobs
             {
                 return FluxCase.Peak;
             }
-            //else if( p.Start.Hour >= 18 && p.Start.Hour <= 23)
-            //{
-            //    return FluxCase.Evening;
-            //}
+            else if (p.Start.Hour >= 18 && p.Start.Hour <= 23)
+            {
+                return FluxCase.Evening;
+            }
             return FluxCase.Daytime;
 
             throw new NotImplementedException();
