@@ -218,7 +218,7 @@ from(bucket: ""solar"")
                 actionInfo.AppendLine($"      Generation max: max {generationRecentMax:0}W leaves {kwMaxForBattAfterCL:0.0}kW ({pcMaxForBattAfterCL}%) for battery after charge last.");
                 actionInfo.AppendLine($"     Generation mean: mean {generationRecentMean:0}W leaves {kwMeanForBattAfterCL:0.0}kW ({pcMeanForBattAfterCL}%) for battery after charge last.");
                 actionInfo.AppendLine($"     Inverter output: {inverterOutput}W");
-                actionInfo.AppendLine($"         Charge rate: {battChargeRate}%)");
+                actionInfo.AppendLine($"         Charge rate: {battChargeRate}%");
                 actionInfo.AppendLine($"   Charging required: {bti.ChargeDescription}");
                 actionInfo.AppendLine($"       Battery level: {battLevel}%");
                 actionInfo.AppendLine($"      Battery target: {bti.TargetDescription}");
@@ -240,16 +240,15 @@ from(bucket: ""solar"")
                 //    actionInfo.AppendLine($"Battery level {battLevel}% is greater than target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%; ahead by {a:#,##0.0}kWh.");
                 //}
 
-                if (t0.Month >= 4 && t0.Month <= 8 && t0.Hour <= 9 && (bti.ScaleMethod == ScaleMethod.Slow || generationRecentMean > 800 || bti.PredictionBatteryPercent > 150) && battLevel >= bti.BatteryTarget - 5)
+                if (battLevel + bti.PredictionBatteryPercent >= 200 && DateTime.Now.Hour <= 9 && t0.Month >= 3 && t0.Month <= 8)
                 {
                     chargeLastWanted = true;
                     battChargeRateWanted = 100;
-                    actionInfo.AppendLine($"Predicted to be a good day ({bti.PredictionKWh:0.0}kWh, {bti.PredictionBatteryPercent}%) or high recent generation ({generationRecentMean / 1000:#0.0}kW) therefore charge last before 9am.");
+                    actionInfo.AppendLine($"Batt level {battLevel}% plus prediction {bti.PredictionBatteryPercent}% is greater than 200%: charge last before 10am (local) March to August.");
                 }
                 else if (generationRecentMean < bti.ChargeRateNeededHkW)
                 {
                     chargeLastWanted = false;
-                    battChargeRateWanted = 100;
                     battChargeRateWanted = battLevel < bti.BatteryTarget + bti.HeadroomScaled ? 100 : bti.ChargeRateNeededHPercent;
                     actionInfo.AppendLine($"Recent generation {generationRecentMean / 1000:0.0}kW is less than charge rate required {bti.ChargeRateNeededHkW:0.0}kW.");
                 }
@@ -266,17 +265,17 @@ from(bucket: ""solar"")
                     // Generation probably not limited therefore send less to battery.
                     if (bti.BatteryLevelCurrent < bti.BatteryTarget )
                     {
-                        if (bti.ChargeRateNeededHPercent < pcCurrentForBattAfterCL - 8)
+                        if (bti.ChargeRateNeededHPercent > pcCurrentForBattAfterCL - 8)
+                        {
+                            chargeLastWanted = false;
+                            battChargeRateWanted = bti.ChargeRateNeededHPercent + 8;
+                            actionInfo.AppendLine($"Disable charge last because battery level {bti.BatteryLevelCurrent} is behind target {bti.BatteryTarget} and charge rate needed {bti.ChargeRateNeededHPercent} is more than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 8%.");
+                        }
+                        else
                         {
                             chargeLastWanted = true;
                             battChargeRateWanted = 99;
                             actionInfo.AppendLine($"Enable charge last because battery level {bti.BatteryLevelCurrent} is behind target {bti.BatteryTarget} and charge rate needed {bti.ChargeRateNeededHPercent} is less than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 8%.");
-                        }
-                        else
-                        {
-                            chargeLastWanted = false;
-                            battChargeRateWanted = bti.ChargeRateNeededHPercent + 8;
-                            actionInfo.AppendLine($"Disable charge last because battery level {bti.BatteryLevelCurrent} is behind target {bti.BatteryTarget}charge rate needed {bti.ChargeRateNeededHPercent} is more than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 8%.");
                         }
                     }
                     else if (battLevel < bti.BatteryTarget + bti.HeadroomScaled)
@@ -321,6 +320,7 @@ from(bucket: ""solar"")
                         actionInfo.AppendLine($"Generation peak of {generationMax} recent {generationRecentMax} but currently {generation}. Battery level {battLevel}%, target of {bti.BatteryTarget}% therefore take opportunity to discharge.");
                     }
                     else if (battLevel < bti.BatteryTarget
+                        && bti.PredictionBatteryPercent < 120
                         //&& battLevel < _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3 
                         && plan.Next != null && Plan.DischargeToGridCondition(plan.Next)
                         && t0 > plan.Next.Start.AddHours(-2)

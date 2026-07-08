@@ -220,13 +220,11 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                actionInfo.AppendLine("Charging from solar.");
-
                 (int battStart, _) = await _InfluxQuery.GetBatteryStartLevelAsync();
                 int battOffset = battStart > _Batt.BatteryMinimumLimit ? battStart : _Batt.BatteryMinimumLimit;
                 int battLevelEnd = battOffset + _Batt.MaxDischarge * 3; // TODO: work out from plan.
                 battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
-                actionInfo.AppendLine($"Target is mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
+                actionInfo.AppendLine($"           target: mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
                 // TODO: this assumes flux; solar charge target should be set by the plan.
 
                 (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
@@ -243,13 +241,14 @@ namespace Rwb.Luxopus.Jobs
                 }
 
                 BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
-                actionInfo.AppendLine($"Current target: {bti.TargetDescription}");
+                actionInfo.AppendLine($"   Current target: {bti.TargetDescription}");
+                actionInfo.AppendLine($"Charging required: {bti.ChargeDescription}");
 
-                if (battLevel + bti.PredictionBatteryPercent >= 150 && t0.Hour <= 8 && t0.Month >= 3 && t0.Month <= 8)
+                if (battLevel + bti.PredictionBatteryPercent >= 200 && DateTime.Now.Hour <= 9 && t0.Month >= 3 && t0.Month <= 8)
                 {
                     chargeLastWanted = true;
                     battChargeRateWanted = 100;
-                    actionInfo.AppendLine($"Batt level {battLevel}% plus prediction {bti.PredictionBatteryPercent}% is greater than 150%: charge last before 9am UTC March to August.");
+                    actionInfo.AppendLine($"Batt level {battLevel}% plus prediction {bti.PredictionBatteryPercent}% is greater than 200%: charge last before 10am (local) March to August.");
                 }
                 else if (t0.TimeOfDay <= bti.GenerationStart.TimeOfDay)
                 {
@@ -263,6 +262,12 @@ namespace Rwb.Luxopus.Jobs
                     chargeLastWanted = false;
                     battChargeRateWanted = 100;
                     // TODO: discharge to make room for tomorrow?
+                }
+                else if( Plan.DischargeToGridCondition(plan.Previous) && Plan.ChargeFromGridCondition(plan.Next))
+                {
+                    actionInfo.AppendLine("Between discharge and charge.");
+                    chargeLastWanted = false;
+                    battChargeRate = 100;
                 }
                 else
                 {
@@ -348,8 +353,16 @@ from(bucket: ""solar"")
                         if (battLevel < bti.BatteryTarget)
                         {
                             extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
-                            chargeLastWanted = false;
-                            battChargeRateWanted = 95;
+                            if (pcMeanForBattAfterCL >= bti.ChargeRateNeededHPercent)
+                            {
+                                chargeLastWanted = true;
+                                battChargeRateWanted = 95;
+                            }
+                            else
+                            {
+                                chargeLastWanted = false;
+                                battChargeRateWanted = bti.PredictionBatteryPercent > 200 ? bti.ChargeRateNeededHPercent : 95;
+                            }
 
                             if (battLevel < bti.BatteryTarget && plan.Current.Buy * 1.1M < plan.Next.Sell && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
                             {
