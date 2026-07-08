@@ -224,7 +224,7 @@ namespace Rwb.Luxopus.Jobs
                 int battOffset = battStart > _Batt.BatteryMinimumLimit ? battStart : _Batt.BatteryMinimumLimit;
                 int battLevelEnd = battOffset + _Batt.MaxDischarge * 3; // TODO: work out from plan.
                 battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
-                actionInfo.AppendLine($"           target: mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
+                actionInfo.AppendLine($"           Target: mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
                 // TODO: this assumes flux; solar charge target should be set by the plan.
 
                 (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
@@ -241,8 +241,12 @@ namespace Rwb.Luxopus.Jobs
                 }
 
                 BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
-                actionInfo.AppendLine($"   Current target: {bti.TargetDescription}");
+                actionInfo.AppendLine($"    Battery level: {battLevel}%");
+                actionInfo.AppendLine($"   Battery target: {bti.TargetDescription}");
+                actionInfo.AppendLine($" Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%");
                 actionInfo.AppendLine($"Charging required: {bti.ChargeDescription}");
+                actionInfo.AppendLine($"      Charge last: {(chargeLast ? "on" : "off")}");
+                actionInfo.AppendLine($" Batt charge rate: {battChargeRate}%");
 
                 if (battLevel + bti.PredictionBatteryPercent >= 200 && DateTime.Now.Hour <= 9 && t0.Month >= 3 && t0.Month <= 8)
                 {
@@ -263,7 +267,7 @@ namespace Rwb.Luxopus.Jobs
                     battChargeRateWanted = 100;
                     // TODO: discharge to make room for tomorrow?
                 }
-                else if( Plan.DischargeToGridCondition(plan.Previous) && Plan.ChargeFromGridCondition(plan.Next))
+                else if (Plan.DischargeToGridCondition(plan.Previous) && Plan.ChargeFromGridCondition(plan.Next))
                 {
                     actionInfo.AppendLine("Between discharge and charge.");
                     chargeLastWanted = false;
@@ -273,7 +277,6 @@ namespace Rwb.Luxopus.Jobs
                 {
                     // Get ~~fully~~ to target charge before the discharge period.
                     // If the battery is small then the target is always 100%,
-                    actionInfo.AppendLine($"{bti.ChargeDescription}");
 
                     // Throttling and discharge of over-generation is managed by the burst job.
                     // Just set the main strategy.
@@ -317,13 +320,13 @@ from(bucket: ""solar"")
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> max()")
                            ).First().Records.First().GetValue<long>();
-                        double kwMaxForBattAfterCL = (generationRecentMax - 3600) / 1000;
+                        double kwMaxForBattAfterCL = (Convert.ToDouble(generationRecentMax) - 3600) / 1000;
                         if (kwMaxForBattAfterCL < 0)
                         {
                             kwMaxForBattAfterCL = 0;
                         }
                         int pcMaxForBattAfterCL = kwMaxForBattAfterCL == 0 ? 0 : _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwMaxForBattAfterCL));
-                        actionInfo.AppendLine($"Generation max {generationRecentMax / 1000:0.0}kW leaves {kwMaxForBattAfterCL:0.0}kW ({pcMaxForBattAfterCL}%) for battery after charge last.");
+                        actionInfo.AppendLine($"   Generation max: {generationRecentMax:0}W leaves {kwMaxForBattAfterCL:0.0}kW ({pcMaxForBattAfterCL}%) for battery after charge last.");
 
                         double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -331,13 +334,13 @@ from(bucket: ""solar"")
   |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
   |> mean()")
                            ).First().Records.First().GetValue<double>();
-                        double kwMeanForBattAfterCL = (generationRecentMean - 3600) / 1000;
-                        if(kwMeanForBattAfterCL < 0 )
+                        double kwMeanForBattAfterCL = (Convert.ToDouble(generationRecentMean) - 3600) / 1000;
+                        if (kwMeanForBattAfterCL < 0)
                         {
                             kwMeanForBattAfterCL = 0;
                         }
                         int pcMeanForBattAfterCL = kwMeanForBattAfterCL == 0 ? 0 : _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwMeanForBattAfterCL));
-                        actionInfo.AppendLine($"Generation mean {generationRecentMean / 1000:0.0}kW leaves {kwMeanForBattAfterCL:0.0}kW ({pcMeanForBattAfterCL}%) for battery after charge last.");
+                        actionInfo.AppendLine($"  Generation mean: {generationRecentMean:0}W leaves {kwMeanForBattAfterCL:0.0}kW ({pcMeanForBattAfterCL}%) for battery after charge last.");
 
                         double generationMeanDifference = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -364,7 +367,10 @@ from(bucket: ""solar"")
                                 battChargeRateWanted = bti.PredictionBatteryPercent > 200 ? bti.ChargeRateNeededHPercent : 95;
                             }
 
-                            if (battLevel < bti.BatteryTarget && plan.Current.Buy * 1.1M < plan.Next.Sell && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
+                            if (battLevel < bti.BatteryTarget - 3 
+                                && generationRecentMean < 3200
+                                && plan.Current.Buy * 1.1M < plan.Next.Sell 
+                                && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
                             {
                                 double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
                                 double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
@@ -397,7 +403,7 @@ from(bucket: ""solar"")
                             double aheadkWh = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget);
                             actionInfo.AppendLine($"Batt level {battLevel}% is ahead of target {bti.BatteryTarget}% ({bti.TargetDescription}) by {aheadkWh:0.0}kWh.");
 
-                            if (generationRecentMax > 3000 && t0.Month >= 3 && t0.Month <= 9)
+                            if (generationRecentMax > 3600 && t0.Month >= 3 && t0.Month <= 9)
                             {
                                 chargeLastWanted = true;
                                 battChargeRateWanted = 94;

@@ -61,7 +61,15 @@ namespace Rwb.Luxopus.Services
         {
             get
             {
-                return $"{ChargeNeededHkWH:0.0}kWh needed to get from {BatteryLevelCurrent}% to {BatteryLevelEnd}% in {HoursToCharge:0.0} hours until {End:HH:mm} (mean rate {ChargeRateNeededHkW:0.0}kW -> {ChargeRateNeededPercent}%).";
+                if(BatteryLevelCurrent >= BatteryTarget + HeadroomScaled)
+                {
+                    return "Ahead of target and headroom full.";
+                }
+                else if( BatteryLevelCurrent > BatteryTarget)
+                {
+                    return $"{ChargeNeededHkWH:0.0}kWh needed to get from {BatteryLevelCurrent}% to {BatteryLevelEnd + HeadroomScaled}% in {HoursToCharge:0.0} hours until {End:HH:mm} (mean rate {ChargeRateNeededHkW:0.0}kW -> {ChargeRateNeededHPercent}%).";
+                }
+                return $"{ChargeNeededkWH:0.0}kWh needed to get from {BatteryLevelCurrent}% to {BatteryLevelEnd}% in {HoursToCharge:0.0} hours until {End:HH:mm} (mean rate {ChargeRateNeededkW:0.0}kW -> {ChargeRateNeededPercent}%).";
             }
         }
     }
