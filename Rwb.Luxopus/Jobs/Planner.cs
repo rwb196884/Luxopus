@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
+using System.Reactive.Joins;
 
 namespace Rwb.Luxopus.Jobs
 {
