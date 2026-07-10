@@ -269,17 +269,25 @@ from(bucket: ""solar"")
                         battChargeRateWanted = 99;
                         actionInfo.AppendLine($"Enable charge last because battery level {bti.BatteryLevelCurrent}% is ahead of target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%.");
                     }
-                    else if (bti.ChargeRateNeededHPercent > pcCurrentForBattAfterCL - 8)
+                    else if( battLevel < bti.BatteryTarget)
                     {
+                        double extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + bti.HeadroomScaled - battLevel);
+                        int extraChargeRateNeeded = _Batt.TransferKiloWattsToPercent(extraPowerNeeded * 2 /* Get it in the next half hour. */);
                         chargeLastWanted = false;
-                        battChargeRateWanted = bti.ChargeRateNeededHPercent + 8;
-                        actionInfo.AppendLine($"Disable charge last because charge rate needed {bti.ChargeRateNeededHPercent}% is more than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 8%.");
+                        battChargeRateWanted = bti.ChargeRateNeededHPercent + extraChargeRateNeeded;
+                        actionInfo.AppendLine($"Battery charge rate increased by {extraChargeRateNeeded}% to {battChargeRateWanted}% to get extra {extraPowerNeeded}kW in the next half hour.");
                     }
-                    else
+                    else if (bti.ChargeRateNeededHPercent < pcCurrentForBattAfterCL - 5)
                     {
                         chargeLastWanted = true;
                         battChargeRateWanted = 98;
-                        actionInfo.AppendLine($"Enable charge last because charge rate needed {bti.ChargeRateNeededHPercent}% is less than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 8%.");
+                        actionInfo.AppendLine($"Enable charge last because charge rate needed {bti.ChargeRateNeededHPercent}% is less than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
+                    }
+                    else
+                    {
+                        chargeLastWanted = false;
+                        battChargeRateWanted = bti.ChargeRateNeededHPercent + 5;
+                        actionInfo.AppendLine($"Disable charge last because charge rate needed {bti.ChargeRateNeededHPercent}% is more than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
                     }
 
                     /*
