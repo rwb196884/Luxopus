@@ -1,0 +1,31 @@
+import "date"
+import "join"
+
+m0 = date.month(t: today())
+
+gh = from(bucket: "solar")
+  |> range(start: 2026-02-14T00:00:00Z, stop: today())
+  |> filter(fn: (r) => date.month(t: r._time) == m0 and r["_measurement"] == "inverter" and r["_field"] == "generation")
+  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)
+  |> timeShift(duration: -1h)
+  |> map(fn: (r) => ({r with dateJoinKey: date.year(t: r._time) * 10000 + date.month(t: r._time) * 100 + date.monthDay(t: r._time) }))
+  |> group(columns: [])
+  
+ghD =  gh 
+  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
+  |> timeShift(duration: -1d)
+  |> map(fn: (r) => ({r with dateJoinKey: date.year(t: r._time) * 10000 + date.month(t: r._time) * 100 + date.monthDay(t: r._time) }))
+  |> group(columns: [])
+
+j = join.inner(
+  left: gh,
+  right: ghD, 
+  on: (l, r) => l.dateJoinKey == r.dateJoinKey,
+  as: (l, r) => ({
+    h: date.hour(t: l._time),
+    _time: date.add(to: today(), d: duration(v: string(v: date.hour(t: l._time)) + "h" )),
+    _value: 100 * int(v: l._value) / int(v: r._value)
+  })
+  )
+
+  j |> group(columns: ["h"]) |> mean() |> yield()

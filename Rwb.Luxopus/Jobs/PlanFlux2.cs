@@ -434,7 +434,9 @@ namespace Rwb.Luxopus.Jobs
                             PeriodPlan? previousH = plan.Plans.GetPrevious(previous);
                             if (previous != null && GetFluxCase(plan, previous) == FluxCase.Evening && previousH != null && GetFluxCase(plan, previousH) == FluxCase.Peak)
                             {
-                                DoEvening(previous, previousH, p, startOfGeneration, _Batt, bup, bcSince, bcPeriod);
+                                DoEvening( previous, previousH, p, startOfGeneration, _Batt, bup, bcSince, bcPeriod);
+                                battLevelStart = await BattCalc(InfluxQuery, _Batt, bup, previousH.Battery, previous, p, startOfGeneration, endOfGeneration);
+                                previous.Battery = battLevelStart;
                             }
                             else if(previous != null && GetFluxCase(plan, previous) == FluxCase.Evening && previous.Action == null)
                             {
@@ -444,6 +446,8 @@ namespace Rwb.Luxopus.Jobs
                                     ChargeFromGrid = 0,
                                     DischargeToGrid = 100
                                 };
+                                battLevelStart = await BattCalc(InfluxQuery, _Batt, bup, previousH.Battery, previous, p, startOfGeneration, endOfGeneration);
+                                previous.Battery = battLevelStart;
                             }
                             else
                             {
@@ -511,7 +515,7 @@ from(bucket: "solar")
             evening.Action = new PeriodAction()
             {
                 ChargeFromGrid = 0,
-                DischargeToGrid = high.Action.DischargeToGrid + bToday + bTomorrow
+                DischargeToGrid = Math.Max(high.Action.DischargeToGrid, low.Action.ChargeFromGrid) + bToday + bTomorrow
             };
         }
 
@@ -549,6 +553,7 @@ from(bucket: "solar")
                 (_, double prediction) = (await influxQuery.QueryAsync(Query.PredictionToday, plan.Start)).First().FirstOrDefault<double>();
 
                 gen = bs.CapacityKiloWattHoursToPercent((prediction / 10.0) * genHoursInPeriod / dtg.TotalHours);
+                gen = gen / 100; // Evening generation is negligible. See GenerationProfile query. TODO: use GenerationProfile properly.
             }
             catch (Exception e) { }
 
@@ -567,14 +572,15 @@ from(bucket: "solar")
             }
             else if (plan.Action.DischargeToGrid < 100)
             {
+                // Discharging: do not add gen.
                 if (plan.Action.DischargeToGrid > battLevelStart)
                 {
-                    batt = battLevelStart - useBatt + gen;
+                    batt = battLevelStart - useBatt;
                 }
                 else
                 {
                     int b = battLevelStart - Convert.ToInt32(Math.Floor(bs.MaxDischarge * dt.TotalHours));
-                    batt = (plan.Action.DischargeToGrid > b ? plan.Action.DischargeToGrid : b); // + gen; massive over-estimate
+                    batt = (plan.Action.DischargeToGrid > b ? plan.Action.DischargeToGrid : b);
                 }
             }
             else
