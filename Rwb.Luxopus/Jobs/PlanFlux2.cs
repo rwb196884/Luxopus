@@ -255,6 +255,13 @@ namespace Rwb.Luxopus.Jobs
                             break;
                         case FluxCase.Evening:
                             // Do this after doing Peak so that we know how much to keep for tomorrow.
+                            // Set a default just in case.
+                            p.Action = new PeriodAction()
+                            {
+                                ChargeFromGrid = 0,
+                                DischargeToGrid = 100
+                            };
+
                             break;
                         case FluxCase.Low:
                             notes.AppendLine();
