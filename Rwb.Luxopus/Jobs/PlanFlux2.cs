@@ -480,7 +480,7 @@ namespace Rwb.Luxopus.Jobs
 
         private static void DoEvening(PeriodPlan evening, PeriodPlan high, PeriodPlan low, DateTime startOfGeneration, IBatteryService batt, BatteryUsageProfile bup, int bcSince, int bcPeriod)
         {
-            if (bcSince <= bcPeriod - 5)
+            if (bcSince > bcPeriod - 5)
             {
                 evening.Action = new PeriodAction()
                 {
@@ -491,7 +491,20 @@ namespace Rwb.Luxopus.Jobs
             }
 
             int bToday = batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(evening.Start.DayOfWeek, evening.Start.Hour, 24));
-            int bTomorrow = batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(evening.Start.AddDays(1).DayOfWeek, 0, startOfGeneration.Hour));
+            //int bTomorrow = batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(evening.Start.AddDays(1).DayOfWeek, 0, startOfGeneration.Hour));
+            int bTomorrow = batt.CapacityKiloWattHoursToPercent(0.2 * (5 + startOfGeneration.Hour) /* Guess for evening to start of generation */);
+
+            /* 
+             * At the time of writing: median 177, mean 220.
+import "date"
+
+from(bucket: "solar")
+  |> range(start: -3w, stop: now())
+  |> filter(fn: (r) => r["_measurement"] == "inverter")
+  |> filter(fn: (r) => r["_field"] == "consumption")
+  |> filter(fn: (r) => date.hour(t: r._time) >= 7 or date.hour(t: r._time) <= 5 )
+  |> mean()
+             */
 
             // Floor heating can cause massive load in BatteryUsageProfile.
 
