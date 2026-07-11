@@ -1,5 +1,6 @@
 ﻿using InfluxDB.Client.Core.Flux.Domain;
 using Microsoft.Extensions.Logging;
+using NodaTime;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
@@ -9,6 +10,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Rwb.Luxopus.Jobs
 {
@@ -256,40 +258,7 @@ namespace Rwb.Luxopus.Jobs
 
                             break;
                         case FluxCase.Evening:
-                            // Continue to discharge?
-
-                            if (bcSince <= bcPeriod - 5)
-                            {
-                                p.Action = new PeriodAction()
-                                {
-                                    ChargeFromGrid = 0,
-                                    DischargeToGrid = 100
-                                };
-
-                                next = plan.Plans.GetNext(p);
-                                PeriodPlan? pDischarge = plan.Plans.GetPrevious(p);
-                                //PeriodPlan? pCharge = plan.Plans.GetNext(p);
-
-                                if (pDischarge != null && Plan.DischargeToGridCondition(pDischarge))
-                                {
-                                    (_, double prediction) = (await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start)).First().FirstOrDefault<double>();
-                                    double predictionKWh = prediction / 10;
-                                    int predictionBatteryPercent = _Batt.CapacityKiloWattHoursToPercent(predictionKWh);
-
-                                    p.Action = new PeriodAction()
-                                    {
-                                        ChargeFromGrid = 0,
-                                        DischargeToGrid = predictionBatteryPercent > 100 ? pDischarge.Battery : 100
-                                    };
-
-                                    //DateTime gEnd = p.Start;
-                                    //try
-                                    //{
-                                    //    (gEnd, _) = (await InfluxQuery.QueryAsync(Query.EndOfGeneration, p.Start)).First().FirstOrDefault<double>();
-                                    //}
-                                    //catch { }
-                                }
-                            }
+                            // Do this after doing Peak so that we know how much to keep for tomorrow.
                             break;
                         case FluxCase.Low:
                             notes.AppendLine();
@@ -456,17 +425,26 @@ namespace Rwb.Luxopus.Jobs
                                 //BatteryGridDischargeRate = 0,
                             };
 
-                            // Discharge anything extra we still have if today was good.
+                            // Now that we know how much to buy
+                            // we can do yesterday evening.
                             PeriodPlan? previous = plan.Plans.GetPrevious(p);
-                            if (previous != null && !Plan.ChargeFromGridCondition(previous) && !Plan.DischargeToGridCondition(previous))
+                            PeriodPlan? previousH = plan.Plans.GetPrevious(previous);
+                            if (previous != null && GetFluxCase(plan, previous) == FluxCase.Evening && previousH != null && GetFluxCase(plan, previousH) == FluxCase.Peak)
                             {
-                                if (previous.Action == null) { previous.Action = new PeriodAction(); }
-                                // Usage can be enormous due to floor heating; hack by adding 3 hours.
-                                previous.Action.DischargeToGrid = p.Action.ChargeFromGrid + _Batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(p.Start.DayOfWeek, p.Start.Hour + 3, next.Start.Hour + 3));
-                                if (previous.Action.DischargeToGrid > 100)
+                                DoEvening(previous, previousH, p, startOfGeneration, _Batt, bup, bcSince, bcPeriod);
+                            }
+                            else if(previous != null && GetFluxCase(plan, previous) == FluxCase.Evening && previous.Action == null)
+                            {
+                                notes.AppendLine($"    *** previous is {GetFluxCase(plan, previous) == FluxCase.Evening} but no plan before that; defaulted to no action. ***");
+                                previous.Action = new PeriodAction()
                                 {
-                                    previous.Action.DischargeToGrid = 100;
-                                }
+                                    ChargeFromGrid = 0,
+                                    DischargeToGrid = 100
+                                };
+                            }
+                            else
+                            {
+                                notes.AppendLine($"    *** No previous plan; was expecting evening. ***");
                             }
 
                             break;
@@ -495,6 +473,30 @@ namespace Rwb.Luxopus.Jobs
                 Logger.LogError("PlanFlux2 failed; rescheduling.");
                 _At.Schedule(async () => await this.WorkAsync(CancellationToken.None), DateTime.Now.AddMinutes(2));
             }
+        }
+
+        private static void DoEvening(PeriodPlan evening, PeriodPlan high, PeriodPlan low, DateTime startOfGeneration, IBatteryService batt, BatteryUsageProfile bup, int bcSince, int bcPeriod)
+        {
+            if (bcSince <= bcPeriod - 5)
+            {
+                evening.Action = new PeriodAction()
+                {
+                    ChargeFromGrid = 0,
+                    DischargeToGrid = 100
+                };
+                return;
+            }
+
+            int bToday = batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(evening.Start.DayOfWeek, evening.Start.Hour, 24));
+            int bTomorrow = batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(evening.Start.AddDays(1).DayOfWeek, 0, startOfGeneration.Hour));
+
+            // Floor heating can cause massive load in BatteryUsageProfile.
+
+            evening.Action = new PeriodAction()
+            {
+                ChargeFromGrid = 0,
+                DischargeToGrid = high.Action.DischargeToGrid + bToday + bTomorrow
+            };
         }
 
         private static async Task<int> BattCalc(IInfluxQueryService influxQuery, IBatteryService bs, BatteryUsageProfile bup,
