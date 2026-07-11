@@ -1,10 +1,9 @@
-﻿using Accord.Math.Random;
+﻿using InfluxDB.Client.Core.Flux.Domain;
 using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -117,9 +116,25 @@ namespace Rwb.Luxopus.Jobs
             }
             if (settings.Any(z => z.Value == "DEVICE_OFFLINE")) { return; }
 
-            (int battStart, _) = await _InfluxQuery.GetBatteryStartLevelAsync();
-            int battOffset = battStart > _Batt.BatteryMinimumLimit ? battStart : _Batt.BatteryMinimumLimit;
-            int battLevelEnd = battOffset + _Batt.MaxDischarge * 3; // TODO: work out from plan.
+            // Plan A.
+            int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3; // TODO: work out from plan.
+
+            // Plan B.
+            //(int battStart, _) = await _InfluxQuery.GetBatteryStartLevelAsync();
+            //int battOffset = battStart > _Batt.BatteryMinimumLimit ? battStart : _Batt.BatteryMinimumLimit;
+            //int battLevelEnd = battOffset + _Batt.MaxDischarge * 3; // TODO: work out from plan.
+
+            // Plan C.
+            //List<FluxTable> bupH = await _InfluxQuery.QueryAsync(Query.HourlyBatteryUse, t0);
+            //BatteryUsageProfile bup = new BatteryUsageProfile(bupH);
+            DateTime startOfGeneration = plan.Current.Start.Date.AddHours(10);
+            try
+            {
+                (startOfGeneration, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
+            }
+            catch { }
+            battLevelEnd = battLevelEnd + _Batt.CapacityKiloWattHoursToPercent(0.2 * (5 + startOfGeneration.Hour) /* Guess for evening to start of generation */);
+
             battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
             // TODO: this assumes flux; solar charge target should be set by the plan.
 
@@ -128,7 +143,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 battLevelEnd = 100;
             }
-            actionInfo.AppendLine($"Target is mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
+            actionInfo.AppendLine($"Target is mimimum {_Batt.BatteryMinimumLimit}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
 
 
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
@@ -278,17 +293,17 @@ from(bucket: ""solar"")
                         battChargeRateWanted = bti.ChargeRateNeededHPercent + extraChargeRateNeeded;
                         actionInfo.AppendLine($"Battery charge rate increased by {extraChargeRateNeeded}% to {battChargeRateWanted}% to get extra {extraPowerNeeded}kW in the next half hour.");
                     }
-                    else if (bti.ChargeRateNeededHPercent < pcCurrentForBattAfterCL - 5)
+                    else if (bti.ChargeRateNeededPercent < pcCurrentForBattAfterCL - 5)
                     {
                         chargeLastWanted = true;
                         battChargeRateWanted = 98;
-                        actionInfo.AppendLine($"Enable charge last because charge rate needed {bti.ChargeRateNeededHPercent}% is less than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
+                        actionInfo.AppendLine($"Enable charge last because charge rate needed {bti.ChargeRateNeededPercent}% is less than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
                     }
                     else
                     {
                         chargeLastWanted = false;
-                        battChargeRateWanted = bti.ChargeRateNeededHPercent + 5;
-                        actionInfo.AppendLine($"Disable charge last because charge rate needed {bti.ChargeRateNeededHPercent}% is more than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
+                        battChargeRateWanted = bti.ChargeRateNeededPercent + 5;
+                        actionInfo.AppendLine($"Disable charge last because charge rate needed {bti.ChargeRateNeededPercent}% is more than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
                     }
 
                     /*
@@ -343,7 +358,7 @@ from(bucket: ""solar"")
                             Enable = true,
                             Start = currentPeriod.Start,
                             End = dischargeToGridCurrent.End >= plan.Next.Start ? dischargeToGridCurrent.End : plan.Next.Start,
-                            Limit = bti.BatteryTarget - 2,
+                            Limit = bti.BatteryTarget - (bti.HeadroomTotal > 0 ? 2 : 0),
                             Rate = 91
                         };
                         battChargeRateWanted = 96;

@@ -220,16 +220,33 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                (int battStart, _) = await _InfluxQuery.GetBatteryStartLevelAsync();
-                int battOffset = battStart > _Batt.BatteryMinimumLimit ? battStart : _Batt.BatteryMinimumLimit;
-                int battLevelEnd = battOffset + _Batt.MaxDischarge * 3; // TODO: work out from plan.
+                // Plan A.
+                int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3; // TODO: work out from plan.
+
+                // Plan B.
+                //(int battStart, _) = await _InfluxQuery.GetBatteryStartLevelAsync();
+                //int battOffset = battStart > _Batt.BatteryMinimumLimit ? battStart : _Batt.BatteryMinimumLimit;
+                //int battLevelEnd = battOffset + _Batt.MaxDischarge * 3; // TODO: work out from plan.
+
+                // Plan C.
+                //List<FluxTable> bupH = await _InfluxQuery.QueryAsync(Query.HourlyBatteryUse, t0);
+                //BatteryUsageProfile bup = new BatteryUsageProfile(bupH);
+                DateTime startOfGeneration = plan.Current.Start.Date.AddHours(10);
+                try
+                {
+                    (startOfGeneration, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
+                }
+                catch { }
+                battLevelEnd = battLevelEnd + _Batt.CapacityKiloWattHoursToPercent(0.2 * (5 + startOfGeneration.Hour) /* Guess for evening to start of generation */);
+
                 battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
-                actionInfo.AppendLine($"           Target: mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
+
+
+                actionInfo.AppendLine($"           Target: mimimum {_Batt.BatteryMinimumLimit}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
                 // TODO: this assumes flux; solar charge target should be set by the plan.
 
                 (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
-                bool full = bcSince > bcPeriod - 5;
-                if (full)
+                if (bcSince > bcPeriod - 5)
                 {
                     battLevelEnd = 100;
                 }
