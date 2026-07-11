@@ -530,7 +530,7 @@ from(bucket: "solar")
                 {
                     return battLevelStart < plan.Action.DischargeToGrid ? plan.Action.DischargeToGrid : battLevelStart;
                 }
-                return -1;
+                return battLevelStart;
             }
 
             int batt = battLevelStart;
@@ -540,22 +540,25 @@ from(bucket: "solar")
             int useBatt = bs.CapacityKiloWattHoursToPercent(useKwH);
 
             int gen = 0;
-            try
+            // Evening generation is negligible. See GenerationProfile query. TODO: use GenerationProfile properly.
+            if (plan.Start.Hour < 16)
             {
-                TimeSpan dtg = endOfGeneration - startOfGeneration;
-
-                double genHoursInPeriod = 0;
-                if (plan.Start < endOfGeneration && next.Start > startOfGeneration)
+                try
                 {
-                    genHoursInPeriod = ((next.Start > endOfGeneration ? endOfGeneration : next.Start) - (plan.Start < startOfGeneration ? startOfGeneration : plan.Start)).TotalHours;
+                    TimeSpan dtg = endOfGeneration - startOfGeneration;
+
+                    double genHoursInPeriod = 0;
+                    if (plan.Start.TimeOfDay < endOfGeneration.TimeOfDay && next.Start.TimeOfDay > startOfGeneration.TimeOfDay)
+                    {
+                        genHoursInPeriod = ((next.Start.TimeOfDay > endOfGeneration.TimeOfDay ? endOfGeneration.TimeOfDay : next.Start.TimeOfDay) - (plan.Start.TimeOfDay < startOfGeneration.TimeOfDay ? startOfGeneration.TimeOfDay : plan.Start.TimeOfDay)).TotalHours;
+                    }
+
+                    (_, double prediction) = (await influxQuery.QueryAsync(Query.PredictionToday, plan.Start)).First().FirstOrDefault<double>();
+
+                    gen = bs.CapacityKiloWattHoursToPercent((prediction / 10.0) * genHoursInPeriod / dtg.TotalHours);
                 }
-
-                (_, double prediction) = (await influxQuery.QueryAsync(Query.PredictionToday, plan.Start)).First().FirstOrDefault<double>();
-
-                gen = bs.CapacityKiloWattHoursToPercent((prediction / 10.0) * genHoursInPeriod / dtg.TotalHours);
-                gen = gen / 100; // Evening generation is negligible. See GenerationProfile query. TODO: use GenerationProfile properly.
+                catch (Exception e) { }
             }
-            catch (Exception e) { }
 
             if (plan.Action.ChargeFromGrid > 0)
             {
