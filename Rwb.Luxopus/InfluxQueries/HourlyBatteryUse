@@ -1,13 +1,12 @@
 import "date"
 
 from(bucket: "solar")
-  |> range(start: -3mo, stop: now())
-  |> filter(fn: (r) => r["_measurement"] == "inverter")
-  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+  |> range(start: -3mo, stop: today())
+  |> filter(fn: (r) => r["_measurement"] == "inverter" and r["_field"] == "consumption")
   |> map(fn: (r) => ({
     h: date.hour(t: r._time),
     d: date.weekDay(t: r._time),
-    _value: r.inverter_output - r.export  + r["import"] - r.inverter_input
+    _value: r._value
   })
   )
   |> filter(fn: (r) => exists r._value)
