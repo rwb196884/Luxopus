@@ -4,6 +4,7 @@ using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -120,21 +121,21 @@ namespace Rwb.Luxopus.Jobs
             int battOffset = battStart > _Batt.BatteryMinimumLimit ? battStart : _Batt.BatteryMinimumLimit;
             int battLevelEnd = battOffset + _Batt.MaxDischarge * 3; // TODO: work out from plan.
             battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
-            actionInfo.AppendLine($"Target is mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
             // TODO: this assumes flux; solar charge target should be set by the plan.
+
+            (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
+            if(bcSince > bcPeriod - 5)
+            {
+                battLevelEnd = 100;
+            }
+            actionInfo.AppendLine($"Target is mimimum {battOffset}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
+
 
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
             if ((plan.Next?.Buy ?? 1) <= 0)
             {
                 battLevelEnd -= _Batt.CapacityKiloWattHoursToPercent(plan.Plans.FutureFreeHoursBeforeNextDischarge(plan.Current!) * 3.2);
                 battLevelEnd = battLevelEnd < battLevel ? battLevel : battLevelEnd;
-            }
-
-            (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
-            bool full = bcSince > bcPeriod - 5;
-            if (full)
-            {
-                battLevelEnd = 100;
             }
 
             BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
