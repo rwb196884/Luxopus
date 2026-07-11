@@ -1,16 +1,12 @@
 ﻿using InfluxDB.Client.Core.Flux.Domain;
 using Microsoft.Extensions.Logging;
-using NodaTime;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Joins;
-using System.Runtime.Versioning;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Rwb.Luxopus.Jobs
 {
