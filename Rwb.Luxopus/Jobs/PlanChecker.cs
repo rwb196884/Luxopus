@@ -154,10 +154,10 @@ namespace Rwb.Luxopus.Jobs
 
             StringBuilder actionInfo = new StringBuilder();
             DateTime tNext = plan.Next?.Start ?? DateTime.UtcNow.AddHours(1);
-            if (Plan.ChargeFromGridCondition(plan.Current!) && battLevel < plan.Current!.Action.ChargeFromGrid)
+            if (Plan.ChargeFromGridCondition(plan.Current!))
             {
                 // Planned charge.
-                chargeFromGridWanted.Enable = true;
+                chargeFromGridWanted.Enable = battLevel < plan.Current!.Action.ChargeFromGrid + 1;
                 if (chargeFromGridWanted.Start > plan.Current!.Start) { chargeFromGridWanted.Start = plan.Current!.Start; }
 
                 // Looking at a run can mess up the charge rate in the current period which may need, e.g., to me maximal when the price is low.
@@ -352,11 +352,13 @@ from(bucket: ""solar"")
 
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;
+                        int extraChargeRateNeeded = 0;
                         chargeFromGridWanted = chargeFromGridCurrent.Clone();
                         if (battLevel < bti.BatteryTarget)
                         {
-                            extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
-                            if (pcMeanForBattAfterCL >= bti.ChargeRateNeededHPercent)
+                            extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + bti.HeadroomScaled - battLevel);
+                            extraChargeRateNeeded = _Batt.TransferKiloWattsToPercent(extraPowerNeeded * 2 /* Get it in th next half hour. */);
+                            if (pcMeanForBattAfterCL >= bti.ChargeRateNeededHPercent + extraPowerNeeded)
                             {
                                 chargeLastWanted = true;
                                 battChargeRateWanted = 95;
@@ -364,7 +366,9 @@ from(bucket: ""solar"")
                             else
                             {
                                 chargeLastWanted = false;
-                                battChargeRateWanted = bti.PredictionBatteryPercent > 200 ? bti.ChargeRateNeededHPercent : 95;
+                                battChargeRateWanted = bti.ChargeRateNeededHPercent + extraChargeRateNeeded;
+                                battChargeRateWanted = battChargeRateWanted > 100 ? 100 : battChargeRateWanted;
+                                actionInfo.AppendLine($"Battery charge rate increased by {extraChargeRateNeeded}% to {battChargeRateWanted}% to get extra {extraPowerNeeded}kW in the next half hour.");
                             }
 
                             if (battLevel < bti.BatteryTarget - 3 
