@@ -496,7 +496,7 @@ namespace Rwb.Luxopus.Jobs
 
             int bToday = batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(evening.Start.DayOfWeek, evening.Start.Hour, 24));
             //int bTomorrow = batt.CapacityKiloWattHoursToPercent(bup.GetKwkh(evening.Start.AddDays(1).DayOfWeek, 0, startOfGeneration.Hour));
-            int bTomorrow = batt.CapacityKiloWattHoursToPercent(0.2 * (5 + startOfGeneration.Hour) /* Guess for evening to start of generation */);
+            int bTomorrow = batt.CapacityKiloWattHoursToPercent(0.2 * startOfGeneration.Hour /* Guess for evening to start of generation */);
 
             /* 
              * At the time of writing: median 177, mean 220.

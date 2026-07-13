@@ -232,17 +232,23 @@ namespace Rwb.Luxopus.Jobs
                 //List<FluxTable> bupH = await _InfluxQuery.QueryAsync(Query.HourlyBatteryUse, t0);
                 //BatteryUsageProfile bup = new BatteryUsageProfile(bupH);
                 DateTime startOfGeneration = plan.Current.Start.Date.AddHours(10);
+                DateTime endOfGeneration = plan.Current.Start.Date.AddHours(15);
                 try
                 {
                     (startOfGeneration, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
+                    (endOfGeneration, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
                 }
                 catch { }
-                battLevelEnd = battLevelEnd + _Batt.CapacityKiloWattHoursToPercent(0.2 * (5 + startOfGeneration.Hour) /* Guess for evening to start of generation */);
+                int battUse = _Batt.CapacityKiloWattHoursToPercent(0.2 * (
+                    24 - endOfGeneration.Hour /* End of generation to midnight */
+                    + startOfGeneration.Hour /* Midnight to start of generation. */
+                    ));
+
+                battLevelEnd = battLevelEnd + battUse;
 
                 battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
 
-
-                actionInfo.AppendLine($"           Target: mimimum {_Batt.BatteryMinimumLimit}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
+                actionInfo.AppendLine($"           Target: mimimum {_Batt.BatteryMinimumLimit}% plus use {battUse}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
                 // TODO: this assumes flux; solar charge target should be set by the plan.
 
                 (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
@@ -265,13 +271,7 @@ namespace Rwb.Luxopus.Jobs
                 actionInfo.AppendLine($"      Charge last: {(chargeLast ? "on" : "off")}");
                 actionInfo.AppendLine($" Batt charge rate: {battChargeRate}%");
 
-                if (battLevel + bti.PredictionBatteryPercent >= 200 && DateTime.Now.Hour <= 9 && t0.Month >= 3 && t0.Month <= 8)
-                {
-                    chargeLastWanted = true;
-                    battChargeRateWanted = 100;
-                    actionInfo.AppendLine($"Batt level {battLevel}% plus prediction {bti.PredictionBatteryPercent}% is greater than 200%: charge last before 10am (local) March to August.");
-                }
-                else if (t0.TimeOfDay <= bti.GenerationStart.TimeOfDay)
+                if (t0.TimeOfDay <= bti.GenerationStart.TimeOfDay)
                 {
                     actionInfo.AppendLine($"Plan check at {t0:HH:mm} is before start of generation at {bti.GenerationStart:HH:mm}.");
                     chargeLastWanted = false;
@@ -283,6 +283,12 @@ namespace Rwb.Luxopus.Jobs
                     chargeLastWanted = false;
                     battChargeRateWanted = 100;
                     // TODO: discharge to make room for tomorrow?
+                }
+                else if (battLevel + bti.PredictionBatteryPercent >= 200 && DateTime.Now.Hour <= 9 && t0.Month >= 3 && t0.Month <= 8)
+                {
+                    chargeLastWanted = true;
+                    battChargeRateWanted = 100;
+                    actionInfo.AppendLine($"Batt level {battLevel}% plus prediction {bti.PredictionBatteryPercent}% is greater than 200%: charge last before 10am (local) March to August.");
                 }
                 else if (Plan.DischargeToGridCondition(plan.Previous) && Plan.ChargeFromGridCondition(plan.Next))
                 {
@@ -388,9 +394,9 @@ from(bucket: ""solar"")
                                 actionInfo.AppendLine($"Battery charge rate increased by {extraChargeRateNeeded}% to {battChargeRateWanted}% to get extra {extraPowerNeeded}kW in the next half hour.");
                             }
 
-                            if (battLevel < bti.BatteryTarget - 3 
+                            if (battLevel < bti.BatteryTarget - 3
                                 && generationRecentMean < 3200
-                                && plan.Current.Buy * 1.1M < plan.Next.Sell 
+                                && plan.Current.Buy * 1.1M < plan.Next.Sell
                                 && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
                             {
                                 double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);

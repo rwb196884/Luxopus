@@ -128,12 +128,18 @@ namespace Rwb.Luxopus.Jobs
             //List<FluxTable> bupH = await _InfluxQuery.QueryAsync(Query.HourlyBatteryUse, t0);
             //BatteryUsageProfile bup = new BatteryUsageProfile(bupH);
             DateTime startOfGeneration = plan.Current.Start.Date.AddHours(10);
+            DateTime endOfGeneration = plan.Current.Start.Date.AddHours(15);
             try
             {
                 (startOfGeneration, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
+                (endOfGeneration, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
             }
             catch { }
-            battLevelEnd = battLevelEnd + _Batt.CapacityKiloWattHoursToPercent(0.2 * (5 + startOfGeneration.Hour) /* Guess for evening to start of generation */);
+            int battUse = _Batt.CapacityKiloWattHoursToPercent(0.2 * (
+                24 - endOfGeneration.Hour /* End of generation to midnight */
+                + startOfGeneration.Hour /* Midnight to start of generation. */
+                ));
+            battLevelEnd = battLevelEnd + battUse;
 
             battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
             // TODO: this assumes flux; solar charge target should be set by the plan.
@@ -143,7 +149,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 battLevelEnd = 100;
             }
-            actionInfo.AppendLine($"Target is mimimum {_Batt.BatteryMinimumLimit}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
+            actionInfo.AppendLine($"Target is mimimum {_Batt.BatteryMinimumLimit}% plus use {battUse}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
 
 
             int battLevel = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
