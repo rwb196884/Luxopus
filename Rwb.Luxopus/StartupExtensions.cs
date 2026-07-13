@@ -49,8 +49,12 @@ namespace Rwb.Luxopus
                     services.Register<IBurstLogService, BurstLogService, BurstLogSettings>(context);
                     services.Register<IBatteryService, BatteryService, BatterySettings>(context);
                     services.Register<IAtService, AtService, AtSettings>(context);
-                    services.AddScoped<BatteryTargetService>();
                     //services.Register<IHanchuService, HanchuService, HanchuSettings>(context);
+                    //services.Register<ISevernTrentService, SevernTrentService, SevernTrentSettings>(context);
+
+                    services.AddScoped<BatteryTargetService>();
+                    services.AddScoped<BatteryUsageProfileService>();
+                    services.AddScoped<GenerationProfileService>();
 
                     // Main thingy.
                     services.AddScoped<Luxopus>();
@@ -68,6 +72,7 @@ namespace Rwb.Luxopus
                     //services.AddScoped<AtJob>();
                     services.AddScoped<GenerationForecast>();
                     //services.AddScoped<HanchuJob>();
+                    services.AddScoped<SevernTrentJob>();
 
                     services.AddScoped<PlanChecker>();
                     //services.AddScoped<Burst>();

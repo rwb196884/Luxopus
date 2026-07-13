@@ -47,6 +47,7 @@ namespace Rwb.Luxopus.Jobs
         private readonly IBatteryService _Batt;
         private readonly IEmailService _Email;
         private readonly IOctopusService _Octopus;
+        private readonly BatteryUsageProfileService _BatteryUsageProfile;
 
         public Plan15(
             ILogger<LuxMonitor> logger,
@@ -55,7 +56,8 @@ namespace Rwb.Luxopus.Jobs
             ILuxopusPlanService plan,
             IEmailService email,
             IBatteryService batt,
-            IOctopusService octopus
+            IOctopusService octopus,
+            BatteryUsageProfileService batteryUsageProfile
             )
             : base(logger, influxQuery, plan)
         {
@@ -63,9 +65,9 @@ namespace Rwb.Luxopus.Jobs
             _Email = email;
             _Batt = batt;
             _Octopus = octopus;
+            _BatteryUsageProfile = batteryUsageProfile;
         }
 
-        private BatteryUsageProfile _BatteryUsageProfile;
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
@@ -158,9 +160,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             // Usage estimate.
-            List<FluxTable> bupH = await InfluxQuery.QueryAsync(Query.HourlyBatteryUse, t0);
-            _BatteryUsageProfile = new BatteryUsageProfile(bupH);
-            int battForUseToday = _Batt.CapacityKiloWattHoursToPercent(_BatteryUsageProfile.GetKwkh(gStart.DayOfWeek, gStart.Hour, gEnd.AddHours(1).Hour));
+            int battForUseToday = _Batt.CapacityKiloWattHoursToPercent(await _BatteryUsageProfile.GetKwkhAsync(gStart.DayOfWeek, gStart.Hour, gEnd.AddHours(1).Hour));
 
             int battExportable = _Batt.CapacityKiloWattHoursToPercent(3.6 * (gEnd - gStart).TotalHours * 0.9);
             int battMax = 100;
@@ -204,7 +204,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 b = TrySellMore(plan, gStart, gEnd, generationPrediction, battMax);
                 aa = TryBuyLess(plan, gStart, gEnd, generationPrediction, battMax);
-                a = TryBuyMore(plan, gStart, gEnd, generationPrediction);
+                a = await TryBuyMoreAsync(plan, gStart, gEnd, generationPrediction);
             }
 
             bool batteryConditioningRequired = false;
@@ -247,13 +247,13 @@ namespace Rwb.Luxopus.Jobs
             _Email.SendPlanEmail(plan, notes.ToString());
         }
 
-        private void Recompute(Plan plan, double generationPrediction)
+        private async Task Recompute(Plan plan, double generationPrediction)
         {
             PeriodPlan current = plan.Current;
             PeriodPlan? next = plan.Plans.GetNext(current);
             while (next != null)
             {
-                next.Battery = current.Battery + current.BatteryChange(generationPrediction, _Batt, _BatteryUsageProfile);
+                next.Battery = current.Battery + (await current.BatteryChangeAsync(generationPrediction, _Batt, _BatteryUsageProfile));
                 current = next;
                 next = plan.Plans.GetNext(current);
             }
@@ -267,7 +267,7 @@ namespace Rwb.Luxopus.Jobs
         /// <param name="gEnd"></param>
         /// <param name="generationPrediction"></param>
         /// <returns></returns>
-        private bool TryBuyMore(Plan plan, DateTime gStart, DateTime gEnd, double generationPrediction)
+        private async Task<bool> TryBuyMoreAsync(Plan plan, DateTime gStart, DateTime gEnd, double generationPrediction)
         {
             bool changes = false;
             PeriodPlan current = plan.Current; //.Plans.OrderBy(z => z.Start).First();
@@ -313,7 +313,7 @@ namespace Rwb.Luxopus.Jobs
 
                 if (q != null && (r == null /* Can't sell more. */ || q.Buy < r.Sell /* Costs less to buy. */ ))
                 {
-                    q.Action.ChargeFromGrid += _Batt.CapacityKiloWattHoursToPercent(0.5 * _BatteryUsageProfile.GetKwkh(p.Start.DayOfWeek, p.Start.Hour, p.Start.AddHours(1).Hour));
+                    q.Action.ChargeFromGrid += _Batt.CapacityKiloWattHoursToPercent(0.5 * (await _BatteryUsageProfile.GetKwkhAsync(p.Start.DayOfWeek, p.Start.Hour, p.Start.AddHours(1).Hour)));
                     if (q.Action.ChargeFromGrid > 100)
                     {
                         q.Action.ChargeFromGrid = 100;
@@ -521,11 +521,11 @@ namespace Rwb.Luxopus.Jobs
             return plan.Plans.Where(z => z.Start >= plan.Current.Start).OrderByDescending(z => z.Start).Pag(end, condition, z => z.Start);
         }
 
-        public static int BatteryChange(this PeriodPlan p, double generationPrediction, IBatteryService batt, BatteryUsageProfile bup)
+        public static async Task<int> BatteryChangeAsync(this PeriodPlan p, double generationPrediction, IBatteryService batt, BatteryUsageProfileService bup)
         {
             int halfHourBattPercentOut = batt.MaxDischarge / 2;
             int halfHourBattPercentIn = batt.MaxCharge / 2;
-            int halfHourUsePercent = batt.CapacityKiloWattHoursToPercent(0.5 * bup.GetKwkh(p.Start.DayOfWeek, p.Start.Hour, p.Start.AddHours(1).Hour));
+            int halfHourUsePercent = batt.CapacityKiloWattHoursToPercent(0.5 * (await bup.GetKwkhAsync(p.Start.DayOfWeek, p.Start.Hour, p.Start.AddHours(1).Hour)));
 
             int generationInPeriod = batt.CapacityKiloWattHoursToPercent((p.Start.Hour < 9 || p.Start.Hour > 16) ? 0 : generationPrediction / (2 * 8));
 

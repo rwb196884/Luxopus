@@ -11,7 +11,7 @@ gh = from(bucket: "solar")
   |> map(fn: (r) => ({r with dateJoinKey: date.year(t: r._time) * 10000 + date.month(t: r._time) * 100 + date.monthDay(t: r._time) }))
   |> group(columns: [])
   
-ghD =  gh 
+ghD = gh 
   |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
   |> timeShift(duration: -1d)
   |> map(fn: (r) => ({r with dateJoinKey: date.year(t: r._time) * 10000 + date.month(t: r._time) * 100 + date.monthDay(t: r._time) }))
@@ -24,8 +24,19 @@ j = join.inner(
   as: (l, r) => ({
     h: date.hour(t: l._time),
     _time: date.add(to: today(), d: duration(v: string(v: date.hour(t: l._time)) + "h" )),
-    _value: 100 * int(v: l._value) / int(v: r._value)
+    _value: 100 * int(v: l._value) / int(v: r._value),
+    j: 0
   })
   )
 
-  j |> group(columns: ["h"]) |> mean() |> yield()
+jh = j |> group(columns: ["j", "h"]) |> mean() //|> yield(name: "jh")
+
+jht = jh |> group(columns: []) |> sum() |> map(fn: (r) => ({r with j: 0})) |> group(columns: ["j"]) //|> yield(name: "jht")
+
+join.inner(
+    left: jh |> group(columns: ["j"]), 
+    right: jht, 
+    on: (l, r) => l.j == r.j,
+    as: (l, r) => ({l with v: l._value, _value: 100 *  int(v: l._value) /  int(v: r._value)})
+)
+|> yield()

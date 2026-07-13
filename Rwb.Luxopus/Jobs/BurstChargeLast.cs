@@ -1,5 +1,4 @@
-﻿using InfluxDB.Client.Core.Flux.Domain;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
@@ -145,7 +144,7 @@ namespace Rwb.Luxopus.Jobs
             // TODO: this assumes flux; solar charge target should be set by the plan.
 
             (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
-            if(bcSince > bcPeriod - 5)
+            if (bcSince > bcPeriod - 5)
             {
                 battLevelEnd = 100;
             }
@@ -291,13 +290,14 @@ from(bucket: ""solar"")
                         battChargeRateWanted = 99;
                         actionInfo.AppendLine($"Enable charge last because battery level {bti.BatteryLevelCurrent}% is ahead of target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%.");
                     }
-                    else if( battLevel < bti.BatteryTarget)
+                    else if (battLevel < bti.BatteryTarget)
                     {
                         double extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + bti.HeadroomScaled - battLevel);
                         int extraChargeRateNeeded = _Batt.TransferKiloWattsToPercent(extraPowerNeeded * 2 /* Get it in the next half hour. */);
                         chargeLastWanted = false;
                         battChargeRateWanted = bti.ChargeRateNeededHPercent + extraChargeRateNeeded;
-                        actionInfo.AppendLine($"Battery charge rate increased by {extraChargeRateNeeded}% to {battChargeRateWanted}% to get extra {extraPowerNeeded}kW in the next half hour.");
+                        battChargeRateWanted = battChargeRateWanted > 100 ? 100 : battChargeRateWanted;
+                        actionInfo.AppendLine($"Battery charge rate increased to {battChargeRateWanted}% (need extra {extraChargeRateNeeded}%) to get extra {extraPowerNeeded:0.0}kW in the next half hour.");
                     }
                     else if (bti.ChargeRateNeededPercent < pcCurrentForBattAfterCL - 5)
                     {
