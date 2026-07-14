@@ -114,7 +114,7 @@ namespace Rwb.Luxopus.Jobs
                 PeriodPlan? next = null;
 
                 int battDischargeableAtPeak = _Batt.CapacityKiloWattHoursToPercent(3 * 3.6);
-                (int bcSince, int bcPeriod) = (0, 0);
+                (int bcSince, int bcPeriod) = (0, 100);
                 try
                 {
                     Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
@@ -123,6 +123,7 @@ namespace Rwb.Luxopus.Jobs
                 catch
                 {
                     notes.AppendLine($"*** Failed to get battery calibration info. ***");
+
                 }
 
                 int battLevelStart = await InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
@@ -483,7 +484,7 @@ from(bucket: "solar")
             evening.Action = new PeriodAction()
             {
                 ChargeFromGrid = 0,
-                DischargeToGrid = Math.Max(high.Action.DischargeToGrid, low.Action.ChargeFromGrid) + bToday + bTomorrow
+                DischargeToGrid = Math.Min(Math.Max(high.Action.DischargeToGrid, low.Action.ChargeFromGrid) + bToday + bTomorrow, 100)
             };
         }
 

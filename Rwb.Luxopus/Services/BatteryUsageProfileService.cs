@@ -35,6 +35,7 @@ ILogger<BatteryTargetService> logger, IInfluxQueryService influxQuery)
                         y => y.GetValue<double>("_value")
                     )
                 );
+                _Computed = DateTime.Now;
             }
         }
 

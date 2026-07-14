@@ -31,6 +31,7 @@ namespace Rwb.Luxopus.Services
                     z => z.GetValue<int>("h"),
                     z => z.GetValue<int>("_value")
                     );
+                _Computed = DateTime.Now;
             }
         }
 
