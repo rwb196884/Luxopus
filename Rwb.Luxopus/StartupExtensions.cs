@@ -72,7 +72,7 @@ namespace Rwb.Luxopus
                     //services.AddScoped<AtJob>();
                     services.AddScoped<GenerationForecast>();
                     //services.AddScoped<HanchuJob>();
-                    services.AddScoped<SevernTrentJob>();
+                    //services.AddScoped<SevernTrentJob>();
 
                     services.AddScoped<PlanChecker>();
                     //services.AddScoped<Burst>();
