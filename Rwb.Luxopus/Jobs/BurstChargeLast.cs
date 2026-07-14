@@ -274,6 +274,12 @@ from(bucket: ""solar"")
                     battChargeRateWanted = battLevel < bti.BatteryTarget + bti.HeadroomScaled ? 100 : bti.ChargeRateNeededHPercent;
                     actionInfo.AppendLine($"Recent generation {generationRecentMean / 1000:0.0}kW is less than charge rate required {bti.ChargeRateNeededHkW:0.0}kW.");
                 }
+                else if (bti.BatteryLevelCurrent >= bti.BatteryLevelEnd)
+                {
+                    battChargeRateWanted = 100;
+                    chargeLastWanted = false;
+                    actionInfo.AppendLine($"Battery level has reached target ({bti.BatteryLevelEnd}%).");
+                }
                 else if (generation > 3200)
                 {
                     // Forced discharge causes clipping.

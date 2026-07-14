@@ -295,6 +295,12 @@ namespace Rwb.Luxopus.Jobs
                     chargeLastWanted = false;
                     battChargeRate = 100;
                 }
+                else if (bti.BatteryLevelCurrent >= bti.BatteryLevelEnd)
+                {
+                    battChargeRateWanted = 100;
+                    chargeLastWanted = false;
+                    actionInfo.AppendLine($"Battery level has reached target ({bti.BatteryLevelEnd}%).");
+                }
                 else
                 {
                     // Get ~~fully~~ to target charge before the discharge period.
@@ -375,71 +381,52 @@ from(bucket: ""solar"")
                         // Are we behind schedule?
                         double extraPowerNeeded = 0.0;
                         int extraChargeRateNeeded = 0;
-                        chargeFromGridWanted = chargeFromGridCurrent.Clone();
                         if (battLevel < bti.BatteryTarget)
                         {
                             extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + bti.HeadroomScaled - battLevel);
                             extraChargeRateNeeded = _Batt.TransferKiloWattsToPercent(extraPowerNeeded * 2 /* Get it in th next half hour. */);
-                            if (pcMeanForBattAfterCL >= bti.ChargeRateNeededHPercent + extraPowerNeeded)
-                            {
-                                chargeLastWanted = true;
-                                battChargeRateWanted = 95;
-                            }
-                            else
-                            {
-                                chargeLastWanted = false;
-                                battChargeRateWanted = bti.ChargeRateNeededHPercent + extraChargeRateNeeded;
-                                battChargeRateWanted = battChargeRateWanted > 100 ? 100 : battChargeRateWanted;
-                                actionInfo.AppendLine($"Battery charge rate increased by {extraChargeRateNeeded}% to {battChargeRateWanted}% to get extra {extraPowerNeeded}kW in the next half hour.");
-                            }
+                        }
 
-                            if (battLevel < bti.BatteryTarget - 3
-                                && generationRecentMean < 3200
-                                && plan.Current.Buy * 1.1M < plan.Next.Sell
-                                && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
-                            {
-                                double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
-                                double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
-                                int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
-                                if (rate < 13) { rate = 13; }
-                                if (rate > 100) { rate = 100; }
-                                chargeFromGridWanted = new LuxAction()
-                                {
-                                    Enable = true,
-                                    Start = plan.Current.Start,
-                                    End = plan.Next.Start,
-                                    Limit = bti.BatteryTarget,
-                                    Rate = rate
-                                };
-                                actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}%.");
-                                battChargeRateWanted = 95;
-                            }
-                            else
-                            {
-                                if (chargeFromGridWanted.Start.TimeOfDay <= DateTime.UtcNow.TimeOfDay && chargeFromGridWanted.End.TimeOfDay >= DateTime.UtcNow.TimeOfDay)
-                                {
-                                    chargeFromGridWanted.Enable = false;
-                                }
-                            }
+                        if (pcMeanForBattAfterCL >= bti.ChargeRateNeededHPercent + extraPowerNeeded)
+                        {
+                            chargeLastWanted = true;
+                            battChargeRateWanted = 95;
                         }
                         else
                         {
-                            if (chargeFromGridWanted.Start.TimeOfDay <= DateTime.UtcNow.TimeOfDay && chargeFromGridWanted.End.TimeOfDay >= DateTime.UtcNow.TimeOfDay) { chargeFromGridWanted.Enable = false; }
+                            chargeLastWanted = false;
+                            battChargeRateWanted = bti.ChargeRateNeededHPercent + extraChargeRateNeeded;
+                            battChargeRateWanted = battChargeRateWanted > 100 ? 100 : battChargeRateWanted;
+                            actionInfo.AppendLine($"Battery charge rate increased by {extraChargeRateNeeded}% to {battChargeRateWanted}% to get extra {extraPowerNeeded}kW in the next half hour.");
+                        }
 
-                            double aheadkWh = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget);
-                            actionInfo.AppendLine($"Batt level {battLevel}% is ahead of target {bti.BatteryTarget}% ({bti.TargetDescription}) by {aheadkWh:0.0}kWh.");
-
-                            if (generationRecentMax > 3600 && t0.Month >= 3 && t0.Month <= 9)
+                        if (battLevel < bti.BatteryTarget - 3
+                            && generationRecentMean < 3200
+                            && plan.Current.Buy * 1.1M < plan.Next.Sell
+                            && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
+                        {
+                            chargeFromGridWanted = chargeFromGridCurrent.Clone();
+                            double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
+                            double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
+                            int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
+                            if (rate < 13) { rate = 13; }
+                            if (rate > 100) { rate = 100; }
+                            chargeFromGridWanted = new LuxAction()
                             {
-                                chargeLastWanted = true;
-                                battChargeRateWanted = 94;
-                                actionInfo.AppendLine($" Charge last (peak generation in last plan check period {generationRecentMax / 1000:0.0}kW). Charge rate {battChargeRateWanted}%.");
-                            }
-                            else
+                                Enable = true,
+                                Start = plan.Current.Start,
+                                End = plan.Next.Start,
+                                Limit = bti.BatteryTarget,
+                                Rate = rate
+                            };
+                            actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}%.");
+                            battChargeRateWanted = 95;
+                        }
+                        else
+                        {
+                            if (chargeFromGridWanted.Start.TimeOfDay <= DateTime.UtcNow.TimeOfDay && chargeFromGridWanted.End.TimeOfDay >= DateTime.UtcNow.TimeOfDay)
                             {
-                                chargeLastWanted = false;
-                                battChargeRateWanted = bti.ChargeRateNeededHPercent;
-                                actionInfo.AppendLine($" Do not charge last (not March to September, peak generation in last plan check period {generationRecentMax / 1000:0.0}kW). Charge rate {bti.ChargeRateNeededHPercent}%.");
+                                chargeFromGridWanted.Enable = false;
                             }
                         }
 
