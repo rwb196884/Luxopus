@@ -276,7 +276,7 @@ from(bucket: ""solar"")
                 else if (bti.BatteryLevelCurrent >= bti.BatteryLevelEnd)
                 {
                     battChargeRateWanted = 100;
-                    chargeLastWanted = false;
+                    chargeLastWanted = true;
                     actionInfo.AppendLine($"Battery level has reached target ({bti.BatteryLevelEnd}%).");
                 }
                 else if (generation > 3200)
@@ -399,6 +399,12 @@ from(bucket: ""solar"")
                         actionInfo.AppendLine($"Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therfore top up from {battLevel}% to target {bti.BatteryTarget}%.");
                         chargeLastWanted = false;
                         battChargeRateWanted = 95;
+                    }
+                    else if(generationRecentMean / 1000 > bti.ChargeRateNeededkW)
+                    {
+                        actionInfo.AppendLine($"Generation {generationRecentMean / 1000:0.0}kW is greater than charge rate needed {bti.ChargeRateNeededkW:0.0}kW ({bti.ChargeRateNeededHkW:0.0}kW with headroom)");
+                        chargeLastWanted = false;
+                        battChargeRateWanted = bti.ChargeRateNeededHPercent;
                     }
                     else
                     {
