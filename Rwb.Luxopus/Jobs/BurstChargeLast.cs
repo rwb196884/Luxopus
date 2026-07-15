@@ -138,9 +138,8 @@ namespace Rwb.Luxopus.Jobs
                 24 - endOfGeneration.Hour /* End of generation to midnight */
                 + startOfGeneration.Hour /* Midnight to start of generation. */
                 ));
-            battLevelEnd = battLevelEnd + battUse;
+            battLevelEnd = Math.Min(100, battLevelEnd + battUse);
 
-            battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
             // TODO: this assumes flux; solar charge target should be set by the plan.
 
             (_, int bcSince, int bcPeriod) = _Lux.GetBatteryCalibration(settings);
@@ -301,8 +300,7 @@ from(bucket: ""solar"")
                         double extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + bti.HeadroomScaled - battLevel);
                         int extraChargeRateNeeded = _Batt.TransferKiloWattsToPercent(extraPowerNeeded * 2 /* Get it in the next half hour. */);
                         chargeLastWanted = false;
-                        battChargeRateWanted = bti.ChargeRateNeededHPercent + extraChargeRateNeeded;
-                        battChargeRateWanted = battChargeRateWanted > 100 ? 100 : battChargeRateWanted;
+                        battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);
                         actionInfo.AppendLine($"Battery charge rate increased to {battChargeRateWanted}% (need extra {extraChargeRateNeeded}%) to get extra {extraPowerNeeded:0.0}kW in the next half hour.");
                     }
                     else if (bti.ChargeRateNeededPercent < pcCurrentForBattAfterCL - 5)

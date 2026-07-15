@@ -367,8 +367,7 @@ namespace Rwb.Luxopus.Jobs
                                             notes.AppendLine($"  chargeFromGrid: {chargeFromGrid:0}% reduced to {100 - battDischargeableAtPeak}% because all generation must go to battery.");
                                             chargeFromGrid = 100 - battDischargeableAtPeak;
                                         }
-                                        int battLevelEnd = _Batt.BatteryMinimumLimit + battDischargeableAtPeak + 8;
-                                        battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
+                                        int battLevelEnd = Math.Min(_Batt.BatteryMinimumLimit + battDischargeableAtPeak + 8, 100);
                                         if (chargeFromGrid > battLevelEnd)
                                         {
                                             notes.AppendLine($"  chargeFromGrid limited to {battLevelEnd} = min ({_Batt.BatteryMinimumLimit}) + peak dischargeable ({battDischargeableAtPeak}) + 8%.");

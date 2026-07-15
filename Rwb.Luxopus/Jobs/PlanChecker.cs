@@ -243,9 +243,7 @@ namespace Rwb.Luxopus.Jobs
                     + startOfGeneration.Hour /* Midnight to start of generation. */
                     ));
 
-                battLevelEnd = battLevelEnd + battUse;
-
-                battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
+                battLevelEnd = Math.Min(100, battLevelEnd + battUse);
 
                 actionInfo.AppendLine($"           Target: mimimum {_Batt.BatteryMinimumLimit}% plus use {battUse}% plus maximum dischargeable {_Batt.MaxDischarge * 3}% = {battLevelEnd}%.");
                 // TODO: this assumes flux; solar charge target should be set by the plan.
@@ -298,7 +296,7 @@ namespace Rwb.Luxopus.Jobs
                 else if (bti.BatteryLevelCurrent >= bti.BatteryLevelEnd)
                 {
                     battChargeRateWanted = 100;
-                    chargeLastWanted = false;
+                    chargeLastWanted = true;
                     actionInfo.AppendLine($"Battery level has reached target ({bti.BatteryLevelEnd}%).");
                 }
                 else
@@ -395,8 +393,7 @@ from(bucket: ""solar"")
                         else
                         {
                             chargeLastWanted = false;
-                            battChargeRateWanted = bti.ChargeRateNeededHPercent + extraChargeRateNeeded;
-                            battChargeRateWanted = battChargeRateWanted > 100 ? 100 : battChargeRateWanted;
+                            battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);                            battChargeRateWanted = battChargeRateWanted > 100 ? 100 : battChargeRateWanted;
                             actionInfo.AppendLine($"Battery charge rate increased by {extraChargeRateNeeded}% to {battChargeRateWanted}% to get extra {extraPowerNeeded}kW in the next half hour.");
                         }
 
