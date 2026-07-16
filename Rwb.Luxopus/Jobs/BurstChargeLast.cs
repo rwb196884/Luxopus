@@ -261,11 +261,26 @@ from(bucket: ""solar"")
                 //    actionInfo.AppendLine($"Battery level {battLevel}% is greater than target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%; ahead by {a:#,##0.0}kWh.");
                 //}
 
+                // Are we behind schedule?
+                double extraPowerNeeded = 0.0;
+                int extraChargeRateNeeded = 0;
+                if (battLevel < bti.BatteryTarget)
+                {
+                    extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + bti.HeadroomScaled - battLevel);
+                    extraChargeRateNeeded = _Batt.TransferKiloWattsToPercent(extraPowerNeeded * 2 /* Get it in th next half hour. */);
+                }
+
                 if (battLevel + bti.PredictionBatteryPercent >= 200 && DateTime.Now.Hour <= 9 && t0.Month >= 3 && t0.Month <= 8)
                 {
                     chargeLastWanted = true;
                     battChargeRateWanted = 100;
                     actionInfo.AppendLine($"Batt level {battLevel}% plus prediction {bti.PredictionBatteryPercent}% is greater than 200%: charge last before 10am (local) March to August.");
+                }
+                else if(generationRecentMean / 1000 > bti.ChargeRateNeededHkW + (extraPowerNeeded * 2) && pcCurrentForBattAfterCL > bti.ChargeRateNeededHPercent + extraPowerNeeded)
+                {
+                    chargeLastWanted = true;
+                    battChargeRateWanted = 100;
+                    actionInfo.AppendLine($"Enable charge last because charge rate needed {bti.ChargeRateNeededHPercent}% (including headroom) is less than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
                 }
                 else if (generationRecentMean / 1000 < bti.ChargeRateNeededHkW)
                 {
@@ -297,8 +312,6 @@ from(bucket: ""solar"")
                     }
                     else if (battLevel < bti.BatteryTarget)
                     {
-                        double extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget + bti.HeadroomScaled - battLevel);
-                        int extraChargeRateNeeded = _Batt.TransferKiloWattsToPercent(extraPowerNeeded * 2 /* Get it in the next half hour. */);
                         chargeLastWanted = false;
                         battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);
                         actionInfo.AppendLine($"Battery charge rate increased to {battChargeRateWanted}% (need extra {extraChargeRateNeeded}%) to get extra {extraPowerNeeded:0.0}kW in the next half hour.");

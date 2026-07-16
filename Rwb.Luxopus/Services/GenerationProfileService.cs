@@ -13,7 +13,7 @@ namespace Rwb.Luxopus.Services
         private readonly IInfluxQueryService _InfluxQuery;
 
         private DateTime _Computed;
-        private Dictionary<int, int> _GenerationProfile;
+        private Dictionary<int, double> _GenerationProfile;
 
         public GenerationProfileService(
         ILogger<BatteryTargetService> logger, IInfluxQueryService influxQuery)
@@ -28,19 +28,25 @@ namespace Rwb.Luxopus.Services
             {
                 List<FluxTable> gp = await _InfluxQuery.QueryAsync(Query.GenerationProfile, DateTime.Today);
                 _GenerationProfile = gp.First().Records.ToDictionary(
-                    z => z.GetValue<int>("h"),
-                    z => z.GetValue<int>("_value")
+                    z =>z.GetValue<int>("h"),
+                    z =>z.GetValue<double>("_value")
                     );
                 _Computed = DateTime.Now;
             }
         }
 
-        public async Task<double> EstimateAsync(DateTime start, DateTime finish, double generationPredictionKwH)
+        public async Task<double> EstimateAsync(DateTime start, DateTime finish, double generationPredictionKWH)
         {
             await ComputeAsync();
             return Enumerable.Range(start.TimeOfDay.Hours, finish.TimeOfDay.Hours)
                 .Sum()
-                * generationPredictionKwH / 100.0;
+                * generationPredictionKWH / 100.0;
+        }
+
+        public async Task<Dictionary<int, double>> ProfileAsync()
+        {
+            await ComputeAsync();
+            return _GenerationProfile;
         }
     }
 }

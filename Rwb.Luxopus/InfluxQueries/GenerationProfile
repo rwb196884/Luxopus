@@ -4,7 +4,8 @@ import "join"
 m0 = date.month(t: today())
 
 gh = from(bucket: "solar")
-  |> range(start: 2026-02-14T00:00:00Z, stop: today())
+  //|> range(start: 2023-02-14T00:00:00Z, stop: today())
+  |> range(start: -25mo, stop: today())
   |> filter(fn: (r) => date.month(t: r._time) == m0 and r["_measurement"] == "inverter" and r["_field"] == "generation")
   |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)
   |> timeShift(duration: -1h)
@@ -24,7 +25,7 @@ j = join.inner(
   as: (l, r) => ({
     h: date.hour(t: l._time),
     _time: date.add(to: today(), d: duration(v: string(v: date.hour(t: l._time)) + "h" )),
-    _value: 100 * int(v: l._value) / int(v: r._value),
+    _value: 100.0 * float(v: l._value) / float(v: r._value),
     j: 0
   })
   )
@@ -37,6 +38,6 @@ join.inner(
     left: jh |> group(columns: ["j"]), 
     right: jht, 
     on: (l, r) => l.j == r.j,
-    as: (l, r) => ({l with v: l._value, _value: 100 *  int(v: l._value) /  int(v: r._value)})
+    as: (l, r) => ({l with v: l._value, _value: 100.0 *  float(v: l._value) /  float(v: r._value)})
 )
 |> yield()

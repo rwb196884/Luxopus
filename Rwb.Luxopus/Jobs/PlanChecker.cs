@@ -385,10 +385,11 @@ from(bucket: ""solar"")
                             extraChargeRateNeeded = _Batt.TransferKiloWattsToPercent(extraPowerNeeded * 2 /* Get it in th next half hour. */);
                         }
 
-                        if (pcMeanForBattAfterCL >= bti.ChargeRateNeededHPercent + extraPowerNeeded)
+                        if (pcMeanForBattAfterCL >= bti.ChargeRateNeededHPercent + extraChargeRateNeeded)
                         {
                             chargeLastWanted = true;
-                            battChargeRateWanted = 95;
+                            battChargeRateWanted = 100;
+                            actionInfo.AppendLine($"Enable charge last because charge rate needed {bti.ChargeRateNeededHPercent}% (including headroom) is less than power available for battery after charge last {pcMeanForBattAfterCL}%.");
                         }
                         else
                         {

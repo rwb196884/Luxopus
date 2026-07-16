@@ -337,6 +337,18 @@ from(bucket: ""{Settings.Bucket}"")
                 }
             }
 
+            if(typeof(T) == typeof(int))
+            {
+                if (o.GetType() == typeof(int))
+                {
+                    return (T)o;
+                }
+                else if (o.GetType() == typeof(long))
+                {
+                    return (T)(object)Convert.ToInt32((long)(o));
+                }
+            }
+
             return (T)o;
         }
 

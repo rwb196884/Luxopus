@@ -1,237 +1,237 @@
-﻿using Microsoft.Extensions.Logging;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+﻿//using Microsoft.Extensions.Logging;
+//using System;
+//using System.Linq;
+//using System.Threading.Tasks;
 
-namespace Rwb.Luxopus.Services
-{
-    public class BatteryTargetInfo
-    {
-        public int BatteryLevelStart { get; set; }
-        public int BatteryLevelCurrent { get; set; }
-        public int BatteryLevelEnd { get; set; }
-        public ScaleMethod ScaleMethod { get; set; }
-        public int BatteryTargetF { get; set; }
-        public int BatteryTargetL { get; set; }
-        public int BatteryTargetS { get; set; }
-        public int BatteryTarget
-        {
-            get
-            {
-                switch (ScaleMethod)
-                {
-                    case ScaleMethod.Fast:
-                        return BatteryTargetF;
-                    case ScaleMethod.Linear:
-                        return BatteryTargetL;
-                    case ScaleMethod.Slow:
-                        return BatteryTargetS;
-                    default:
-                        throw new NotImplementedException();
-                }
-            }
-        }
+//namespace Rwb.Luxopus.Services
+//{
+//    public class BatteryTargetInfo
+//    {
+//        public int BatteryLevelStart { get; set; }
+//        public int BatteryLevelCurrent { get; set; }
+//        public int BatteryLevelEnd { get; set; }
+//        public ScaleMethod ScaleMethod { get; set; }
+//        public int BatteryTargetF { get; set; }
+//        public int BatteryTargetL { get; set; }
+//        public int BatteryTargetS { get; set; }
+//        public int BatteryTarget
+//        {
+//            get
+//            {
+//                switch (ScaleMethod)
+//                {
+//                    case ScaleMethod.Fast:
+//                        return BatteryTargetF;
+//                    case ScaleMethod.Linear:
+//                        return BatteryTargetL;
+//                    case ScaleMethod.Slow:
+//                        return BatteryTargetS;
+//                    default:
+//                        throw new NotImplementedException();
+//                }
+//            }
+//        }
 
-        public int HeadroomTotal { get; set; }
-        public int HeadroomScaled { get; set; }
+//        public int HeadroomTotal { get; set; }
+//        public int HeadroomScaled { get; set; }
 
-        public double PredictionKWh { get; set; }
-        public int PredictionBatteryPercent { get; set; }
+//        public double PredictionKWh { get; set; }
+//        public int PredictionBatteryPercent { get; set; }
 
-        public DateTime GenerationStart { get; set; }
-        public DateTime GenerationEnd { get; set; }
+//        public DateTime GenerationStart { get; set; }
+//        public DateTime GenerationEnd { get; set; }
 
-        public DateTime Start { get; set; }
-        public DateTime End { get; set; }
+//        public DateTime Start { get; set; }
+//        public DateTime End { get; set; }
 
-        public double HoursToCharge { get; set; }
+//        public double HoursToCharge { get; set; }
 
-        public double ChargeNeededkWH { get; set; }
-        public double ChargeRateNeededkW { get; set; }
-        public int ChargeRateNeededPercent { get; set; }
+//        public double ChargeNeededkWH { get; set; }
+//        public double ChargeRateNeededkW { get; set; }
+//        public int ChargeRateNeededPercent { get; set; }
 
-        public double ChargeNeededHkWH { get; set; }
-        public double ChargeRateNeededHkW { get; set; }
-        public int ChargeRateNeededHPercent { get; set; }
+//        public double ChargeNeededHkWH { get; set; }
+//        public double ChargeRateNeededHkW { get; set; }
+//        public int ChargeRateNeededHPercent { get; set; }
 
-        public string TargetDescription { get { return $"{BatteryTarget}% ({BatteryTargetS}% < {BatteryTargetL}% < {BatteryTargetF}%)"; } }
+//        public string TargetDescription { get { return $"{BatteryTarget}% ({BatteryTargetS}% < {BatteryTargetL}% < {BatteryTargetF}%)"; } }
 
-        public string ChargeDescription
-        {
-            get
-            {
-                if(BatteryLevelCurrent >= BatteryTarget + HeadroomScaled)
-                {
-                    return "Ahead of target and headroom full.";
-                }
-                else if( BatteryLevelCurrent > BatteryTarget)
-                {
-                    return $"{ChargeNeededHkWH:0.0}kWh needed to get from {BatteryLevelCurrent}% to {BatteryLevelEnd + HeadroomScaled}% in {HoursToCharge:0.0} hours until {End:HH:mm} (mean rate {ChargeRateNeededHkW:0.0}kW -> {ChargeRateNeededHPercent}%).";
-                }
-                return $"{ChargeNeededkWH:0.0}kWh needed to get from {BatteryLevelCurrent}% to {BatteryLevelEnd}% in {HoursToCharge:0.0} hours until {End:HH:mm} (mean rate {ChargeRateNeededkW:0.0}kW -> {ChargeRateNeededPercent}%).";
-            }
-        }
-    }
+//        public string ChargeDescription
+//        {
+//            get
+//            {
+//                if(BatteryLevelCurrent >= BatteryTarget + HeadroomScaled)
+//                {
+//                    return "Ahead of target and headroom full.";
+//                }
+//                else if( BatteryLevelCurrent > BatteryTarget)
+//                {
+//                    return $"{ChargeNeededHkWH:0.0}kWh needed to get from {BatteryLevelCurrent}% to {BatteryLevelEnd + HeadroomScaled}% in {HoursToCharge:0.0} hours until {End:HH:mm} (mean rate {ChargeRateNeededHkW:0.0}kW -> {ChargeRateNeededHPercent}%).";
+//                }
+//                return $"{ChargeNeededkWH:0.0}kWh needed to get from {BatteryLevelCurrent}% to {BatteryLevelEnd}% in {HoursToCharge:0.0} hours until {End:HH:mm} (mean rate {ChargeRateNeededkW:0.0}kW -> {ChargeRateNeededPercent}%).";
+//            }
+//        }
+//    }
 
-    public class BatteryTargetService
-    {
-        private readonly ILogger _Logger;
-        private readonly IInfluxQueryService _InfluxQuery;
-        private readonly IBatteryService _Batt;
-        //private readonly ILuxopusPlanService _Plans;
+//    public class BatteryTargetService
+//    {
+//        private readonly ILogger _Logger;
+//        private readonly IInfluxQueryService _InfluxQuery;
+//        private readonly IBatteryService _Batt;
+//        //private readonly ILuxopusPlanService _Plans;
 
-        public BatteryTargetService(
-            ILogger<BatteryTargetService> logger, IInfluxQueryService influxQuery, IBatteryService batt/*, ILuxopusPlanService plans*/)
-        {
-            _Logger = logger;
-            _InfluxQuery = influxQuery;
-            _Batt = batt;
-            //_Plans = plans;
-        }
+//        public BatteryTargetService(
+//            ILogger<BatteryTargetService> logger, IInfluxQueryService influxQuery, IBatteryService batt/*, ILuxopusPlanService plans*/)
+//        {
+//            _Logger = logger;
+//            _InfluxQuery = influxQuery;
+//            _Batt = batt;
+//            //_Plans = plans;
+//        }
 
-        private int DefaultBatteryLevelEnd
-        {
-            get
-            {
-                int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.CapacityKiloWattHoursToPercent(3 * 3.6) + 8;
-                battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
-                return battLevelEnd;
-            }
-        }
+//        private int DefaultBatteryLevelEnd
+//        {
+//            get
+//            {
+//                int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.CapacityKiloWattHoursToPercent(3 * 3.6) + 8;
+//                battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
+//                return battLevelEnd;
+//            }
+//        }
 
-        public async Task<BatteryTargetInfo> Compute(Plan plan, int battLevelEnd = 101)
-        {
-            if (battLevelEnd == 101)
-            {
-                battLevelEnd = DefaultBatteryLevelEnd;
-            }
+//        public async Task<BatteryTargetInfo> Compute(Plan plan, int battLevelEnd = 101)
+//        {
+//            if (battLevelEnd == 101)
+//            {
+//                battLevelEnd = DefaultBatteryLevelEnd;
+//            }
 
-            BatteryTargetInfo info = new BatteryTargetInfo();
+//            BatteryTargetInfo info = new BatteryTargetInfo();
 
-            (int battStart, _) = await _InfluxQuery.GetBatteryStartLevelAsync();
-            info.BatteryLevelStart = battStart;
+//            (int battStart, _) = await _InfluxQuery.GetBatteryStartLevelAsync();
+//            info.BatteryLevelStart = battStart;
 
-            info.BatteryLevelCurrent = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
+//            info.BatteryLevelCurrent = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
 
-            (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, plan.Current.Start)).First().FirstOrDefault<double>();
-            info.PredictionKWh = prediction / 10;
-            info.PredictionBatteryPercent = _Batt.CapacityKiloWattHoursToPercent(info.PredictionKWh);
+//            (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, plan.Current.Start)).First().FirstOrDefault<double>();
+//            info.PredictionKWh = prediction / 10;
+//            info.PredictionBatteryPercent = _Batt.CapacityKiloWattHoursToPercent(info.PredictionKWh);
 
-            DateTime gStart = DateTime.Today.AddHours(5); //sunrise;
-            DateTime gEnd = DateTime.Today.AddHours(16); // sunset
-            try
-            {
-                //(sunrise, _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
-                //(sunset, _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
-                (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
-                (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
-            }
-            catch (Exception e)
-            {
-                _Logger.LogError(e, "Failed to query for sunrise and sunset / generation.");
-            }
-            info.GenerationStart = gStart;
-            info.GenerationEnd = gEnd;
+//            DateTime gStart = DateTime.Today.AddHours(5); //sunrise;
+//            DateTime gEnd = DateTime.Today.AddHours(16); // sunset
+//            try
+//            {
+//                //(sunrise, _) = (await _InfluxQuery.QueryAsync(Query.Sunrise, currentPeriod.Start)).First().FirstOrDefault<long>();
+//                //(sunset, _) = (await _InfluxQuery.QueryAsync(Query.Sunset, currentPeriod.Start)).First().FirstOrDefault<long>();
+//                (gStart, _) = (await _InfluxQuery.QueryAsync(Query.StartOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
+//                (gEnd, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
+//            }
+//            catch (Exception e)
+//            {
+//                _Logger.LogError(e, "Failed to query for sunrise and sunset / generation.");
+//            }
+//            info.GenerationStart = gStart;
+//            info.GenerationEnd = gEnd;
 
-            //            (DateTime _, long generationMax) = //(DateTime.Now, 0);
-            //    (await _InfluxQuery.QueryAsync(@$"
-            //from(bucket: ""solar"")
-            //  |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
-            //  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-            //  |> max()")).First().FirstOrDefault<long>();
+//            //            (DateTime _, long generationMax) = //(DateTime.Now, 0);
+//            //    (await _InfluxQuery.QueryAsync(@$"
+//            //from(bucket: ""solar"")
+//            //  |> range(start: {plan.Current.Start.ToString("yyyy-MM-ddTHH:mm:00Z")}, stop: now())
+//            //  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+//            //  |> max()")).First().FirstOrDefault<long>();
 
-            //            long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
-            //from(bucket: ""solar"")
-            //  |> range(start: -45m, stop: now())
-            //  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-            //  |> max()")
-            //               ).First().Records.First().GetValue<long>();
+//            //            long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
+//            //from(bucket: ""solar"")
+//            //  |> range(start: -45m, stop: now())
+//            //  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+//            //  |> max()")
+//            //               ).First().Records.First().GetValue<long>();
 
-            double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
-from(bucket: ""solar"")
-  |> range(start: -45m, stop: now())
-  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-  |> mean()")
-               ).First().Records.First().GetValue<double>();
+//            double generationRecentMean = (await _InfluxQuery.QueryAsync(@$"
+//from(bucket: ""solar"")
+//  |> range(start: -45m, stop: now())
+//  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+//  |> mean()")
+//               ).First().Records.First().GetValue<double>();
 
-            //            double generationMeanDifference = (await _InfluxQuery.QueryAsync(@$"
-            //from(bucket: ""solar"")
-            //  |> range(start: -45m, stop: now())
-            //  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
-            //  |> difference()
-            //  |> mean()")
-            //               ).First().Records.First().GetValue<double>();
+//            //            double generationMeanDifference = (await _InfluxQuery.QueryAsync(@$"
+//            //from(bucket: ""solar"")
+//            //  |> range(start: -45m, stop: now())
+//            //  |> filter(fn: (r) => r[""_measurement""] == ""inverter"" and r[""_field""] == ""generation"")
+//            //  |> difference()
+//            //  |> mean()")
+//            //               ).First().Records.First().GetValue<double>();
 
-            // Get fully charged before the discharge period.
-            info.Start = gStart > plan.Current.Start ? gStart : plan.Current.Start;
-
-
-            int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
-            DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
-
-            if (battLevelStart + info.PredictionBatteryPercent >= 200 && DateTime.Now.Hour <= 8 && DateTime.Now.Month >= 3 && DateTime.Now.Month <= 8)
-            {
-                info.Start = DateTime.Today.AddHours(10).ToUniversalTime();
-            }
-
-            info.End = (gEnd < plan.Next!.Start ? gEnd : plan.Next!.Start);//.AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1);
-
-            int battLevelTargetF = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Fast);
-            int battLevelTargetL = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Linear);
-            int battLevelTargetS = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Slow);
-
-            ScaleMethod sm = ScaleMethod.Linear;
-            if (prediction <= _Batt.CapacityPercentToKiloWattHours(90))
-            {
-                sm = ScaleMethod.Fast;
-            }
-            else if (info.BatteryLevelCurrent < battLevelTargetS && generationRecentMean < 1500)
-            {
-                sm = ScaleMethod.Fast;
-            }
-            else if (generationRecentMean < 2000)
-            {
-                sm = ScaleMethod.Linear;
-            }
-            else if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && generationRecentMean > 2500 && plan.Current.Start.Month >= 4 && plan.Current.Start.Month <= 8)
-            {
-                // High prediction / good day and summer: charge slowly.
-                sm = ScaleMethod.Slow;
-            }
-            info.ScaleMethod = sm;
-            info.BatteryTargetF = battLevelTargetF;
-            info.BatteryTargetL = battLevelTargetL;
-            info.BatteryTargetS = battLevelTargetS;
-            info.BatteryLevelEnd = battLevelEnd;
-
-            info.HeadroomTotal = 100 - info.BatteryLevelEnd;
-            info.HeadroomScaled = Scale.Apply(info.Start, info.End, DateTime.UtcNow, 0, info.HeadroomTotal, info.ScaleMethod);
-
-            if (info.HeadroomTotal > 0 && info.ScaleMethod == ScaleMethod.Slow)
-            {
-                info.ScaleMethod = ScaleMethod.Linear;
-            }
-
-            info.HoursToCharge = ((info.GenerationEnd < plan.Next.Start ? info.GenerationEnd : plan.Next.Start) - DateTime.UtcNow).TotalHours;
-
-            // To target.
-            int powerRequiredPercent = info.BatteryLevelEnd - info.BatteryLevelCurrent;
-            powerRequiredPercent = powerRequiredPercent < 0 ? 5 : powerRequiredPercent;
-            info.ChargeNeededkWH = _Batt.CapacityPercentToKiloWattHours(powerRequiredPercent);
-
-            info.ChargeRateNeededkW = info.ChargeNeededkWH / info.HoursToCharge;
-            info.ChargeRateNeededPercent = _Batt.TransferKiloWattsToPercent(info.ChargeRateNeededkW);
-
-            // To headroom scaled.
-            powerRequiredPercent = info.BatteryLevelEnd + info.HeadroomScaled - info.BatteryLevelCurrent;
-            powerRequiredPercent = powerRequiredPercent < 0 ? 5 : powerRequiredPercent;
-            info.ChargeNeededHkWH = _Batt.CapacityPercentToKiloWattHours(powerRequiredPercent);
-
-            info.ChargeRateNeededHkW = info.ChargeNeededHkWH / info.HoursToCharge;
-            info.ChargeRateNeededHPercent = _Batt.TransferKiloWattsToPercent(info.ChargeRateNeededHkW);
+//            // Get fully charged before the discharge period.
+//            info.Start = gStart > plan.Current.Start ? gStart : plan.Current.Start;
 
 
-            return info;
-        }
-    }
-}
+//            int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
+//            DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
+
+//            if (battLevelStart + info.PredictionBatteryPercent >= 200 && DateTime.Now.Hour <= 8 && DateTime.Now.Month >= 3 && DateTime.Now.Month <= 8)
+//            {
+//                info.Start = DateTime.Today.AddHours(10).ToUniversalTime();
+//            }
+
+//            info.End = (gEnd < plan.Next!.Start ? gEnd : plan.Next!.Start);//.AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1);
+
+//            int battLevelTargetF = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Fast);
+//            int battLevelTargetL = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Linear);
+//            int battLevelTargetS = Scale.Apply(info.Start, info.End, nextPlanCheck, battLevelStart, battLevelEnd, ScaleMethod.Slow);
+
+//            ScaleMethod sm = ScaleMethod.Linear;
+//            if (prediction <= _Batt.CapacityPercentToKiloWattHours(90))
+//            {
+//                sm = ScaleMethod.Fast;
+//            }
+//            else if (info.BatteryLevelCurrent < battLevelTargetS && generationRecentMean < 1500)
+//            {
+//                sm = ScaleMethod.Fast;
+//            }
+//            else if (generationRecentMean < 2000)
+//            {
+//                sm = ScaleMethod.Linear;
+//            }
+//            else if (prediction > _Batt.CapacityPercentToKiloWattHours(200) && generationRecentMean > 2500 && plan.Current.Start.Month >= 4 && plan.Current.Start.Month <= 8)
+//            {
+//                // High prediction / good day and summer: charge slowly.
+//                sm = ScaleMethod.Slow;
+//            }
+//            info.ScaleMethod = sm;
+//            info.BatteryTargetF = battLevelTargetF;
+//            info.BatteryTargetL = battLevelTargetL;
+//            info.BatteryTargetS = battLevelTargetS;
+//            info.BatteryLevelEnd = battLevelEnd;
+
+//            info.HeadroomTotal = 100 - info.BatteryLevelEnd;
+//            info.HeadroomScaled = Scale.Apply(info.Start, info.End, DateTime.UtcNow, 0, info.HeadroomTotal, info.ScaleMethod);
+
+//            if (info.HeadroomTotal > 0 && info.ScaleMethod == ScaleMethod.Slow)
+//            {
+//                info.ScaleMethod = ScaleMethod.Linear;
+//            }
+
+//            info.HoursToCharge = ((info.GenerationEnd < plan.Next.Start ? info.GenerationEnd : plan.Next.Start) - DateTime.UtcNow).TotalHours;
+
+//            // To target.
+//            int powerRequiredPercent = info.BatteryLevelEnd - info.BatteryLevelCurrent;
+//            powerRequiredPercent = powerRequiredPercent < 0 ? 5 : powerRequiredPercent;
+//            info.ChargeNeededkWH = _Batt.CapacityPercentToKiloWattHours(powerRequiredPercent);
+
+//            info.ChargeRateNeededkW = info.ChargeNeededkWH / info.HoursToCharge;
+//            info.ChargeRateNeededPercent = _Batt.TransferKiloWattsToPercent(info.ChargeRateNeededkW);
+
+//            // To headroom scaled.
+//            powerRequiredPercent = info.BatteryLevelEnd + info.HeadroomScaled - info.BatteryLevelCurrent;
+//            powerRequiredPercent = powerRequiredPercent < 0 ? 5 : powerRequiredPercent;
+//            info.ChargeNeededHkWH = _Batt.CapacityPercentToKiloWattHours(powerRequiredPercent);
+
+//            info.ChargeRateNeededHkW = info.ChargeNeededHkWH / info.HoursToCharge;
+//            info.ChargeRateNeededHPercent = _Batt.TransferKiloWattsToPercent(info.ChargeRateNeededHkW);
+
+
+//            return info;
+//        }
+//    }
+//}
