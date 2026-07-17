@@ -87,6 +87,7 @@ namespace Rwb.Luxopus
                 ////planChecker,
 
                 octopusMeters,
+                octopusPrices,
                 luxMonitor,
                 sunPosition,
                 sunrise,
