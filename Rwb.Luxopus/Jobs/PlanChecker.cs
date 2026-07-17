@@ -100,7 +100,6 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
 
-            StringBuilder actions = new StringBuilder();
 
             // Check that it's doing what it's supposed to be doing.
             // update settings and log warning in case of discrepancy.
@@ -124,6 +123,8 @@ namespace Rwb.Luxopus.Jobs
             LuxAction dischargeToGridCurrent = _Lux.GetDischargeToGrid(settings);
             LuxAction dischargeToGridWanted = LuxAction.NextDisharge(plan, dischargeToGridCurrent, false) ?? dischargeToGridCurrent.Clone();
 
+            StringBuilder actionInfo = new StringBuilder();
+
             if (Plan.DischargeToGridCondition(plan.Current!) && dischargeToGridWanted.Enable)
             {
                 try
@@ -131,18 +132,18 @@ namespace Rwb.Luxopus.Jobs
                     (DateTime lastOccupied, bool wasOccupied) = (await _InfluxQuery.QueryAsync(Query.LastOccupied, DateTime.UtcNow)).Single().FirstOrDefault<bool>();
                     if (wasOccupied && lastOccupied < DateTime.Now.AddHours(-3) && dischargeToGridWanted.Limit > _Batt.BatteryMinimumLimit)
                     {
-                        actions.AppendLine($"DischargeToGridLevel overridden from plan of {dischargeToGridWanted.Limit}% to {_Batt.BatteryMinimumLimit}% because house not occupied since {lastOccupied.ToString("yyyy-MM-dd HH:mm")}.");
+                        actionInfo.AppendLine($"DischargeToGridLevel overridden from plan of {dischargeToGridWanted.Limit}% to {_Batt.BatteryMinimumLimit}% because house not occupied since {lastOccupied.ToString("yyyy-MM-dd HH:mm")}.");
                         dischargeToGridWanted.Limit = _Batt.BatteryMinimumLimit;
                     }
                 }
                 catch (InvalidOperationException e)
                 {
-                    actions.AppendLine($"DischargeToGridLevel overridden from plan of {dischargeToGridWanted.Limit}% to {_Batt.BatteryMinimumLimit}% because house not occupied (query failed: ${e.Message}).");
+                    actionInfo.AppendLine($"DischargeToGridLevel overridden from plan of {dischargeToGridWanted.Limit}% to {_Batt.BatteryMinimumLimit}% because house not occupied (query failed: ${e.Message}).");
                     dischargeToGridWanted.Limit = _Batt.BatteryMinimumLimit;
                 }
                 catch (Exception e)
                 {
-                    actions.AppendLine($"DischargeToGridLevel not overridden because house not occupied query failed: ${e.Message}.");
+                    actionInfo.AppendLine($"DischargeToGridLevel not overridden because house not occupied query failed: ${e.Message}.");
                 }
 
                 //goto Apply;
@@ -154,7 +155,6 @@ namespace Rwb.Luxopus.Jobs
             LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
             LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false) ?? chargeFromGridCurrent.Clone();
 
-            StringBuilder actionInfo = new StringBuilder();
             DateTime tNext = plan.Next?.Start ?? DateTime.UtcNow.AddHours(1);
             if (Plan.ChargeFromGridCondition(plan.Current!))
             {
@@ -479,6 +479,7 @@ from(bucket: ""solar"")
 
             // A P P L Y   S E T T I N G S
         Apply:
+            StringBuilder actions = new StringBuilder();
             // Charge from solar.
             if (battChargeRateWanted != battChargeRate)
             {

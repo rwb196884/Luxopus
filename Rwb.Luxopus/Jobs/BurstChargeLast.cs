@@ -192,12 +192,7 @@ namespace Rwb.Luxopus.Jobs
             bool chargeLast = _Lux.GetChargeLast(settings);
             bool chargeLastWanted = chargeLast;
 
-            string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
 
-            DateTime tBattChargeFrom = bti.GenerationStart > currentPeriod.Start ? bti.GenerationStart : currentPeriod.Start;
-
-            int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(tBattChargeFrom);
-            DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
 
             long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
@@ -225,6 +220,7 @@ from(bucket: ""solar"")
             }
             int pcMeanForBattAfterCL = kwMeanForBattAfterCL == 0 ? 0 : _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwMeanForBattAfterCL));
 
+            string runtimeInfo = await _Lux.GetInverterRuntimeAsync();
             using (JsonDocument j = JsonDocument.Parse(runtimeInfo))
             {
                 JsonElement.ObjectEnumerator r = j.RootElement.EnumerateObject();
@@ -283,12 +279,6 @@ from(bucket: ""solar"")
                     battChargeRateWanted = 100;
                     actionInfo.AppendLine($"Batt level {battLevel}% plus prediction {bti.PredictionBatteryPercent}% is greater than 200%: charge last before 10am (local) March to August.");
                 }
-                else if (bti.BatteryLevelCurrent >= bti.BatteryLevelEnd)
-                {
-                    battChargeRateWanted = 100;
-                    chargeLastWanted = true;
-                    actionInfo.AppendLine($"Battery level has reached target ({bti.BatteryLevelEnd}%).");
-                }
                 else if (generationRecentMean / 1000 > bti.ChargeRateNeededHkW + (extraPowerNeeded * 2) && pcCurrentForBattAfterCL > bti.ChargeRateNeededHPercent + extraPowerNeeded)
                 {
                     chargeLastWanted = true;
@@ -299,13 +289,7 @@ from(bucket: ""solar"")
                 {
                     chargeLastWanted = false;
                     battChargeRateWanted = battLevel < bti.BatteryTarget + bti.HeadroomScaled ? 100 : bti.ChargeRateNeededHPercent;
-                    actionInfo.AppendLine($"Recent generation {generationRecentMean / 1000:0.0}kW is less than charge rate required {bti.ChargeRateNeededHkW:0.0}kW.");
-                }
-                else if (bti.BatteryLevelCurrent >= bti.BatteryLevelEnd)
-                {
-                    battChargeRateWanted = 100;
-                    chargeLastWanted = true;
-                    actionInfo.AppendLine($"Battery level has reached target ({bti.BatteryLevelEnd}%).");
+                    actionInfo.AppendLine($"Recent generation {generationRecentMean / 1000:0.0}kW is less than charge rate required {bti.ChargeRateNeededkW:0.0}kW.");
                 }
                 else if (generation > 3200)
                 {
@@ -317,17 +301,17 @@ from(bucket: ""solar"")
                         chargeFromGridWanted.Enable = false;
                     }
 
-                    if (battLevel > bti.BatteryTarget + bti.HeadroomScaled)
-                    {
-                        chargeLastWanted = true;
-                        battChargeRateWanted = 99;
-                        actionInfo.AppendLine($"Enable charge last because battery level {bti.BatteryLevelCurrent}% is ahead of target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%.");
-                    }
-                    else if (battLevel < bti.BatteryTarget)
+                    if (battLevel < bti.BatteryTarget)
                     {
                         chargeLastWanted = false;
                         battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);
                         actionInfo.AppendLine($"Battery charge rate increased to {battChargeRateWanted}% (need extra {extraChargeRateNeeded}%) to get extra {extraPowerNeeded:0.0}kW in the next half hour.");
+                    }
+                    else if (battLevel > bti.BatteryTarget + bti.HeadroomScaled)
+                    {
+                        chargeLastWanted = true;
+                        battChargeRateWanted = 99;
+                        actionInfo.AppendLine($"Enable charge last because battery level {bti.BatteryLevelCurrent}% is ahead of target {bti.BatteryTarget}% plus headroom {bti.HeadroomScaled}%.");
                     }
                     else if (bti.ChargeRateNeededPercent < pcCurrentForBattAfterCL - 5)
                     {
@@ -338,7 +322,7 @@ from(bucket: ""solar"")
                     else
                     {
                         chargeLastWanted = false;
-                        battChargeRateWanted = bti.ChargeRateNeededPercent + 5;
+                        battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededPercent + 5);
                         actionInfo.AppendLine($"Disable charge last because charge rate needed {bti.ChargeRateNeededPercent}% is more than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
                     }
 
@@ -386,7 +370,7 @@ from(bucket: ""solar"")
                 else
                 {
                     // Low generation.
-                    if (generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100 && battLevel > bti.BatteryTarget + bti.HeadroomScaled)
+                    if (battLevel > bti.BatteryTarget + bti.HeadroomScaled && generationMax > 4000 && generationRecentMax > 3000 && generation /* inverterOutput includes batt discharge */ < 3100)
                     {
                         // It's gone quiet but it might get busy again: try to discharge some over-charge.
                         dischargeToGridWanted = new LuxAction()
