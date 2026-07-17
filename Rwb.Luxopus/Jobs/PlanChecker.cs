@@ -25,6 +25,7 @@ namespace Rwb.Luxopus.Jobs
         private readonly IBatteryService _Batt;
         private readonly IBurstLogService _BurstLog;
         private readonly BatteryTargetService _BatteryTargetService;
+        private readonly BatteryUsageProfileService _BatteryUsageProfileService;
 
         public PlanChecker(
             ILogger<LuxMonitor> logger,
@@ -36,7 +37,8 @@ namespace Rwb.Luxopus.Jobs
             IBatteryService batt,
             IBurstLogService burstLog,
             BatteryTargetService batteryTargetService
-            )
+,
+            BatteryUsageProfileService batteryUsageProfileService)
             : base(logger)
         {
             //_Planner = planner;
@@ -47,6 +49,7 @@ namespace Rwb.Luxopus.Jobs
             _Batt = batt;
             _BurstLog = burstLog;
             _BatteryTargetService = batteryTargetService;
+            _BatteryUsageProfileService = batteryUsageProfileService;
         }
 
         //private const int _MedianHousePowerWatts = 240;
@@ -238,10 +241,13 @@ namespace Rwb.Luxopus.Jobs
                     (endOfGeneration, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
                 }
                 catch { }
-                int battUse = _Batt.CapacityKiloWattHoursToPercent(0.2 * (
+
+                int battUse = _Batt.CapacityKiloWattHoursToPercent(0.15 * (
                     24 - endOfGeneration.Hour /* End of generation to midnight */
                     + startOfGeneration.Hour /* Midnight to start of generation. */
                     ));
+
+                int battUseP = _Batt.CapacityKiloWattHoursToPercent(await _BatteryUsageProfileService.GetKwkhAsync(endOfGeneration.DayOfWeek, endOfGeneration.Hour, startOfGeneration.Hour));
 
                 battLevelEnd = Math.Min(100, battLevelEnd + battUse);
 

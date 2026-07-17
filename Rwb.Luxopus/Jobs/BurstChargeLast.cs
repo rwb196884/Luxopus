@@ -25,6 +25,7 @@ namespace Rwb.Luxopus.Jobs
         private readonly IInfluxQueryService _InfluxQuery;
         private readonly IBatteryService _Batt;
         private readonly BatteryTargetService _BatteryTargetService;
+        private readonly BatteryUsageProfileService _BatteryUsageProfileService;
 
         public BurstChargeLast(
             ILogger<Burst> logger,
@@ -33,7 +34,8 @@ namespace Rwb.Luxopus.Jobs
             ILuxService lux,
             IInfluxQueryService influxQuery,
             IBatteryService batt,
-            BatteryTargetService batteryTargetService)
+            BatteryTargetService batteryTargetService,
+            BatteryUsageProfileService batteryUsageProfileService)
             : base(logger)
         {
             _BurstLog = burstLog;
@@ -42,6 +44,7 @@ namespace Rwb.Luxopus.Jobs
             _InfluxQuery = influxQuery;
             _Batt = batt;
             _BatteryTargetService = batteryTargetService;
+            _BatteryUsageProfileService = batteryUsageProfileService;
         }
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
@@ -134,10 +137,14 @@ namespace Rwb.Luxopus.Jobs
                 (endOfGeneration, _) = (await _InfluxQuery.QueryAsync(Query.EndOfGeneration, plan.Current.Start)).First().FirstOrDefault<double>();
             }
             catch { }
-            int battUse = _Batt.CapacityKiloWattHoursToPercent(0.2 * (
+
+            int battUse = _Batt.CapacityKiloWattHoursToPercent(0.15 * (
                 24 - endOfGeneration.Hour /* End of generation to midnight */
                 + startOfGeneration.Hour /* Midnight to start of generation. */
                 ));
+
+            int battUseP = _Batt.CapacityKiloWattHoursToPercent(await _BatteryUsageProfileService.GetKwkhAsync(endOfGeneration.DayOfWeek, endOfGeneration.Hour, startOfGeneration.Hour));
+            
             battLevelEnd = Math.Min(100, battLevelEnd + battUse);
 
             // TODO: this assumes flux; solar charge target should be set by the plan.
