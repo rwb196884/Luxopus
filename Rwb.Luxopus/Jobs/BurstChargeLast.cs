@@ -283,7 +283,13 @@ from(bucket: ""solar"")
                     battChargeRateWanted = 100;
                     actionInfo.AppendLine($"Batt level {battLevel}% plus prediction {bti.PredictionBatteryPercent}% is greater than 200%: charge last before 10am (local) March to August.");
                 }
-                else if(generationRecentMean / 1000 > bti.ChargeRateNeededHkW + (extraPowerNeeded * 2) && pcCurrentForBattAfterCL > bti.ChargeRateNeededHPercent + extraPowerNeeded)
+                else if (bti.BatteryLevelCurrent >= bti.BatteryLevelEnd)
+                {
+                    battChargeRateWanted = 100;
+                    chargeLastWanted = true;
+                    actionInfo.AppendLine($"Battery level has reached target ({bti.BatteryLevelEnd}%).");
+                }
+                else if (generationRecentMean / 1000 > bti.ChargeRateNeededHkW + (extraPowerNeeded * 2) && pcCurrentForBattAfterCL > bti.ChargeRateNeededHPercent + extraPowerNeeded)
                 {
                     chargeLastWanted = true;
                     battChargeRateWanted = 100;

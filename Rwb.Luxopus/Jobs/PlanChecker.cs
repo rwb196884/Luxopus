@@ -293,12 +293,6 @@ namespace Rwb.Luxopus.Jobs
                     battChargeRateWanted = 100;
                     actionInfo.AppendLine($"Batt level {battLevel}% plus prediction {bti.PredictionBatteryPercent}% is greater than 200%: charge last before 10am (local) March to August.");
                 }
-                else if (Plan.DischargeToGridCondition(plan.Previous) && Plan.ChargeFromGridCondition(plan.Next))
-                {
-                    actionInfo.AppendLine("Between discharge and charge.");
-                    chargeLastWanted = false;
-                    battChargeRate = 100;
-                }
                 else if (bti.BatteryLevelCurrent >= bti.BatteryLevelEnd)
                 {
                     battChargeRateWanted = 100;
@@ -400,7 +394,8 @@ from(bucket: ""solar"")
                         else
                         {
                             chargeLastWanted = false;
-                            battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);                            battChargeRateWanted = battChargeRateWanted > 100 ? 100 : battChargeRateWanted;
+                            battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);
+                            battChargeRateWanted = battChargeRateWanted > 100 ? 100 : battChargeRateWanted;
                             actionInfo.AppendLine($"Battery charge rate increased by {extraChargeRateNeeded}% to {battChargeRateWanted}% to get extra {extraPowerNeeded}kW in the next half hour.");
                         }
 
