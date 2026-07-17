@@ -146,17 +146,9 @@ namespace Rwb.Luxopus.Services
 
             info.ChargeRateNeededHkW = info.ChargeNeededHkWH / info.HoursToCharge;
             info.ChargeRateNeededHPercent = _Batt.TransferKiloWattsToPercent(info.ChargeRateNeededHkW);
-            
+
             // Calculate target from generation profile.
-            Dictionary<int, double /* % not kWh */> gp = await _GenerationProfileService.ProfileAsync();
-            double t = gp.Where(z => z.Key >= info.Start.Hour && z.Key < info.End.Hour).Select(z => z.Value).Sum();
-            double tt = gp.Where(z => z.Key >= info.Start.Hour && z.Key < nextPlanCheck.Hour).Select(z => z.Value).Sum();
-            if(nextPlanCheck.Minute != 0)
-            {
-                tt = tt + Convert.ToDouble(gp[nextPlanCheck.Hour]) * (Convert.ToDouble(nextPlanCheck.Minute) / 60.0);
-            }
-            double gq = tt / t;
-            info.BatteryTarget = info.BatteryLevelStart + Convert.ToInt32( gq * Convert.ToDouble(info.BatteryLevelEnd - info.BatteryLevelStart) );
+            info.BatteryTarget = await _GenerationProfileService.TargetAsync(info.Start, info.End, nextPlanCheck, info.BatteryLevelStart, info.BatteryLevelEnd);
 
             return info;
         }

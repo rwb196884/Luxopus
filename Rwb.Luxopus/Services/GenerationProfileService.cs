@@ -35,18 +35,30 @@ namespace Rwb.Luxopus.Services
             }
         }
 
-        public async Task<double> EstimateAsync(DateTime start, DateTime finish, double generationPredictionKWH)
+        private double Minutes(DateTime target)
         {
-            await ComputeAsync();
-            return Enumerable.Range(start.TimeOfDay.Hours, finish.TimeOfDay.Hours)
-                .Sum()
-                * generationPredictionKWH / 100.0;
+            return _GenerationProfile[target.Hour] * Convert.ToDouble(target.Minute) / 60.0;
         }
 
-        public async Task<Dictionary<int, double>> ProfileAsync()
+
+        private double Sum(DateTime start, DateTime finish)
+        {
+            double h = _GenerationProfile.Where(z => z.Key >= start.Hour && z.Key < finish.Hour).Select(z => z.Value).Sum();
+            double hBefore = Minutes(start);
+            double hAfter = Minutes(finish);
+            return h + hAfter - hBefore;
+        }
+
+        public async Task<int> TargetAsync(
+            DateTime start, DateTime finish, DateTime target,
+            int levelStart, int levelEnd)
         {
             await ComputeAsync();
-            return _GenerationProfile;
+
+            double t = Sum(start, finish);
+            double tt = Sum(start, target);
+            double tq = tt / t;
+            return levelStart + Convert.ToInt32(tq * Convert.ToDouble(levelEnd - levelStart));
         }
     }
 }
