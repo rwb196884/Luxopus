@@ -462,8 +462,12 @@ namespace Rwb.Luxopus.Jobs
                 return;
             }
 
-            int bToday = batt.CapacityKiloWattHoursToPercent(await bup.GetKwkhAsync(evening.Start.DayOfWeek, evening.Start.Hour, 24));
+            //int bToday = batt.CapacityKiloWattHoursToPercent(await bup.GetKwkhAsync(evening.Start.DayOfWeek, evening.Start.Hour, 24));
+            int bToday = batt.CapacityKiloWattHoursToPercent(0.15 * (24 - evening.Start.Hour));
+            // ^^ Getting a big over-estimate, so just use 0.15.
             //int bTomorrow = batt.CapacityKiloWattHoursToPercent(_BatteryUsageProfile.GetKwkh(evening.Start.AddDays(1).DayOfWeek, 0, startOfGeneration.Hour));
+
+            // Floor heating can cause massive load in BatteryUsageProfile.
             int bTomorrow = batt.CapacityKiloWattHoursToPercent(0.15 * startOfGeneration.Hour /* Guess for evening to start of generation */);
 
             /* 
@@ -478,12 +482,11 @@ from(bucket: "solar")
   |> mean()
              */
 
-            // Floor heating can cause massive load in BatteryUsageProfile.
 
             evening.Action = new PeriodAction()
             {
                 ChargeFromGrid = 0,
-                DischargeToGrid = Math.Min(Math.Max(high.Action.DischargeToGrid, low.Action.ChargeFromGrid) + bToday + bTomorrow, 100)
+                DischargeToGrid = Math.Max(Math.Max(high.Action?.DischargeToGrid ?? batt.BatteryMinimumLimit, low.Action?.ChargeFromGrid ?? batt.BatteryMinimumLimit) + bToday + bTomorrow, 100)
             };
         }
 
