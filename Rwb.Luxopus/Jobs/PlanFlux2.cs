@@ -240,7 +240,7 @@ namespace Rwb.Luxopus.Jobs
 
                             // Night time power use is generally below 200w.
                             // Aim for end of flux low to 10AM.
-                            double powerRequired = 0.2 * (10 - (next?.Start.Hour ?? p.Start.Hour + 3));
+                            double powerRequired = 0.15 * (10 - (next?.Start.Hour ?? p.Start.Hour + 3));
                             if ((next?.Start.Hour ?? p.Start.Hour + 3) < startOfGeneration.Hour)
                             {
                                 powerRequired = await _BatteryUsageProfile.GetKwkhAsync(t0.DayOfWeek, (next?.Start.Hour ?? p.Start.Hour + 3), startOfGeneration.Hour + (startOfGeneration.Minute > 21 ? 1 : 0));
@@ -464,7 +464,7 @@ namespace Rwb.Luxopus.Jobs
 
             int bToday = batt.CapacityKiloWattHoursToPercent(await bup.GetKwkhAsync(evening.Start.DayOfWeek, evening.Start.Hour, 24));
             //int bTomorrow = batt.CapacityKiloWattHoursToPercent(_BatteryUsageProfile.GetKwkh(evening.Start.AddDays(1).DayOfWeek, 0, startOfGeneration.Hour));
-            int bTomorrow = batt.CapacityKiloWattHoursToPercent(0.2 * startOfGeneration.Hour /* Guess for evening to start of generation */);
+            int bTomorrow = batt.CapacityKiloWattHoursToPercent(0.15 * startOfGeneration.Hour /* Guess for evening to start of generation */);
 
             /* 
              * At the time of writing: median 177, mean 220.
