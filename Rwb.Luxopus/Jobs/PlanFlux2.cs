@@ -402,7 +402,7 @@ namespace Rwb.Luxopus.Jobs
                             PeriodPlan? previousH = plan.Plans.GetPrevious(previous);
                             if (previous != null && GetFluxCase(plan, previous) == FluxCase.Evening && previousH != null && GetFluxCase(plan, previousH) == FluxCase.Peak)
                             {
-                                await DoEveningAsync( previous, previousH, p, startOfGeneration, _Batt, _BatteryUsageProfile, bcSince, bcPeriod);
+                                await DoEveningAsync( previous, previousH, p, startOfGeneration, endOfGeneration, _Batt, _BatteryUsageProfile, bcSince, bcPeriod);
                                 battLevelStart = await BattCalc(InfluxQuery, _Batt, _BatteryUsageProfile, previousH.Battery, previous, p, startOfGeneration, endOfGeneration);
                                 previous.Battery = battLevelStart;
                             }
@@ -450,7 +450,7 @@ namespace Rwb.Luxopus.Jobs
             }
         }
 
-        private static async Task DoEveningAsync(PeriodPlan evening, PeriodPlan high, PeriodPlan low, DateTime startOfGeneration, IBatteryService batt, BatteryUsageProfileService bup, int bcSince, int bcPeriod)
+        private static async Task DoEveningAsync(PeriodPlan evening, PeriodPlan high, PeriodPlan low, DateTime startOfGeneration, DateTime endOfGeneration, IBatteryService batt, BatteryUsageProfileService bup, int bcSince, int bcPeriod)
         {
             if (bcSince > bcPeriod - 5)
             {
@@ -463,7 +463,7 @@ namespace Rwb.Luxopus.Jobs
             }
 
             //int bToday = batt.CapacityKiloWattHoursToPercent(await bup.GetKwkhAsync(evening.Start.DayOfWeek, evening.Start.Hour, 24));
-            int bToday = batt.CapacityKiloWattHoursToPercent(0.15 * (24 - evening.Start.Hour));
+            int bToday = batt.CapacityKiloWattHoursToPercent(0.15 * (24 - Math.Max(evening.Start.Hour, endOfGeneration.Hour)));
             // ^^ Getting a big over-estimate, so just use 0.15.
             //int bTomorrow = batt.CapacityKiloWattHoursToPercent(_BatteryUsageProfile.GetKwkh(evening.Start.AddDays(1).DayOfWeek, 0, startOfGeneration.Hour));
 
@@ -486,7 +486,11 @@ from(bucket: "solar")
             evening.Action = new PeriodAction()
             {
                 ChargeFromGrid = 0,
-                DischargeToGrid = Math.Max(Math.Max(high.Action?.DischargeToGrid ?? batt.BatteryMinimumLimit, low.Action?.ChargeFromGrid ?? batt.BatteryMinimumLimit) + bToday + bTomorrow, 100)
+                DischargeToGrid = Math.Min(100, 
+                    Math.Max(
+                        high.Action?.DischargeToGrid ?? batt.BatteryMinimumLimit, 
+                        low.Action?.ChargeFromGrid ?? batt.BatteryMinimumLimit
+                    ) + bToday + bTomorrow)
             };
         }
 
