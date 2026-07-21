@@ -301,11 +301,19 @@ from(bucket: ""solar"")
                         chargeFromGridWanted.Enable = false;
                     }
 
-                    if (battLevel < bti.BatteryTarget)
+                    if (battLevel <= bti.BatteryTarget)
                     {
-                        chargeLastWanted = battChargeRateWanted < pcCurrentForBattAfterCL;
-                        battChargeRateWanted = chargeLastWanted ? 100 : Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);
                         actionInfo.AppendLine($"Battery is behind target.");
+                        if(bti.ChargeRateNeededHPercent + extraChargeRateNeeded <= pcCurrentForBattAfterCL)
+                        {
+                            chargeLastWanted = true;
+                            battChargeRateWanted = 100;
+                        }
+                        else
+                        {
+                            chargeLastWanted = false;
+                            battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);
+                        }
                     }
                     else if (battLevel > bti.BatteryTarget + bti.HeadroomScaled)
                     {
@@ -322,7 +330,7 @@ from(bucket: ""solar"")
                     else
                     {
                         chargeLastWanted = false;
-                        battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededPercent + 5);
+                        battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent);
                         actionInfo.AppendLine($"Disable charge last because charge rate needed {bti.ChargeRateNeededPercent}% is more than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
                     }
 
