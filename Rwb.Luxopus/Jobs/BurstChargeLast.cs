@@ -144,7 +144,7 @@ namespace Rwb.Luxopus.Jobs
                 ));
 
             int battUseP = _Batt.CapacityKiloWattHoursToPercent(await _BatteryUsageProfileService.GetKwkhAsync(endOfGeneration.DayOfWeek, endOfGeneration.Hour, startOfGeneration.Hour));
-            
+
             battLevelEnd = Math.Min(100, battLevelEnd + battUse);
 
             // TODO: this assumes flux; solar charge target should be set by the plan.
@@ -303,9 +303,9 @@ from(bucket: ""solar"")
 
                     if (battLevel < bti.BatteryTarget)
                     {
-                        chargeLastWanted = false;
-                        battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);
-                        actionInfo.AppendLine($"Battery charge rate increased to {battChargeRateWanted}% (need extra {extraChargeRateNeeded}%) to get extra {extraPowerNeeded:0.0}kW in the next half hour.");
+                        chargeLastWanted = battChargeRateWanted < pcCurrentForBattAfterCL;
+                        battChargeRateWanted = chargeLastWanted ? 100 : Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);
+                        actionInfo.AppendLine($"Battery is behind target.");
                     }
                     else if (battLevel > bti.BatteryTarget + bti.HeadroomScaled)
                     {
@@ -410,7 +410,7 @@ from(bucket: ""solar"")
                         chargeLastWanted = false;
                         battChargeRateWanted = 95;
                     }
-                    else if(generationRecentMean / 1000 > bti.ChargeRateNeededkW)
+                    else if (generationRecentMean / 1000 > bti.ChargeRateNeededkW)
                     {
                         actionInfo.AppendLine($"Generation {generationRecentMean / 1000:0.0}kW is greater than charge rate needed {bti.ChargeRateNeededkW:0.0}kW ({bti.ChargeRateNeededHkW:0.0}kW with headroom)");
                         chargeLastWanted = false;
