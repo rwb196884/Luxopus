@@ -28,7 +28,7 @@ namespace Rwb.Luxopus.Jobs
         private readonly BatteryUsageProfileService _BatteryUsageProfileService;
 
         public PlanChecker(
-            ILogger<LuxMonitor> logger,
+            ILogger<PlanChecker> logger,
             //Planner planner,
             ILuxopusPlanService plans,
             ILuxService lux,
@@ -292,12 +292,6 @@ namespace Rwb.Luxopus.Jobs
                     chargeLastWanted = true;
                     battChargeRateWanted = 100;
                     actionInfo.AppendLine($"Batt level {battLevel}% plus prediction {bti.PredictionBatteryPercent}% is greater than 200%: charge last before 10am (local) March to August.");
-                }
-                else if (bti.BatteryLevelCurrent >= bti.BatteryLevelEnd)
-                {
-                    battChargeRateWanted = 100;
-                    chargeLastWanted = true;
-                    actionInfo.AppendLine($"Battery level has reached target ({bti.BatteryLevelEnd}%).");
                 }
                 else
                 {
