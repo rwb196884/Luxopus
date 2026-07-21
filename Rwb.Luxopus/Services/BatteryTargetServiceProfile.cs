@@ -90,9 +90,11 @@ namespace Rwb.Luxopus.Services
                 battLevelEnd = DefaultBatteryLevelEnd;
             }
 
+            DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
+
             BatteryTargetInfo info = new BatteryTargetInfo();
 
-            (int battStart, _) = await _InfluxQuery.GetBatteryStartLevelAsync();
+                (int battStart, _) = await _InfluxQuery.GetBatteryStartLevelAsync();
             info.BatteryLevelStart = battStart;
 
             info.BatteryLevelCurrent = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
@@ -101,7 +103,7 @@ namespace Rwb.Luxopus.Services
             info.PredictionKWh = prediction / 10;
             info.PredictionBatteryPercent = _Batt.CapacityKiloWattHoursToPercent(info.PredictionKWh);
 
-            DateTime gStart = DateTime.Today.AddHours(5); //sunrise;
+                DateTime gStart = DateTime.Today.AddHours(5); //sunrise;
             DateTime gEnd = DateTime.Today.AddHours(16); // sunset
             try
             {
@@ -119,8 +121,11 @@ namespace Rwb.Luxopus.Services
 
             info.Start = gStart > plan.Current.Start ? gStart : plan.Current.Start;
 
-            int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
-            DateTime nextPlanCheck = DateTime.UtcNow.StartOfHalfHour().AddMinutes(30);
+            if (info.BatteryLevelCurrent + info.PredictionBatteryPercent >= 200 && nextPlanCheck.Month >= 3 && nextPlanCheck.Month <= 8)
+            {
+                info.Start = info.Start.ToLocalTime().Date.AddHours(10).ToUniversalTime();
+            }
+            int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(info.Start);
 
             info.End = (gEnd < plan.Next!.Start ? gEnd : plan.Next!.Start);//.AddHours(generationMax > 3700 && DateTime.UtcNow < plan.Next.Start.AddHours(-2) ? 0 : -1);
 
