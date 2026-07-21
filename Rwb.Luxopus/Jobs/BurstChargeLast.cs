@@ -449,7 +449,7 @@ from(bucket: ""solar"")
                 //    battChargeRateWanted = bti.ChargeRateNeededHPercent;
                 //}
 
-                if (chargeLastWanted)
+                if (!chargeLastWanted)
                 {
                     int minBattChargeRateWhenNotCL = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent((Convert.ToDouble(generation) - 3400) / 1000));
                     if (battChargeRateWanted < minBattChargeRateWhenNotCL)
