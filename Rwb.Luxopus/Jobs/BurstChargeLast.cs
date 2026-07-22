@@ -192,8 +192,6 @@ namespace Rwb.Luxopus.Jobs
             bool chargeLast = _Lux.GetChargeLast(settings);
             bool chargeLastWanted = chargeLast;
 
-
-
             long generationRecentMax = (await _InfluxQuery.QueryAsync(@$"
 from(bucket: ""solar"")
   |> range(start: -10m, stop: now())
@@ -284,12 +282,6 @@ from(bucket: ""solar"")
                     chargeLastWanted = true;
                     battChargeRateWanted = 100;
                     actionInfo.AppendLine($"Enable charge last because charge rate needed {bti.ChargeRateNeededHPercent}% (including headroom) is less than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
-                }
-                else if (generationRecentMean / 1000 < bti.ChargeRateNeededHkW)
-                {
-                    chargeLastWanted = false;
-                    battChargeRateWanted = battLevel < bti.BatteryTarget + bti.HeadroomScaled ? 100 : bti.ChargeRateNeededHPercent;
-                    actionInfo.AppendLine($"Recent generation {generationRecentMean / 1000:0.0}kW is less than charge rate required {bti.ChargeRateNeededkW:0.0}kW.");
                 }
                 else if (generation > 3200)
                 {
@@ -394,7 +386,6 @@ from(bucket: ""solar"")
                         actionInfo.AppendLine($"Generation peak of {generationMax:0}W recent {generationRecentMax:0}W but currently {generation:0}W. Battery level {battLevel}%, target of {bti.BatteryTarget}% therefore take opportunity to discharge.");
                     }
                     else if (battLevel < bti.BatteryTarget
-                        && bti.PredictionBatteryPercent < 120
                         //&& battLevel < _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3 
                         && plan.Next != null && Plan.DischargeToGridCondition(plan.Next)
                         && t0 > plan.Next.Start.AddHours(-2)
@@ -423,6 +414,12 @@ from(bucket: ""solar"")
                         actionInfo.AppendLine($"Generation {generationRecentMean / 1000:0.0}kW is greater than charge rate needed {bti.ChargeRateNeededkW:0.0}kW ({bti.ChargeRateNeededHkW:0.0}kW with headroom)");
                         chargeLastWanted = false;
                         battChargeRateWanted = bti.ChargeRateNeededHPercent;
+                    }
+                    else if (generationRecentMean / 1000 < bti.ChargeRateNeededHkW)
+                    {
+                        chargeLastWanted = false;
+                        battChargeRateWanted = battLevel < bti.BatteryTarget + bti.HeadroomScaled ? 100 : bti.ChargeRateNeededHPercent;
+                        actionInfo.AppendLine($"Recent generation {generationRecentMean / 1000:0.0}kW is less than charge rate required {bti.ChargeRateNeededkW:0.0}kW.");
                     }
                     else
                     {
