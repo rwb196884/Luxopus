@@ -229,7 +229,7 @@ namespace Rwb.Luxopus.Jobs
                 chargeLastWanted = true;
                 actionInfo.AppendLine($"Discharge to grid: {powerRequiredKwh:0.0}kWh needed to grid to get from {battLevel}% to {plan.Current!.Action.DischargeToGrid}% in {hoursToCharge:0.0} hours until {tNext:HH:mm} (mean rate {kW:0.0}kW -> {dischargeToGridWanted.Rate}%).");
             }
-            else if (t0.TimeOfDay < startOfGeneration.TimeOfDay || t0.TimeOfDay > startOfGeneration.TimeOfDay)
+            else if (t0.TimeOfDay < startOfGeneration.TimeOfDay || t0.TimeOfDay > endOfGeneration.TimeOfDay)
             {
                 chargeLastWanted = false;
                 battChargeRateWanted = 100;
