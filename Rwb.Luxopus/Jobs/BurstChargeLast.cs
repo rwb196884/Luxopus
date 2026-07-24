@@ -138,10 +138,15 @@ namespace Rwb.Luxopus.Jobs
             }
             catch { }
 
+            if (t0.TimeOfDay < startOfGeneration.TimeOfDay || t0.TimeOfDay > startOfGeneration.TimeOfDay)
+            {
+                return;
+            }
+
             int battUse = _Batt.CapacityKiloWattHoursToPercent(0.15 * (
-                24 - endOfGeneration.Hour /* End of generation to midnight */
-                + startOfGeneration.Hour /* Midnight to start of generation. */
-                ));
+            24 - endOfGeneration.Hour /* End of generation to midnight */
+            + startOfGeneration.Hour /* Midnight to start of generation. */
+            ));
 
             int battUseP = _Batt.CapacityKiloWattHoursToPercent(await _BatteryUsageProfileService.GetKwkhAsync(endOfGeneration.DayOfWeek, endOfGeneration.Hour, startOfGeneration.Hour));
 
@@ -166,9 +171,6 @@ namespace Rwb.Luxopus.Jobs
 
             BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
 
-            if (t0 < bti.GenerationStart || t0 > bti.GenerationEnd) { return; }
-
-
             // We're good to go...
 
             int battChargeRate = _Lux.GetBatteryChargeRate(settings);
@@ -184,10 +186,6 @@ namespace Rwb.Luxopus.Jobs
 
             LuxAction chargeFromGridCurrent = _Lux.GetChargeFromGrid(settings);
             LuxAction chargeFromGridWanted = LuxAction.NextCharge(plan, chargeFromGridCurrent, false) ?? chargeFromGridCurrent.Clone();
-            if (chargeFromGridWanted.Start.TimeOfDay < DateTime.UtcNow.TimeOfDay && chargeFromGridWanted.End.TimeOfDay > DateTime.UtcNow.TimeOfDay)
-            {
-                chargeFromGridWanted.Enable = false;
-            }
 
             bool chargeLast = _Lux.GetChargeLast(settings);
             bool chargeLastWanted = chargeLast;
@@ -288,7 +286,7 @@ from(bucket: ""solar"")
                     // Forced discharge causes clipping.
 
                     // So does charge from grid. (E.g., when electricity is free.)
-                    if (chargeFromGridCurrent.Enable && chargeFromGridCurrent.Start < DateTime.UtcNow && chargeFromGridCurrent.End > DateTime.UtcNow)
+                    if (chargeFromGridCurrent.Enable && chargeFromGridCurrent.Start.TimeOfDay < DateTime.UtcNow.TimeOfDay && chargeFromGridCurrent.End.TimeOfDay > DateTime.UtcNow.TimeOfDay)
                     {
                         chargeFromGridWanted.Enable = false;
                     }
@@ -296,16 +294,8 @@ from(bucket: ""solar"")
                     if (battLevel <= bti.BatteryTarget)
                     {
                         actionInfo.AppendLine($"Battery is behind target.");
-                        if(bti.ChargeRateNeededHPercent + extraChargeRateNeeded <= pcCurrentForBattAfterCL)
-                        {
-                            chargeLastWanted = true;
-                            battChargeRateWanted = 100;
-                        }
-                        else
-                        {
-                            chargeLastWanted = false;
-                            battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);
-                        }
+                        chargeLastWanted = false;
+                        battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent + extraChargeRateNeeded);
                     }
                     else if (battLevel > bti.BatteryTarget + bti.HeadroomScaled)
                     {
@@ -323,7 +313,7 @@ from(bucket: ""solar"")
                     {
                         chargeLastWanted = false;
                         battChargeRateWanted = Math.Min(100, bti.ChargeRateNeededHPercent);
-                        actionInfo.AppendLine($"Disable charge last because charge rate needed {bti.ChargeRateNeededPercent}% is more than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
+                        actionInfo.AppendLine($"Disable charge last because charge rate needed (plus headroom) {bti.ChargeRateNeededHPercent}% is more than power available for battery after charge last {pcCurrentForBattAfterCL}% minus 5%.");
                     }
 
                     /*
