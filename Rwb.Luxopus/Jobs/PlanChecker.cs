@@ -248,6 +248,28 @@ namespace Rwb.Luxopus.Jobs
                 actionInfo.AppendLine($" Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%");
                 actionInfo.AppendLine($"Charging required: {bti.ChargeDescription}");
 
+                if (battLevel < bti.BatteryTarget - 3
+                    && plan.Current.Buy * 1.1M < plan.Next.Sell
+                    && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
+                {
+                    chargeFromGridWanted = chargeFromGridCurrent.Clone();
+                    double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
+                    double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
+                    int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
+                    if (rate < 13) { rate = 13; }
+                    if (rate > 100) { rate = 100; }
+                    chargeFromGridWanted = new LuxAction()
+                    {
+                        Enable = true,
+                        Start = plan.Current.Start,
+                        End = plan.Next.Start,
+                        Limit = bti.BatteryTarget,
+                        Rate = rate
+                    };
+                    actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}%.");
+                    battChargeRateWanted = rate;
+                }
+
                 goto Apply;
 
                 // Plan A.
