@@ -80,7 +80,14 @@ namespace Rwb.Luxopus
                     LuxopusSettings s = new LuxopusSettings();
                     context.Configuration.GetSection("Luxopus").Bind(s);
 
-                    services.AddScoped(typeof(BurstManager), GetJobType(s.Burst));
+                    if (string.IsNullOrEmpty(s.Burst))
+                    {
+                        services.AddScoped<BurstManager, NullBurstJob>();
+                    }
+                    else
+                    {
+                        services.AddScoped(typeof(BurstManager), GetJobType(s.Burst));
+                    }
 
                     //services.AddScoped<PlanZero>();
                     //services.AddScoped<PlanA>();

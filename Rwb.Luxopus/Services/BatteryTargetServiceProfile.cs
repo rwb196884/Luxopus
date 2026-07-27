@@ -100,6 +100,7 @@ namespace Rwb.Luxopus.Services
             info.BatteryLevelCurrent = await _InfluxQuery.GetBatteryLevelAsync(DateTime.UtcNow);
 
             (_, double prediction) = (await _InfluxQuery.QueryAsync(Query.PredictionToday, plan.Current.Start)).First().FirstOrDefault<double>();
+            prediction = prediction / 2; // FUCKED PANELS
             info.PredictionKWh = prediction / 10;
             info.PredictionBatteryPercent = _Batt.CapacityKiloWattHoursToPercent(info.PredictionKWh);
 

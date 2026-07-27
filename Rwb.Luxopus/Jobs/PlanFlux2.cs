@@ -264,6 +264,7 @@ namespace Rwb.Luxopus.Jobs
                                 if (next != null && peak != null)
                                 {
                                     double generationPrediction = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start)).Single().Records[0].Values["_value"] / 10.0;
+                                    generationPrediction = generationPrediction / 2; // PANELS FUCKED.
                                     double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
                                     notes.AppendLine($"  Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%).");
                                     double generationMedianForMonth = (double)(await InfluxQuery.QueryAsync(Query.GenerationMedianForMonth, DateTime.UtcNow)).Single().Records[0].Values["_value"] / 10.0;

@@ -18,6 +18,16 @@ namespace Rwb.Luxopus.Jobs
         }
     }
 
+    public class NullBurstJob : BurstManager
+    {
+        public NullBurstJob(ILogger<Burst> logger) : base(logger) { }
+
+        protected override async Task WorkAsync(CancellationToken cancellation)
+        {
+            await Task.CompletedTask;
+        }
+    }
+
     /// <summary>
     /// <para>
     /// Absorb bursts of production.
@@ -133,7 +143,7 @@ namespace Rwb.Luxopus.Jobs
 
             int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.CapacityKiloWattHoursToPercent(3 * 3.6) + 8;
             battLevelEnd = battLevelEnd > 100 ? 100 : battLevelEnd;
-            
+
             BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
             if (t0 < bti.GenerationStart || t0 > bti.GenerationEnd) { return; }
             //DateTime tBattChargeFrom = bti.GenerationStart > currentPeriod.Start ? bti.GenerationStart : currentPeriod.Start;
@@ -164,7 +174,7 @@ namespace Rwb.Luxopus.Jobs
                     extraPowerNeeded = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
                     actionInfo.AppendLine($"Behind by {extraPowerNeeded:#,##0.0}kWh.");
                 }
-                else if(bti.BatteryTarget < battLevel)
+                else if (bti.BatteryTarget < battLevel)
                 {
                     double a = _Batt.CapacityPercentToKiloWattHours(battLevel - bti.BatteryTarget);
                     actionInfo.AppendLine($"Ahead by {a:#,##0.0}kWh.");
@@ -197,12 +207,12 @@ from(bucket: ""solar"")
                     else
                     {
                         // Generation probably not limited therefore send less to battery.
-                        if(battLevel >= bti.BatteryTarget)
+                        if (battLevel >= bti.BatteryTarget)
                         {
                             battChargeRateWanted = battChargeRate - 5;
                             actionInfo.AppendLine($"Battery charge rate {battChargeRateWanted}% = {battChargeRate}% - 5% because ahead of target.");
                         }
-                        else if(battLevel < bti.BatteryTarget)
+                        else if (battLevel < bti.BatteryTarget)
                         {
                             battChargeRateWanted = battChargeRate + 5;
                             actionInfo.AppendLine($"Battery charge rate {battChargeRateWanted}% = {battChargeRate}% + 5% because behind target.");
