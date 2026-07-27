@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Accord.Statistics.Filters;
+using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
@@ -237,6 +238,18 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
+                // FUCKED PANELS.
+                chargeLastWanted = false;
+                battChargeRateWanted = 100;
+
+                BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3);
+                actionInfo.AppendLine($"    Battery level: {battLevel}%");
+                actionInfo.AppendLine($"   Battery target: {bti.TargetDescription}");
+                actionInfo.AppendLine($" Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%");
+                actionInfo.AppendLine($"Charging required: {bti.ChargeDescription}");
+
+                goto Apply;
+
                 // Plan A.
                 int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3; // TODO: work out from plan.
 
@@ -273,7 +286,7 @@ namespace Rwb.Luxopus.Jobs
                     battLevelEnd = battLevelEnd < battLevel ? battLevel : battLevelEnd;
                 }
 
-                BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
+                //BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
                 actionInfo.AppendLine($"    Battery level: {battLevel}%");
                 actionInfo.AppendLine($"   Battery target: {bti.TargetDescription}");
                 actionInfo.AppendLine($" Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%");
