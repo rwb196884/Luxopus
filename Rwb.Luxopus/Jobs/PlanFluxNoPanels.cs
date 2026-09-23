@@ -98,17 +98,35 @@ namespace Rwb.Luxopus.Jobs
 
                 PeriodPlan? next = null;
 
+                (int bcSince, int bcPeriod) = (0, 100);
+                try
+                {
+                    Dictionary<string, string> settings = await _Lux.GetSettingsAsync();
+                    (_, bcSince, bcPeriod) = _Lux.GetBatteryCalibration(settings);
+                }
+                catch
+                {
+                    notes.AppendLine($"*** Failed to get battery calibration info. ***");
+                }
+
                 foreach (PeriodPlan p in plan.Plans.Where(z => z.Start >= plan.Current.Start))
                 {
                     switch (GetFluxCase(plan, p))
                     {
                         case FluxCase.Peak:
-                                    p.Action = new PeriodAction()
-                                    {
-                                        ChargeFromGrid = 0,
-                                        DischargeToGrid = _Batt.BatteryMinimumLimit,
-                                    };
-                                    break;
+                            p.Action = new PeriodAction()
+                            {
+                                ChargeFromGrid = 0,
+                                DischargeToGrid = _Batt.BatteryMinimumLimit,
+                            };
+
+                            if (bcSince > bcPeriod - 3)
+                            {
+                                p.Action.DischargeToGrid = 100 - _Batt.MaxCharge * 3;
+                                notes.AppendLine($"    *** Discharging overridden from {100} to {p.Action.DischargeToGrid}. ***");
+                            }
+
+                            break;
                         case FluxCase.Daytime:
                             p.Action = new PeriodAction()
                             {
@@ -155,5 +173,6 @@ namespace Rwb.Luxopus.Jobs
                 _At.Schedule(async () => await this.WorkAsync(CancellationToken.None), DateTime.Now.AddMinutes(2));
             }
         }
+
     }
 }
