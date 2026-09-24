@@ -1,5 +1,4 @@
-﻿using Accord.Statistics.Filters;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Rwb.Luxopus.Services;
 using System;
 using System.Collections.Generic;
@@ -65,7 +64,7 @@ namespace Rwb.Luxopus.Jobs
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
             //DateTime t0 = new DateTime(2023, 05, 27, 03, 01, 00);
-            //DateTime t0 = new DateTime(2025, 12, 24, 01, 31, 00);
+            //DateTime t0 = new DateTime(2026, 09, 16, 13, 01, 00);
             DateTime t0 = DateTime.UtcNow;
 
             Plan? plan = _Plans.Load(t0);
@@ -238,7 +237,6 @@ namespace Rwb.Luxopus.Jobs
             }
             else
             {
-                // FUCKED PANELS.
                 chargeLastWanted = false;
                 battChargeRateWanted = 100;
 
@@ -250,27 +248,33 @@ namespace Rwb.Luxopus.Jobs
 
                 if (battLevel < bti.BatteryTarget - 3
                     && plan.Current.Buy * 1.1M < plan.Next.Sell
-                    && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
+                    && DateTime.UtcNow > plan.Next.Start.AddHours(-3))
                 {
+                    // FUCKED PANELS: use 13 + 3 * _Batt.MaxDischarge rather than bti.BatteryTarget.
                     chargeFromGridWanted = chargeFromGridCurrent.Clone();
-                    double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
+                    double kWh = _Batt.CapacityPercentToKiloWattHours(13 + 3 * _Batt.MaxDischarge /*bti.BatteryTarget*/ - battLevel);
                     double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
                     int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
                     if (rate < 13) { rate = 13; }
                     if (rate > 100) { rate = 100; }
-                    chargeFromGridWanted = new LuxAction()
+                    if (rate > 66)
                     {
-                        Enable = true,
-                        Start = plan.Current.Start,
-                        End = plan.Next.Start,
-                        Limit = bti.BatteryTarget,
-                        Rate = rate
-                    };
-                    actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}%.");
-                    battChargeRateWanted = rate;
-                }
+                        chargeFromGridWanted = new LuxAction()
+                        {
+                            Enable = true,
+                            Start = plan.Current.Start,
+                            End = plan.Next.Start,
+                            Limit = 13 + 3 * _Batt.MaxDischarge, // bti.BatteryTarget,
+                            Rate = rate
+                        };
+                        //actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}%.");
+                        actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to 13+3max {13 + 3 * _Batt.MaxDischarge}% (actual target {bti.BatteryLevelEnd}%).");
+                        chargeLastWanted = false;
+                        battChargeRateWanted = 100; // Allow solar.
+                    }
 
-                goto Apply;
+                    goto Apply;
+                }
 
                 // Plan A.
                 int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3; // TODO: work out from plan.
@@ -308,11 +312,6 @@ namespace Rwb.Luxopus.Jobs
                     battLevelEnd = battLevelEnd < battLevel ? battLevel : battLevelEnd;
                 }
 
-                //BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
-                actionInfo.AppendLine($"    Battery level: {battLevel}%");
-                actionInfo.AppendLine($"   Battery target: {bti.TargetDescription}");
-                actionInfo.AppendLine($" Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%");
-                actionInfo.AppendLine($"Charging required: {bti.ChargeDescription}");
                 actionInfo.AppendLine($"      Charge last: {(chargeLast ? "on" : "off")}");
                 actionInfo.AppendLine($" Batt charge rate: {battChargeRate}%");
 
