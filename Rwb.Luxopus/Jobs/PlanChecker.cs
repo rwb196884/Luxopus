@@ -248,7 +248,7 @@ namespace Rwb.Luxopus.Jobs
 
                 if (battLevel < bti.BatteryTarget - 3
                     && plan.Current.Buy * 1.1M < plan.Next.Sell
-                    && DateTime.UtcNow > plan.Next.Start.AddHours(-3))
+                    && DateTime.UtcNow > plan.Next.Start.AddHours(-6 /* 10AM */))
                 {
                     // FUCKED PANELS: use 13 + 3 * _Batt.MaxDischarge rather than bti.BatteryTarget.
                     chargeFromGridWanted = chargeFromGridCurrent.Clone();
@@ -257,7 +257,8 @@ namespace Rwb.Luxopus.Jobs
                     int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
                     if (rate < 13) { rate = 13; }
                     if (rate > 100) { rate = 100; }
-                    if (rate > 66)
+
+                    if (rate > 13)
                     {
                         chargeFromGridWanted = new LuxAction()
                         {

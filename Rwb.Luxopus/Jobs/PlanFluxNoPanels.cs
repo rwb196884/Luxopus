@@ -114,6 +114,7 @@ namespace Rwb.Luxopus.Jobs
                     switch (GetFluxCase(plan, p))
                     {
                         case FluxCase.Peak:
+                            notes.AppendLine($"Maximum discharge {_Batt.MaxDischarge}%/h.");
                             p.Action = new PeriodAction()
                             {
                                 ChargeFromGrid = 0,
@@ -130,7 +131,7 @@ namespace Rwb.Luxopus.Jobs
                         case FluxCase.Daytime:
                             p.Action = new PeriodAction()
                             {
-                                ChargeFromGrid = 0,
+                                ChargeFromGrid = _Batt.BatteryMinimumLimit + _Batt.MaxCharge * 3,
                                 DischargeToGrid = 100,
                             };
 
@@ -144,6 +145,7 @@ namespace Rwb.Luxopus.Jobs
 
                             break;
                         case FluxCase.Low:
+                            notes.AppendLine($"Maximum charge {_Batt.MaxCharge}%/h.");
                             p.Action = new PeriodAction()
                             {
                                 ChargeFromGrid = 100,
