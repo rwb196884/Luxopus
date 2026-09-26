@@ -49,6 +49,7 @@ namespace Rwb.Luxopus.Jobs
             try
             {
                 DateTime t0 = DateTime.UtcNow.AddHours(-1);
+                //DateTime t0 = new DateTime(2026, 9, 25, 16, 34, 0);
                 //Plan? current = PlanService.Load(t0);
                 StringBuilder notes = new StringBuilder();
 
@@ -131,7 +132,7 @@ namespace Rwb.Luxopus.Jobs
                         case FluxCase.Daytime:
                             p.Action = new PeriodAction()
                             {
-                                ChargeFromGrid = _Batt.BatteryMinimumLimit + _Batt.MaxCharge * 3,
+                                ChargeFromGrid = _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3,
                                 DischargeToGrid = 100,
                             };
 

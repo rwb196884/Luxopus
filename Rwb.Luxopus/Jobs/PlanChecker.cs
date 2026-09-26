@@ -63,8 +63,7 @@ namespace Rwb.Luxopus.Jobs
 
         protected override async Task WorkAsync(CancellationToken cancellationToken)
         {
-            //DateTime t0 = new DateTime(2023, 05, 27, 03, 01, 00);
-            //DateTime t0 = new DateTime(2026, 09, 16, 13, 01, 00);
+            //DateTime t0 = new DateTime(2026, 9, 25, 23, 34, 0);
             DateTime t0 = DateTime.UtcNow;
 
             Plan? plan = _Plans.Load(t0);
@@ -186,14 +185,15 @@ namespace Rwb.Luxopus.Jobs
                 //else
                 //{
                 chargeFromGridWanted.Limit = plan.Current!.Action.ChargeFromGrid;
-                if (chargeFromGridCurrent.End < tNext) { chargeFromGridWanted.End = tNext; }
+                 chargeFromGridWanted.End = tNext;
                 //}
 
                 double powerRequiredKwh = _Batt.CapacityPercentToKiloWattHours(chargeFromGridWanted.Limit - battLevel);
                 double hoursToCharge = (chargeFromGridWanted.End - t0).TotalHours;
                 double kW = powerRequiredKwh / hoursToCharge;
                 chargeFromGridWanted.Rate = _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kW));
-                battChargeRateWanted = chargeFromGridWanted.Rate > battChargeRateWanted ? chargeFromGridWanted.Rate : battChargeRateWanted;
+                //battChargeRateWanted = chargeFromGridWanted.Rate > battChargeRateWanted ? chargeFromGridWanted.Rate : battChargeRateWanted;
+                battChargeRateWanted = 100;
                 chargeLastWanted = false;
                 actionInfo.AppendLine($"{powerRequiredKwh:0.0}kWh needed from grid to get from {battLevel}% to {plan.Current!.Action.ChargeFromGrid}% in {hoursToCharge:0.0} hours until {tNext:HH:mm} (mean rate {kW:0.0}kW -> {chargeFromGridWanted.Rate}%).");
             }
