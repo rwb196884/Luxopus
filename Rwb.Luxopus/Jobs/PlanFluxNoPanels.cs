@@ -132,7 +132,7 @@ namespace Rwb.Luxopus.Jobs
                         case FluxCase.Daytime:
                             p.Action = new PeriodAction()
                             {
-                                ChargeFromGrid = _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3,
+                                ChargeFromGrid = _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3 + 5,
                                 DischargeToGrid = 100,
                             };
 
