@@ -34,6 +34,11 @@ namespace Rwb.Luxopus.Services
         Rain,
 
         /// <summary>
+        /// 6xx
+        /// </summary>
+        Snow,
+
+        /// <summary>
         ///  <para>7xx</para>
         ///  <para>Mist, smoke, haze, sand/dust whirls, fog sand, dust volcanic ash, squalls, tornado.</para>
         /// </summary>
@@ -87,22 +92,22 @@ namespace Rwb.Luxopus.Services
 
         public WeatherDescription GetForecastDescription(int weatherValue)
         {
-            if(weatherValue < 300)
+            if(weatherValue < 200)
             {
                 throw new NotImplementedException();
             }
-            else if(weatherValue < 400)
+            else if(weatherValue < 300)
             {
                 // 3xx
                 return WeatherDescription.Thunder;
             }
-            else if (weatherValue < 500)
+            else if (weatherValue < 400)
             {
                 return WeatherDescription.Drizzle;
             }
             else if (weatherValue < 500)
             {
-                throw new NotImplementedException();
+                return WeatherDescription.Snow;
             }
             else if (weatherValue < 600)
             {

@@ -171,7 +171,6 @@ namespace Rwb.Luxopus.Services
         Weather,
 
         PredictionData,
-        PredictionData2,
 
         GenerationMedianLastHour,
         PredictionToday,

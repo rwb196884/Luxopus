@@ -5,60 +5,63 @@ t0 = 2023-02-14T00:00:00Z
 gen = from(bucket: "solar")
   |> range(start: t0, stop: today())
   |> filter(fn: (r) => r["_measurement"] == "daily" and r["_field"] == "generation")
+  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
   |> aggregateWindow(every: 1d, fn: last, createEmpty: false)
   |> slap()
 
-batt = from(bucket: "solar")
-  |> range(start: t0, stop: today())
-  |> filter(fn: (r) => r["_measurement"] == "inverter")
-  |> filter(fn: (r) => r["_field"] == "batt_level")
-  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
-  |> slap()
+// Useless since battery capacity changed.
+//batt = from(bucket: "solar")
+//  |> range(start: t0, stop: today())
+//  |> filter(fn: (r) => r["_measurement"] == "inverter" and r["_field"] == "batt_level")
+//  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
+//  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
+//  |> slap()
 
 daylen = from(bucket: "solar")
   |> range(start: t0, stop: today())
-  |> filter(fn: (r) => r["_measurement"] == "sun")
-  |> filter(fn: (r) => r["_field"] == "daylen")
+  |> filter(fn: (r) => r["_measurement"] == "sun" and r["_field"] == "daylen")
+  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
   |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
   |> slap()
 
 elevation = from(bucket: "solar")
   |> range(start: t0, stop: today())
-  |> filter(fn: (r) => r["_measurement"] == "sun")
-  |> filter(fn: (r) => r["_field"] == "elevation")
+  |> filter(fn: (r) => r["_measurement"] == "sun" and r["_field"] == "elevation")
+  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
   |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
   |> slap()
 
 uvi = from(bucket: "solar")
   |> range(start: t0, stop: today())
-  |> filter(fn: (r) => r["_measurement"] == "weather")
-  |> filter(fn: (r) => r["_field"] == "uvi")
+  |> filter(fn: (r) => r["_measurement"] == "weather" and r["_field"] == "uvi")
+  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
   |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
   |> slap()
 
 cloud = from(bucket: "solar")
   |> range(start: t0, stop: today())
-  |> filter(fn: (r) => r["_measurement"] == "weather")
-  |> filter(fn: (r) => r["_field"] == "cloud")
+  |> filter(fn: (r) => r["_measurement"] == "weather" and r["_field"] == "cloud")
+  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
   |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
   |> slap()
 
 weather = from(bucket: "solar")
   |> range(start: t0, stop: today())
-  |> filter(fn: (r) => r["_measurement"] == "weather")
-  |> filter(fn: (r) => r["_field"] == "forecast")
-  |> aggregateWindow(every: 1d, fn: first, createEmpty: false)
-  
+  |> filter(fn: (r) => r["_measurement"] == "weather" and r["_field"] == "forecast")
+  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
+  |> slap()
+  |> aggregateWindow(every: 1d, fn: first, createEmpty: false) // mode doesn't work. Influx is shit.
+  |> slap()
 
 solcast = from(bucket: "solar")
   |> range(start: t0, stop: today())
-  |> filter(fn: (r) => r["_measurement"] == "solcast")
-  |> filter(fn: (r) => r["_field"] == "forecast")
+  |> filter(fn: (r) => r["_measurement"] == "solcast" and r["_field"] == "forecast")
+  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
   |> slap()
   |> window(every: 1d)
   |> integral(unit: 30s, interpolate: "linear")
   |> map(fn: (r) => ({_field: "solcast", _time: r._start, _value: r._value}))
 
-union( tables: [gen, batt, daylen, elevation, uvi, cloud, solcast]) // , weather
+union( tables: [gen, daylen, elevation, uvi, cloud, weather, solcast]) // , batt
 |> pivot(columnKey: ["_field"], rowKey: ["_time"], valueColumn: "_value")
 |> yield()

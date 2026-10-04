@@ -7,5 +7,6 @@ from(bucket: "solar")
     and r["_measurement"] == "daily" 
     and r["_field"] == "generation"
   )
+  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
   |> group(columns: [])
   |> median()

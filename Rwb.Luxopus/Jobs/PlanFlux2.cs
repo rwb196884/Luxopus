@@ -123,7 +123,6 @@ namespace Rwb.Luxopus.Jobs
                 catch
                 {
                     notes.AppendLine($"*** Failed to get battery calibration info. ***");
-
                 }
 
                 int battLevelStart = await InfluxQuery.GetBatteryLevelAsync(plan.Current.Start);
@@ -144,6 +143,7 @@ namespace Rwb.Luxopus.Jobs
                         case FluxCase.Peak:
                             notes.AppendLine();
                             notes.AppendLine($"-- {p.Start.ToString("dd MMM HH:mm")} | Peak | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}. --");
+                            notes.AppendLine($"Maximum discharge {_Batt.MaxDischarge}%/h.");
                             next = plan.Plans.GetNext(p);
                             if (next != null)
                             {
@@ -235,6 +235,7 @@ namespace Rwb.Luxopus.Jobs
                         case FluxCase.Low:
                             notes.AppendLine();
                             notes.AppendLine($"-- {p.Start.ToString("dd MMM HH:mm")} | Low | Buy: {p.Buy.ToString("0.00")} | Sell: {p.Sell.ToString("0.00")}. --");
+                            notes.AppendLine($"Maximum charge {_Batt.MaxCharge}%/h.");
                             // How much do we want?
                             next = plan.Plans.GetNext(p);
 
@@ -264,7 +265,7 @@ namespace Rwb.Luxopus.Jobs
                                 if (next != null && peak != null)
                                 {
                                     double generationPrediction = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start)).Single().Records[0].Values["_value"] / 10.0;
-                                    generationPrediction = generationPrediction / 2; // PANELS FUCKED.
+                                    //generationPrediction = generationPrediction / 2; // PANELS FUCKED.
                                     double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
                                     notes.AppendLine($"  Predicted generation of {generationPrediction:0.0}kWH ({battPrediction:0}%).");
                                     double generationMedianForMonth = (double)(await InfluxQuery.QueryAsync(Query.GenerationMedianForMonth, DateTime.UtcNow)).Single().Records[0].Values["_value"] / 10.0;

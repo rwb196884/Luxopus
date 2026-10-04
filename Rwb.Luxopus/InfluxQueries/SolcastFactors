@@ -13,13 +13,15 @@ getValue = (tables=<-, field = "") => {
 generation = from(bucket: "solar")
   |> range(start: -1y, stop: now())
   |> filter(fn: (r) => r["_measurement"] == "daily" and r["_field"] == "generation")
+  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
   |> keep(columns: ["_field", "_time", "_value"])
   |> map(fn: (r) => ({_time: date.truncate(t: r._time, unit: 1d), _value: float( v: r._value)}))
 
 // Daily forecast integral (we want to predict from forecast -- not actuals)
 solcast = from(bucket: "solar")
-  |> range(start: -1y, stop: 2d)
+  |> range(start: -1y, stop: 2d).
   |> filter(fn: (r) => r["_measurement"] == "solcast"and r["_field"] == "forecast")
+  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
   |> window(every: 1d)
   |> integral(interpolate: "linear") // Not sure what unit is for.
   |> map(fn: (r) => ({
