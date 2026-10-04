@@ -40,7 +40,7 @@ namespace Rwb.Luxopus.Jobs
             await _InfluxWriter.WriteAsync(ldb);
         }
 
-        class Datum2
+        class Datum
         {
             public DateTime Time;
             public double? Cloud;
@@ -75,8 +75,8 @@ namespace Rwb.Luxopus.Jobs
         private async Task<double> GenerationPredictionFromMultivariateLinearRegression(DateTime tForecast)
         {
             // Get daat.
-            FluxTable fluxData = (await _InfluxQuery.QueryAsync(Query.PredictionData2, DateTime.Now)).Single();
-            List<Datum2> data = fluxData.Records.Select(z => new Datum2()
+            FluxTable fluxData = (await _InfluxQuery.QueryAsync(Query.PredictionData, DateTime.Now)).Single();
+            List<Datum> data = fluxData.Records.Select(z => new Datum()
             {
                 Time = z.GetValue<DateTime>("_time"),
                 Cloud = z.GetValue<double?>("cloud"),
@@ -88,7 +88,7 @@ namespace Rwb.Luxopus.Jobs
 
             // Build model.
             OrdinaryLeastSquares ordinaryLeastSquares = new OrdinaryLeastSquares();
-            IEnumerable<Datum2> trainingData = data.Where(z => z.IsComplete /*&& z.Time < new DateTime(2023, 9, 1)*/);
+            IEnumerable<Datum> trainingData = data.Where(z => z.IsComplete /*&& z.Time < new DateTime(2023, 9, 1)*/);
             double[][] inputs = trainingData.Select(z => z.Input).ToArray();
             double[][] outputs = trainingData.Select(z => z.Output).ToArray();
             MultivariateLinearRegression multivariateLinearRegression = ordinaryLeastSquares.Learn(inputs, outputs);
