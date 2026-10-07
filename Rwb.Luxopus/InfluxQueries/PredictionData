@@ -1,3 +1,5 @@
+import "math"
+
 slap = (tables=<-) => tables |> keep(columns: ["_field", "_time", "_value"]) |> group(columns: ["_field"]) |> sort(columns: ["_time"])
 
 t0 = 2023-02-14T00:00:00Z
@@ -19,8 +21,9 @@ gen = from(bucket: "solar")
 
 daylen = from(bucket: "solar")
   |> range(start: t0, stop: today())
-  |> filter(fn: (r) => r["_measurement"] == "sun" and r["_field"] == "daylen")
+  |> filter(fn: (r) => r["_measurement"] == "sun" and r["_field"] == "daylen") // NOT weather.daylen !
   |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
+  |> map(fn: (r) => ({r with _value: math.floor(x: float(v: r._value) / 1000.0)}))
   |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
   |> slap()
 
@@ -35,6 +38,7 @@ uvi = from(bucket: "solar")
   |> range(start: t0, stop: today())
   |> filter(fn: (r) => r["_measurement"] == "weather" and r["_field"] == "uvi")
   |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
+  |> map(fn: (r) => ({r with _value: math.floor(x: r._value * 10.0)}))
   |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
   |> slap()
 
@@ -42,6 +46,7 @@ cloud = from(bucket: "solar")
   |> range(start: t0, stop: today())
   |> filter(fn: (r) => r["_measurement"] == "weather" and r["_field"] == "cloud")
   |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
+  |> map(fn: (r) => ({r with _value: math.floor(x: r._value / 10.0)}))
   |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
   |> slap()
 
