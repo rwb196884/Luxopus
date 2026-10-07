@@ -44,7 +44,7 @@ namespace Rwb.Luxopus.Jobs
         {
             public DateTime Time;
             public double? Cloud;
-            public double? Daylen;
+            public long? Daylen;
             public double? Elevation;
             public long? Generation;
             public double? Uvi;
@@ -80,7 +80,7 @@ namespace Rwb.Luxopus.Jobs
             {
                 Time = z.GetValue<DateTime>("_time"),
                 Cloud = z.GetValue<double?>("cloud"),
-                Daylen = z.GetValue<double?>("daylen"),
+                Daylen = z.GetValue<long?>("daylen"),
                 Elevation = z.GetValue<double?>("elevation"),
                 Generation = z.GetValue<long?>("generation"),
                 Uvi = z.GetValue<double?>("uvi"),
