@@ -246,13 +246,14 @@ namespace Rwb.Luxopus.Jobs
                 actionInfo.AppendLine($" Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%");
                 actionInfo.AppendLine($"Charging required: {bti.ChargeDescription}");
 
+                    /*
                 if (battLevel < bti.BatteryTarget - 3
                     && plan.Current.Buy * 1.1M < plan.Next.Sell
-                    && DateTime.UtcNow > plan.Next.Start.AddHours(-6 /* 10AM */))
+                    && DateTime.UtcNow > plan.Next.Start.AddHours(-6 /* 10AM /))
                 {
                     // FUCKED PANELS: use 13 + 3 * _Batt.MaxDischarge rather than bti.BatteryTarget.
                     chargeFromGridWanted = chargeFromGridCurrent.Clone();
-                    double kWh = _Batt.CapacityPercentToKiloWattHours(13 + 3 * _Batt.MaxDischarge /*bti.BatteryTarget*/ - battLevel);
+                    double kWh = _Batt.CapacityPercentToKiloWattHours(13 + 3 * _Batt.MaxDischarge /*bti.BatteryTarget - battLevel);
                     double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
                     int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
                     if (rate < 13) { rate = 13; }
@@ -276,6 +277,7 @@ namespace Rwb.Luxopus.Jobs
 
                     goto Apply;
                 }
+                */
 
                 // Plan A.
                 int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3; // TODO: work out from plan.
