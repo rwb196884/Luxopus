@@ -44,7 +44,7 @@ namespace Rwb.Luxopus.Jobs
         {
             public DateTime Time;
             public double? Cloud;
-            public long? Daylen;
+            public double? Daylen; // weather.daylen is double but sun.daylen is long!
             public double? Elevation;
             public long? Generation;
             public double? Uvi;
@@ -72,23 +72,30 @@ namespace Rwb.Luxopus.Jobs
             public double[] Output { get { return new[] { Convert.ToDouble(Generation.Value) }; } }
         }
 
+        private List<Datum> _Data;
+        private DateTime _Computed;
+
         private async Task<double> GenerationPredictionFromMultivariateLinearRegression(DateTime tForecast)
         {
-            // Get daat.
-            FluxTable fluxData = (await _InfluxQuery.QueryAsync(Query.PredictionData, DateTime.Now)).Single();
-            List<Datum> data = fluxData.Records.Select(z => new Datum()
+            // Get data.
+            if(_Data == null || _Computed < DateTime.Now.AddHours(-20))
             {
-                Time = z.GetValue<DateTime>("_time"),
-                Cloud = z.GetValue<double?>("cloud"),
-                Daylen = z.GetValue<long?>("daylen"),
-                Elevation = z.GetValue<double?>("elevation"),
-                Generation = z.GetValue<long?>("generation"),
-                Uvi = z.GetValue<double?>("uvi"),
-            }).ToList();
+                FluxTable fluxData = (await _InfluxQuery.QueryAsync(Query.PredictionData, DateTime.Now)).Single();
+                _Data = fluxData.Records.Select(z => new Datum()
+                {
+                    Time = z.GetValue<DateTime>("_time"),
+                    Cloud = z.GetValue<double?>("cloud"),
+                    Daylen = z.GetValue<double?>("daylen"),
+                    Elevation = z.GetValue<double?>("elevation"),
+                    Generation = z.GetValue<long?>("generation"),
+                    Uvi = z.GetValue<double?>("uvi"),
+                }).ToList();
+                _Computed = DateTime.Now;
+            }
 
             // Build model.
             OrdinaryLeastSquares ordinaryLeastSquares = new OrdinaryLeastSquares();
-            IEnumerable<Datum> trainingData = data.Where(z => z.IsComplete /*&& z.Time < new DateTime(2023, 9, 1)*/);
+            IEnumerable<Datum> trainingData = _Data.Where(z => z.IsComplete /*&& z.Time < new DateTime(2023, 9, 1)*/);
             double[][] inputs = trainingData.Select(z => z.Input).ToArray();
             double[][] outputs = trainingData.Select(z => z.Output).ToArray();
             MultivariateLinearRegression multivariateLinearRegression = ordinaryLeastSquares.Learn(inputs, outputs);
@@ -96,7 +103,7 @@ namespace Rwb.Luxopus.Jobs
             // Use model. Apply the rescaling to the values.
             FluxRecord weather = (await _InfluxQuery.QueryAsync(Query.Weather, tForecast)).First().Records.Single();
             double cloud = Math.Floor(weather.GetValue<double>("cloud") / 10.0);
-            double daylen = Math.Floor(weather.GetValue<double>("daylen") * 60 * 60 / 1000.0);
+            double daylen = Math.Floor(weather.GetValue<double>("daylen") * 60 * 60 / 1000.0); // 
             double uvi = Math.Floor(weather.GetValue<double>("uvi") * 10.0);
             double elevation = Math.Floor(weather.GetValue<double>("elevation")); // Hack in query in case of not full day of data.
 
