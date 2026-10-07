@@ -247,7 +247,7 @@ namespace Rwb.Luxopus.Jobs
                                 {
                                     generationPrediction = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start)).Single().Records[0].Values["_value"] / 10.0;
                                 }
-                                catch( Exception e)
+                                catch (Exception e)
                                 {
                                     Logger.LogError(e, "Failed to get generation prediction; using 0.");
                                 }
@@ -279,7 +279,7 @@ namespace Rwb.Luxopus.Jobs
                                 if (powerAvailableForBatt > 0)
                                 {
                                     notes.AppendLine($"  Power available to batt: {powerAvailableForBatt:0.0}kWh = generation {generationPrediction:0.0}kWh - use {powerRequired:0.0}kWh + free {freeKwh:0.0}kWh.");
-                                    predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt) ;
+                                    predictedGenerationToBatt = _Batt.CapacityKiloWattHoursToPercent(powerAvailableForBatt);
                                     predictedGenerationToBattFactor = Convert.ToDouble(predictedGenerationToBatt) / Convert.ToDouble(battDischargeableAtPeak);
                                     notes.AppendLine($"  Power available to batt: {predictedGenerationToBatt:0.0}% = generation {_Batt.CapacityKiloWattHoursToPercent(generationPrediction)}% - use {_Batt.CapacityKiloWattHoursToPercent(powerRequired)}% + free {_Batt.CapacityKiloWattHoursToPercent(freeKwh)}%.");
                                     notes.AppendLine($"  Predicted power to batt is {predictedGenerationToBattFactor:0.0} times peak dischargeable.");
@@ -319,6 +319,7 @@ namespace Rwb.Luxopus.Jobs
                                     }
                                 }
 
+                                int headroom = (100 - _Batt.BatteryMinimumLimit - battDischargeableAtPeak) / 2;
                                 if (predictedGenerationToBatt > battDischargeableAtPeak * 2)
                                 {
                                     notes.AppendLine($"  Generation prediction is high (factor {predictedGenerationToBattFactor:0.0}).");
@@ -341,15 +342,16 @@ namespace Rwb.Luxopus.Jobs
                                 else if (predictedGenerationToBatt < 21)
                                 {
                                     notes.AppendLine($"  Generation prediction is low (<21%) (factor {predictedGenerationToBattFactor:0.0}).");
-                                    chargeFromGrid = _Batt.BatteryMinimumLimit + battDischargeableAtPeak + battRequired;
+                                    chargeFromGrid = _Batt.BatteryMinimumLimit + battDischargeableAtPeak + battRequired + headroom;
                                     chargeFromGrid = chargeFromGrid > 100 ? 100 : chargeFromGrid;
-                                    notes.AppendLine($"    charge to {chargeFromGrid}% =  min {_Batt.BatteryMinimumLimit}% + dischargeable {battDischargeableAtPeak}% + required {battRequired}% (low generation of {predictedGenerationToBatt}% disregarded). ");
+                                    notes.AppendLine($"    chargeFromGrid: {chargeFromGrid}% =  min {_Batt.BatteryMinimumLimit}% + dischargeable {battDischargeableAtPeak}% + required {battRequired}% (low generation of {predictedGenerationToBatt}% disregarded). ");
                                 }
                                 else
                                 {
-                                    chargeFromGrid = _Batt.BatteryMinimumLimit + battDischargeableAtPeak - predictedGenerationToBatt;
-                                    notes.AppendLine($"  chargeFromGrid: {chargeFromGrid:0}% = {_Batt.BatteryMinimumLimit}% + {battDischargeableAtPeak}% - {predictedGenerationToBatt}%.");
-                                    if(chargeFromGrid < 34)
+                                    // On a low generation day use the headroom to buy cheap electricity over night in case it might need using.
+                                    chargeFromGrid = _Batt.BatteryMinimumLimit + battDischargeableAtPeak - predictedGenerationToBatt + headroom;
+                                    notes.AppendLine($"  chargeFromGrid: {chargeFromGrid:0}% = min {_Batt.BatteryMinimumLimit}% + dischargeable {battDischargeableAtPeak}% - gen {predictedGenerationToBatt}% + headroom {headroom}%.");
+                                    if (chargeFromGrid < 34)
                                     {
                                         chargeFromGrid = 34;
                                         notes.AppendLine($"  chargeFromGrid: minimum of 34% (factor {predictedGenerationToBattFactor:0.0}).");
@@ -360,10 +362,10 @@ namespace Rwb.Luxopus.Jobs
                                         chargeFromGrid = 100 - battDischargeableAtPeak;
                                         notes.AppendLine($"  chargeFromGrid: 100 - max dischargeable {battDischargeableAtPeak}% because generation to battery is {predictedGenerationToBatt}%.");
                                     }
-                                    int battLevelEnd = Math.Min(_Batt.BatteryMinimumLimit + battDischargeableAtPeak + 8, 100);
+                                    int battLevelEnd = Math.Min(_Batt.BatteryMinimumLimit + battDischargeableAtPeak + headroom, 100);
                                     if (chargeFromGrid > battLevelEnd)
                                     {
-                                        notes.AppendLine($"  chargeFromGrid limited to {battLevelEnd} = min ({_Batt.BatteryMinimumLimit}) + peak dischargeable ({battDischargeableAtPeak}) + 8%.");
+                                        notes.AppendLine($"  chargeFromGrid limited to {battLevelEnd} = min ({_Batt.BatteryMinimumLimit}) + peak dischargeable ({battDischargeableAtPeak}) + {headroom}%.");
                                         chargeFromGrid = battLevelEnd;
                                     }
                                 }
