@@ -31,7 +31,3 @@ elevation = from(bucket: "solar")
 union(tables: [weather, solcast, elevation])
   |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
   |> yield()
-
-
-
-
