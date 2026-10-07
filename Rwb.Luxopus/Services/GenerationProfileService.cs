@@ -55,6 +55,14 @@ namespace Rwb.Luxopus.Services
         {
             await ComputeAsync();
 
+            if(_GenerationProfile.Any(z => z.Value == double.NaN))
+            {
+                double z = (finish - start).TotalMinutes;
+                double zt = (target - start).TotalMinutes;
+                double zq = z / zt;
+                return levelStart + Convert.ToInt32(zq * Convert.ToDouble(levelEnd - levelStart));
+            }
+
             double t = Sum(start, finish);
             double tt = Sum(start, target);
             double tq = tt / t;
