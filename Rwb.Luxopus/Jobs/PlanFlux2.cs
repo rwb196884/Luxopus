@@ -242,7 +242,15 @@ namespace Rwb.Luxopus.Jobs
                             try
                             {
                                 PeriodPlan? peak = plan.Plans.GetNext(p, z => GetFluxCase(plan, z) == FluxCase.Peak);
-                                double generationPrediction = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start)).Single().Records[0].Values["_value"] / 10.0;
+                                double generationPrediction = 0;
+                                try
+                                {
+                                    generationPrediction = (double)(await InfluxQuery.QueryAsync(Query.PredictionToday, p.Start)).Single().Records[0].Values["_value"] / 10.0;
+                                }
+                                catch( Exception e)
+                                {
+                                    Logger.LogError(e, "Failed to get generation prediction; using 0.");
+                                }
                                 //generationPrediction = generationPrediction / 2; // PANELS FUCKED.
                                 double battPrediction = _Batt.CapacityKiloWattHoursToPercent(generationPrediction);
                                 notes.AppendLine($"  Predicted generation of {generationPrediction:0.0}kWh ({battPrediction:0}%).");
