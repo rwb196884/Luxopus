@@ -57,6 +57,7 @@ namespace Rwb.Luxopus.Services
 
             if(_GenerationProfile.Any(z => z.Value == double.NaN))
             {
+                _Logger.LogWarning("Query.GenerationProfile returned NaN; falling back to linear scaling.");
                 double z = (finish - start).TotalMinutes;
                 double zt = (target - start).TotalMinutes;
                 double zq = z / zt;
