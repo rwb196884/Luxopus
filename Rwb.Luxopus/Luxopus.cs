@@ -73,7 +73,7 @@ namespace Rwb.Luxopus
             //AddJob(burst, "* 8-15 * * *");
             if (burst != null)
             {
-                AddJob(burst, "* 8-15 * 3-9 *");
+                AddJob(burst, "* 8-15 * 3-10 *");
             }
             //AddJob(at, "*/8 * * * *");
             AddJob(generationForecast, "21 16 * * *");
