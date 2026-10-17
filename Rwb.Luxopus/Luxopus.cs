@@ -81,12 +81,13 @@ namespace Rwb.Luxopus
 
 #if DEBUG
             _Logger.LogDebug("DEBUG: adding extra startup jobs.");
+            // Can't work out how to set this to false when running in configuration 'linux'.
 #endif
 
             _StartupTasks = new List<Job>()
             {
 #if DEBUG
-                burst,
+                //burst,
                 //planner,
                 //generationForecast,
                 //planChecker,
