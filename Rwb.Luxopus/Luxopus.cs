@@ -79,8 +79,18 @@ namespace Rwb.Luxopus
             AddJob(generationForecast, "21 16 * * *");
             //AddJob(hanchuJob, "*/5 * * * *"); // every 5 minutes.
 
+#if DEBUG
+            _Logger.LogDebug("DEBUG: adding extra startup jobs.");
+#endif
+
             _StartupTasks = new List<Job>()
             {
+#if DEBUG
+                burst,
+                //planner,
+                //generationForecast,
+                //planChecker,
+
                 //planChecker,
                 //octopusPrices,
                 //planChecker,
@@ -89,9 +99,9 @@ namespace Rwb.Luxopus
                 ////hanchuJob,
                 //octopusPrices,
                 ////planChecker,
-
-                octopusMeters,
+#endif
                 octopusPrices,
+                octopusMeters,
                 luxMonitor,
                 sunPosition,
                 sunrise,
