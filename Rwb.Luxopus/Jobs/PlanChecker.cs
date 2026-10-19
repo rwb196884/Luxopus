@@ -397,7 +397,7 @@ from(bucket: ""solar"")
                         {
                             kwMeanForBattAfterCL = 0;
                         }
-                        int pcMeanForBattAfterCL = kwMeanForBattAfterCL - daytimeKW <= 0 ? 0 : _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwMeanForBattAfterCL) - daytimePercent);
+                        int pcMeanForBattAfterCL = kwMeanForBattAfterCL <= 0 ? 0 : _Batt.RoundPercent(_Batt.TransferKiloWattsToPercent(kwMeanForBattAfterCL));
                         actionInfo.AppendLine($"  Generation mean: {generationRecentMean:0}W leaves {kwMeanForBattAfterCL:0.0}kW ({pcMeanForBattAfterCL}%) for battery after charge last (and use).");
 
                         double generationMeanDifference = (await _InfluxQuery.QueryAsync(@$"
