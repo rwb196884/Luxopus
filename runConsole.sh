@@ -38,7 +38,7 @@ fi
 # appsettings.json is searched for in the working directory, strangely.
 cd "${wd}/Rwb.Luxopus.Console"
 
-/usr/bin/screen -dm -S luxopus -L -Logfile "${wd}/log/luxopus.screen.$( date +%Y-%m-%d_%H%M ).log" /opt/dotnet/dotnet run --launch-profile "Luxopus (linux)" --project "${wd}/Rwb.Luxopus.Console/Rwb.Luxopus.Console.csproj"
+/usr/bin/screen -dm -S luxopus -L -Logfile "${wd}/log/luxopus.screen.$( date +%Y-%m-%d_%H%M ).log" dotnet run --launch-profile "Luxopus (linux)" --project "${wd}/Rwb.Luxopus.Console/Rwb.Luxopus.Console.csproj"
 
 screen -ls | grep luxopus
 
