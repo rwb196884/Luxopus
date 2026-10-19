@@ -239,8 +239,8 @@ from(bucket: ""solar"")
                 actionInfo.AppendLine($"     Generation mean: {generationRecentMean:0}W leaves {kwMeanForBattAfterCL:0.0}kW ({pcMeanForBattAfterCL}%) for battery after charge last.");
                 actionInfo.AppendLine($"     Inverter output: {inverterOutput}W");
                 actionInfo.AppendLine($"         Charge rate: {battChargeRate}%");
-                actionInfo.AppendLine($"   Charging required: {bti.ChargeDescription}");
                 actionInfo.AppendLine($"       Battery level: {battLevel}%");
+                actionInfo.AppendLine($"   Charging required: {bti.ChargeDescription}");
                 actionInfo.AppendLine($"      Battery target: {bti.TargetDescription}");
                 actionInfo.AppendLine($"    Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%");
 
@@ -375,11 +375,12 @@ from(bucket: ""solar"")
                         chargeLastWanted = true;
                         actionInfo.AppendLine($"Generation peak of {generationMax:0}W recent {generationRecentMax:0}W but currently {generation:0}W. Battery level {battLevel}%, target of {bti.BatteryTarget}% therefore take opportunity to discharge.");
                     }
-                    else if (battLevel < bti.BatteryTarget
+                    else if (battLevel < bti.BatteryTarget - 3
+                        && generationRecentMean / 1000 < bti.ChargeRateNeededHkW
                         //&& battLevel < _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3 
                         && plan.Next != null && Plan.DischargeToGridCondition(plan.Next)
-                        && t0 > plan.Next.Start.AddHours(-2)
-                        && plan.Current.Buy * 1.1M < plan.Next.Sell && generationRecentMax < 3000)
+                        && plan.Current.Buy * 1.1M < plan.Next.Sell
+                        && t0 > plan.Next.Start.AddHours(-2))
                     {
                         // If buy is lower then next sell then we can buy to catch up.
                         double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
