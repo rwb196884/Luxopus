@@ -431,6 +431,23 @@ from(bucket: ""solar"")
                             actionInfo.AppendLine($"Battery charge rate increased by {extraChargeRateNeeded}% to {battChargeRateWanted}% to get extra {extraPowerNeeded}kW in the next half hour.");
                         }
 
+                        if (generationRecentMean / 1000 < bti.ChargeRateNeededHkW)
+                        {
+                            chargeLastWanted = false;
+                            battChargeRateWanted = 100;
+
+                            int t0h = (t0.Hour == plan.Next.Start.Hour) ? t0.Hour - 1 : t0.Hour;
+                            double daytimeKwH = await _BatteryUsageProfileService.GetKwkhAsync(t0.DayOfWeek, t0h, plan.Next.Start.Hour);
+                            double daytimeKW = daytimeKwH / (plan.Next.Start.Hour - t0h);
+                            int daytimePercent = _Batt.TransferKiloWattsToPercent(daytimeKW);
+
+                            double generationkWh = (plan.Next.Start.Hour - t0h) * generationRecentMean / 1000;
+                            int generationPercent = _Batt.TransferKiloWattsToPercent(generationkWh);
+                            int estimate = battLevel + generationPercent;
+
+                            actionInfo.AppendLine($"Recent generation {generationRecentMean / 1000:0.0}kW (will produce {generationkWh:0.0}kWh, {generationPercent}% by {plan.Next.Start:HH:mm}) is less than charge rate required {bti.ChargeRateNeededkW:0.0}kW; estimate is {estimate}%.");
+                        }
+
                         if (battLevel < bti.BatteryTarget - 3
                             && generationRecentMean < 3200
                             && plan.Current.Buy * 1.1M < plan.Next.Sell
