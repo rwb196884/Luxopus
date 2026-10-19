@@ -138,7 +138,7 @@ namespace Rwb.Luxopus.Jobs
             }
             catch { }
 
-            if (t0.TimeOfDay < startOfGeneration.TimeOfDay || t0.TimeOfDay > startOfGeneration.TimeOfDay)
+            if (t0.TimeOfDay < startOfGeneration.TimeOfDay || t0.TimeOfDay > endOfGeneration.TimeOfDay)
             {
                 return;
             }
