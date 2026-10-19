@@ -436,16 +436,22 @@ from(bucket: ""solar"")
                             chargeLastWanted = false;
                             battChargeRateWanted = 100;
 
-                            int t0h = (t0.Hour == plan.Next.Start.Hour) ? t0.Hour - 1 : t0.Hour;
-                            double daytimeKwH = await _BatteryUsageProfileService.GetKwkhAsync(t0.DayOfWeek, t0h, plan.Next.Start.Hour);
-                            double daytimeKW = daytimeKwH / (plan.Next.Start.Hour - t0h);
-                            int daytimePercent = _Batt.TransferKiloWattsToPercent(daytimeKW);
+                            if (generationRecentMean / 1000 < bti.ChargeRateNeededkW - 0.1)
+                            {
+                                int t0h = (t0.Hour == plan.Next.Start.Hour) ? t0.Hour - 1 : t0.Hour;
+                                //double daytimeKwH = await _BatteryUsageProfileService.GetKwkhAsync(t0.DayOfWeek, t0h, plan.Next.Start.Hour);
+                                //double daytimeKW = daytimeKwH / (plan.Next.Start.Hour - t0h);
 
-                            double generationkWh = (plan.Next.Start.Hour - t0h) * generationRecentMean / 1000;
-                            int generationPercent = _Batt.TransferKiloWattsToPercent(generationkWh);
-                            int estimate = battLevel + generationPercent;
+                                double generationkWh = (plan.Next.Start.Hour - t0h) * generationRecentMean / 1000;
+                                int generationPercent = _Batt.CapacityKiloWattHoursToPercent(generationkWh);
+                                int estimate = battLevel + generationPercent;
 
-                            actionInfo.AppendLine($"Recent generation {generationRecentMean / 1000:0.0}kW (will produce {generationkWh:0.0}kWh, {generationPercent}% by {plan.Next.Start:HH:mm}) is less than charge rate required {bti.ChargeRateNeededkW:0.0}kW; estimate is {estimate}%.");
+                                actionInfo.AppendLine($"Recent generation {generationRecentMean / 1000:0.0}kW (will produce {generationkWh:0.0}kWh, {generationPercent}% by {plan.Next.Start:HH:mm}) is less than charge rate required {bti.ChargeRateNeededkW:0.0}kW; estimate is {estimate}%.");
+                            }
+                            else
+                            {
+                                actionInfo.AppendLine($"Charge rate for target {bti.ChargeRateNeededkW:0.0}kW < Recent generation {generationRecentMean / 1000:0.0}kW < Charge rate for target and headroom {bti.ChargeRateNeededHkW:0.0}kW.");
+                            }
                         }
 
                         if (battLevel < bti.BatteryTarget - 3
