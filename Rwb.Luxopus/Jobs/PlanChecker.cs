@@ -240,41 +240,42 @@ namespace Rwb.Luxopus.Jobs
                 chargeLastWanted = false;
                 battChargeRateWanted = 100;
 
-                    /*
-                if (battLevel < bti.BatteryTarget - 3
-                    && plan.Current.Buy * 1.1M < plan.Next.Sell
-                    && DateTime.UtcNow > plan.Next.Start.AddHours(-6 /* 10AM /))
+                /*
+            if (battLevel < bti.BatteryTarget - 3
+                && plan.Current.Buy * 1.1M < plan.Next.Sell
+                && DateTime.UtcNow > plan.Next.Start.AddHours(-6 /* 10AM /))
+            {
+                // FUCKED PANELS: use 13 + 3 * _Batt.MaxDischarge rather than bti.BatteryTarget.
+                chargeFromGridWanted = chargeFromGridCurrent.Clone();
+                double kWh = _Batt.CapacityPercentToKiloWattHours(13 + 3 * _Batt.MaxDischarge /*bti.BatteryTarget - battLevel);
+                double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
+                int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
+                if (rate < 13) { rate = 13; }
+                if (rate > 100) { rate = 100; }
+
+                if (rate > 13)
                 {
-                    // FUCKED PANELS: use 13 + 3 * _Batt.MaxDischarge rather than bti.BatteryTarget.
-                    chargeFromGridWanted = chargeFromGridCurrent.Clone();
-                    double kWh = _Batt.CapacityPercentToKiloWattHours(13 + 3 * _Batt.MaxDischarge /*bti.BatteryTarget - battLevel);
-                    double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
-                    int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
-                    if (rate < 13) { rate = 13; }
-                    if (rate > 100) { rate = 100; }
-
-                    if (rate > 13)
+                    chargeFromGridWanted = new LuxAction()
                     {
-                        chargeFromGridWanted = new LuxAction()
-                        {
-                            Enable = true,
-                            Start = plan.Current.Start,
-                            End = plan.Next.Start,
-                            Limit = 13 + 3 * _Batt.MaxDischarge, // bti.BatteryTarget,
-                            Rate = rate
-                        };
-                        //actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}%.");
-                        actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to 13+3max {13 + 3 * _Batt.MaxDischarge}% (actual target {bti.BatteryLevelEnd}%).");
-                        chargeLastWanted = false;
-                        battChargeRateWanted = 100; // Allow solar.
-                    }
-
-                    goto Apply;
+                        Enable = true,
+                        Start = plan.Current.Start,
+                        End = plan.Next.Start,
+                        Limit = 13 + 3 * _Batt.MaxDischarge, // bti.BatteryTarget,
+                        Rate = rate
+                    };
+                    //actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}%.");
+                    actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to 13+3max {13 + 3 * _Batt.MaxDischarge}% (actual target {bti.BatteryLevelEnd}%).");
+                    chargeLastWanted = false;
+                    battChargeRateWanted = 100; // Allow solar.
                 }
-                */
+
+                goto Apply;
+            }
+            */
 
                 // Plan A.
-                int battLevelEnd = _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3; // TODO: work out from plan.
+                int battLevelEndMin = _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3; // TODO: work out from plan.
+                int battLevelEnd = battLevelEndMin;
 
                 // Plan B.
                 //(int battStart, _) = await _InfluxQuery.GetBatteryStartLevelAsync();
@@ -294,7 +295,7 @@ namespace Rwb.Luxopus.Jobs
 
                 battLevelEnd = Math.Min(100, battLevelEnd + battUse);
 
-                BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, _Batt.BatteryMinimumLimit + _Batt.MaxDischarge * 3);
+                BatteryTargetInfo bti = await _BatteryTargetService.Compute(plan, battLevelEnd);
                 actionInfo.AppendLine($"    Battery level: {battLevel}%");
                 actionInfo.AppendLine($"   Battery target: {bti.TargetDescription}");
                 actionInfo.AppendLine($" Battery headroom: {bti.HeadroomScaled}% scaled of total {100 - bti.BatteryLevelEnd}%");
@@ -454,13 +455,15 @@ from(bucket: ""solar"")
                             }
                         }
 
-                        if (battLevel < bti.BatteryTarget - 3
-                            && generationRecentMean / 1000 < bti.ChargeRateNeededHkW
+                        double r = plan.Next == null ? 0 : _Batt.CapacityPercentToKiloWattHours(battLevelEndMin - battLevel) / (plan.Next.Start - t0).TotalHours;
+                        if (battLevel < battLevelEndMin - 3
+                            && generationRecentMean / 1000 < r
+                            && plan.Next != null
                             && plan.Current.Buy * 1.1M < plan.Next.Sell
                             && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
                         {
                             chargeFromGridWanted = chargeFromGridCurrent.Clone();
-                            double kWh = _Batt.CapacityPercentToKiloWattHours(bti.BatteryTarget - battLevel);
+                            double kWh = _Batt.CapacityPercentToKiloWattHours(battLevelEndMin - battLevel);
                             double dt = (plan.Next.Start - DateTime.UtcNow).TotalHours;
                             int rate = _Batt.TransferKiloWattsToPercent(kWh / dt);
                             if (rate < 13) { rate = 13; }
@@ -470,7 +473,7 @@ from(bucket: ""solar"")
                                 Enable = true,
                                 Start = plan.Current.Start,
                                 End = plan.Next.Start,
-                                Limit = bti.BatteryTarget,
+                                Limit = battLevelEndMin,
                                 Rate = rate
                             };
                             actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryTarget}%.");

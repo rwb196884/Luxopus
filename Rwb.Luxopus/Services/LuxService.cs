@@ -72,7 +72,7 @@ namespace Rwb.Luxopus.Services
 
         public override string ToString()
         {
-            return $"{(Enable ? "ON " : "OFF ")}{Start:HH:mm} to {End:HH:mm} limit {Limit}% rate {Rate}%.";
+            return $"{(Enable ? " ON " : "OFF ")}{Start:HH:mm} to {End:HH:mm} limit {Limit:##0}% rate {Rate:##0}%.";
         }
 
         public LuxAction Clone()
