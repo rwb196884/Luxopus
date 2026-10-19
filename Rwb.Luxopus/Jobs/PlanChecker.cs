@@ -455,7 +455,7 @@ from(bucket: ""solar"")
                         }
 
                         if (battLevel < bti.BatteryTarget - 3
-                            && generationRecentMean < 3200
+                            && generationRecentMean / 1000 < bti.ChargeRateNeededHkW
                             && plan.Current.Buy * 1.1M < plan.Next.Sell
                             && DateTime.UtcNow > plan.Next.Start.AddHours(-2))
                         {
@@ -473,14 +473,22 @@ from(bucket: ""solar"")
                                 Limit = bti.BatteryTarget,
                                 Rate = rate
                             };
-                            actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryLevelEnd}%.");
+                            actionInfo.AppendLine($"{Environment.NewLine}Next sell {plan.Next.Sell:#,##0.000} > current buy {plan.Current.Buy:#,##0.000} therefore top up from {battLevel}% to target {bti.BatteryTarget}%.");
                             battChargeRateWanted = 95;
                         }
                         else
                         {
                             if (chargeFromGridWanted.Start.TimeOfDay <= DateTime.UtcNow.TimeOfDay && chargeFromGridWanted.End.TimeOfDay >= DateTime.UtcNow.TimeOfDay)
                             {
-                                chargeFromGridWanted.Enable = false;
+                                LuxAction? pc = LuxAction.NextCharge(plan, chargeFromGridWanted, false);
+                                if (pc != null)
+                                {
+                                    chargeFromGridWanted = pc;
+                                }
+                                else
+                                {
+                                    chargeFromGridWanted.Enable = false;
+                                }
                             }
                         }
 
