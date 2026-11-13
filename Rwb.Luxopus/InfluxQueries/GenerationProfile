@@ -5,20 +5,21 @@ m0 = date.month(t: today())
 
 gh = from(bucket: "solar")
   //|> range(start: 2023-02-14T00:00:00Z, stop: today())
-  |> range(start: -25mo, stop: today())
-  |> filter(fn: (r) => date.month(t: r._time) == m0 and r["_measurement"] == "inverter" and r["_field"] == "generation" and r["_value"] > 0)
-  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)
-  |> timeShift(duration: -1h)
-  |> map(fn: (r) => ({r with dateJoinKey: date.year(t: r._time) * 10000 + date.month(t: r._time) * 100 + date.monthDay(t: r._time) }))
-  |> group(columns: [])
-  
-ghD = gh 
-  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
-  |> timeShift(duration: -1d)
+  |> range(start: -4w, stop: today())
+  |> filter(fn: (r) => date.month(t: r._time) == m0 )
+  |> filter(fn: (r) => r["_measurement"] == "inverter" and r["_field"] == "generation" and r["_value"] >= 0)
+  |> filter(fn: (r) => date.month(t: r._time) == m0 )
+  |> filter(fn: (r) => r["_time"] < 2026-07-22T00:00:00Z or r["_time"] > 2026-10-04T00:00:00Z) // Squirrels.
+  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: "_start")
   |> map(fn: (r) => ({r with dateJoinKey: date.year(t: r._time) * 10000 + date.month(t: r._time) * 100 + date.monthDay(t: r._time) }))
   |> group(columns: [])
 
-j = join.inner(
+ghD = gh 
+  |> aggregateWindow(every: 1d, fn: max, createEmpty: false, timeSrc: "_start")
+  |> map(fn: (r) => ({r with dateJoinKey: date.year(t: r._time) * 10000 + date.month(t: r._time) * 100 + date.monthDay(t: r._time) }))
+  |> group(columns: [])
+
+ j = join.inner(
   left: gh,
   right: ghD, 
   on: (l, r) => l.dateJoinKey == r.dateJoinKey,
@@ -40,4 +41,4 @@ join.inner(
     on: (l, r) => l.j == r.j,
     as: (l, r) => ({l with v: l._value, _value: 100.0 *  float(v: l._value) /  float(v: r._value)})
 )
-|> yield()
+|> yield() 

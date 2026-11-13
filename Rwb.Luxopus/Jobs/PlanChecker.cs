@@ -308,6 +308,10 @@ namespace Rwb.Luxopus.Jobs
                 {
                     battLevelEnd = 100;
                 }
+                else if(t0.Month < 3 || t0.Month > 10)
+                {
+                    battLevelEnd = 100;
+                }
 
                 if ((plan.Next?.Buy ?? 1) <= 0)
                 {
@@ -420,9 +424,18 @@ from(bucket: ""solar"")
 
                         if (pcMeanForBattAfterCL >= bti.ChargeRateNeededHPercent + extraChargeRateNeeded)
                         {
-                            chargeLastWanted = true;
-                            battChargeRateWanted = 100;
-                            actionInfo.AppendLine($"Enable charge last because charge rate needed {bti.ChargeRateNeededHPercent}% (including headroom) is less than power available for battery after charge last {pcMeanForBattAfterCL}%.");
+                            if (t0.Month >= 3 && t0.Month <= 8)
+                            {
+                                chargeLastWanted = true;
+                                battChargeRateWanted = 100;
+                                actionInfo.AppendLine($"Enable charge last because power rate available for battery after charge last {pcMeanForBattAfterCL}% is greater than charge rate needed {bti.ChargeRateNeededHPercent}% (including headroom) plus extra charge rate needed {extraChargeRateNeeded}%.");
+                            }
+                            else
+                            {
+                                chargeLastWanted = false;
+                                battChargeRateWanted = 100;
+                                actionInfo.AppendLine($"Power rate available for battery after charge last {pcMeanForBattAfterCL}% is greater than charge rate needed {bti.ChargeRateNeededHPercent}% (including headroom) plus extra charge rate needed {extraChargeRateNeeded}%.");
+                            }
                         }
                         else
                         {

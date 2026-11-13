@@ -125,6 +125,7 @@ namespace Rwb.Luxopus.Services
             if (info.BatteryLevelCurrent + info.PredictionBatteryPercent >= 200 && nextPlanCheck.Month >= 3 && nextPlanCheck.Month <= 8)
             {
                 info.Start = info.Start.ToLocalTime().Date.AddHours(10).ToUniversalTime();
+                // What?
             }
             int battLevelStart = await _InfluxQuery.GetBatteryLevelAsync(info.Start);
 

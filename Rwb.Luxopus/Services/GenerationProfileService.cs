@@ -24,7 +24,7 @@ namespace Rwb.Luxopus.Services
 
         private async Task ComputeAsync()
         {
-            if (_GenerationProfile == null || _Computed < DateTime.Now.AddHours(-20))
+            if (_GenerationProfile == null || _Computed < DateTime.Now.AddHours(-24 * 4 + 3))
             {
                 List<FluxTable> gp = await _InfluxQuery.QueryAsync(Query.GenerationProfile, DateTime.Today);
                 _GenerationProfile = gp.First().Records.ToDictionary(

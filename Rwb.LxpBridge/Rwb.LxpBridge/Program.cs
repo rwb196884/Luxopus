@@ -17,6 +17,12 @@ nc 192.168.0.60 8000 | stdbuf -i0 -o0 hexdump -v -e '1/1 "%.2x\n"' | while read 
 do
         echo "line $line"
 done
+
+
+Trying again November 2026
+https://github.com/ant0nkr/luxpower-ha-integration
+https://github.com/nicolaERTT/ESP32-luxpower/blob/main/Luxpower%20table%20modbus%20address.pdf
+
 */
 
 namespace Rwb.LxpBridge
@@ -34,6 +40,7 @@ namespace Rwb.LxpBridge
                     {
                         byte[] buffer = new byte[1_024];
                         s.Connect(ipEndPoint);
+                        Console.WriteLine("Connected.");
                         while (true)
                         {
                             int received = s.Receive(buffer, SocketFlags.None);
